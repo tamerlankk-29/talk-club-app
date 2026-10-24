@@ -20,6 +20,8 @@ export interface AppConfig {
     cookieSecure: boolean;
     /** Most SMS codes the club sends in 24 hours; protects the SMS budget from bots. */
     smsDailyLimit: number;
+    /** Role keys that must use two-factor sign-in (authenticator app). */
+    twoFactorRoles: string[];
   };
   captcha: {
     /** Cloudflare Turnstile keys; captcha is off when the secret is not set. */
@@ -97,6 +99,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       otpDevEcho: bool(env.AUTH_OTP_DEV_ECHO, false),
       cookieSecure: bool(env.COOKIE_SECURE, isProduction),
       smsDailyLimit: int(env.AUTH_SMS_DAILY_LIMIT, 200),
+      twoFactorRoles: (env.AUTH_2FA_REQUIRED_ROLES ?? 'SUPER_ADMIN,ADMIN')
+        .split(',')
+        .map((role) => role.trim())
+        .filter(Boolean),
     },
     captcha: {
       turnstileSiteKey: str(env.TURNSTILE_SITE_KEY),

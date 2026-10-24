@@ -22,7 +22,8 @@
     "test:cov": "jest --runInBand --coverage",
     "prisma:reseed": "ts-node --transpile-only prisma/seed.ts --reset",
     "create-admin": "node dist/scripts/create-admin.js",
-    "create-admin:dev": "ts-node --transpile-only src/scripts/create-admin.ts"
+    "create-admin:dev": "ts-node --transpile-only src/scripts/create-admin.ts",
+    "reset-2fa": "node dist/scripts/reset-2fa.js"
   },
   "dependencies": {
     "@nestjs/common": "^11.2.7",

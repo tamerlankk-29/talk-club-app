@@ -20,8 +20,10 @@ import {
   ResetPasswordDto,
   ResetPasswordRequestDto,
   SessionUserDto,
+  TotpVerifiedDto,
   VerifyOtpDto,
   VerifyOtpResponseDto,
+  VerifyTotpDto,
 } from './dto/auth.dto';
 
 export const REFRESH_COOKIE = 'tc_rt';
@@ -102,6 +104,21 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ): Promise<AuthTokensDto> {
     return this.respond(await this.auth.loginWithPassword(dto.login, dto.password), req, res);
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Post('totp/verify')
+  @HttpCode(200)
+  @platformHeader
+  @ApiOperation({ summary: 'Finish a sign-in that requires two-factor authentication (authenticator app code or recovery code)' })
+  async verifyTotp(
+    @Body() dto: VerifyTotpDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<TotpVerifiedDto> {
+    const { session, recoveryCodes } = await this.auth.verifyTwoFactor(dto.challengeToken, dto.code);
+    return { ...this.respond(session, req, res), ...(recoveryCodes ? { recoveryCodes } : {}) };
   }
 
   @Public()

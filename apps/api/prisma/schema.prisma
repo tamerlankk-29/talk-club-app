@@ -436,6 +436,16 @@ model User {
   status            UserStatus @default(ACTIVE)
   phoneVerifiedAt   DateTime?  @map("phone_verified_at") @db.Timestamptz(3)
   lastLoginAt       DateTime?  @map("last_login_at") @db.Timestamptz(3)
+  /// Two-factor authentication (authenticator app). The secret is AES-GCM encrypted with a key
+  /// derived from AUTH_SECRET; it is pending (set up but not confirmed) while totpEnabledAt is null.
+  totpSecret        String?    @map("totp_secret")
+  totpEnabledAt     DateTime?  @map("totp_enabled_at") @db.Timestamptz(3)
+  /// Last accepted 30-second step, so a code can't be replayed.
+  totpLastStep      Int?       @map("totp_last_step")
+  /// SHA-256 hashes of unused one-time recovery codes.
+  totpRecoveryCodes String[]   @default([]) @map("totp_recovery_codes")
+  totpFailedCount   Int        @default(0) @map("totp_failed_count")
+  totpLockedUntil   DateTime?  @map("totp_locked_until") @db.Timestamptz(3)
   /// { reminders: { push, email, sms, whatsapp, telegram }, marketing: { … } }
   notificationPrefs Json       @default("{}") @map("notification_prefs")
   createdAt         DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)

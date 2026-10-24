@@ -2,6 +2,7 @@ import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Patch, P
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { AuthUser } from '../../common/auth/auth-user';
 import { CurrentUser, RequirePermissions } from '../../common/auth/decorators';
+import { OkResponseDto } from '../../common/dto/pagination.dto';
 import {
   CreateRoleDto,
   CreateStaffDto,
@@ -85,5 +86,14 @@ export class RbacController {
   @RequirePermissions('staff.manage')
   resetPassword(@Param('id', ParseUUIDPipe) id: string, @Body() dto: ResetStaffPasswordDto, @CurrentUser() user: AuthUser): Promise<ResetPasswordResultDto> {
     return this.rbac.resetPassword(id, dto.password, user);
+  }
+
+  @Post('staff/:id/reset-2fa')
+  @HttpCode(200)
+  @RequirePermissions('staff.manage')
+  @ApiOperation({ summary: 'Turn off two-factor sign-in for a staff member who lost their phone (signs them out)' })
+  async resetTwoFactor(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthUser): Promise<OkResponseDto> {
+    await this.rbac.resetTwoFactor(id, user);
+    return { ok: true };
   }
 }

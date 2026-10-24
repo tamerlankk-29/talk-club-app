@@ -6,9 +6,19 @@
 | --- | --- |
 | Clients | Phone number + 6-digit SMS code. Codes are stored as HMACs, expire in 5 minutes, allow a limited number of attempts and have a resend cooldown. Optional password (scrypt). |
 | Staff, teachers | Email or phone + password (scrypt, parameters stored with the hash). Temporary passwords are shown once and should be changed after the first sign-in. |
+| Owners, admins | Additionally a 6-digit code from an authenticator app (two-factor sign-in, required for the roles in `AUTH_2FA_REQUIRED_ROLES`, default `SUPER_ADMIN,ADMIN`). |
 
 - **Access token:** JWT signed with `AUTH_SECRET`, 15 minutes, kept only in memory by the web app (never in `localStorage`).
 - **Refresh token:** random, stored as a SHA-256 hash in `auth_sessions`, sent as an `httpOnly`, `Secure` (production), `SameSite=Strict` cookie restricted to `/api/auth`. Each refresh rotates it; the previous token stays valid for 60 seconds only to absorb aborted responses and parallel tabs. Sign-out revokes the session; blocked users are cut off on their next request.
+- **Two-factor sign-in (TOTP, RFC 6238):** after the password, phone code or password reset, a
+  user with 2FA (or a role that requires it) gets `AUTH_TOTP_REQUIRED` / `AUTH_TOTP_SETUP_REQUIRED`
+  with a 10-minute challenge token instead of a session; `POST /api/auth/totp/verify` exchanges it
+  for a session. First sign-in shows a QR code and, after the first valid code, eight one-time
+  recovery codes (stored as SHA-256 hashes). Secrets are AES-256-GCM encrypted with a key derived
+  from `AUTH_SECRET` (rotating it means resetting 2FA for everyone). Codes can't be replayed; five
+  wrong codes lock the step for 15 minutes. A super admin resets a lost phone in Admin → Staff
+  (`POST /api/admin/staff/:id/reset-2fa`, audited); for the last owner use
+  `node dist/scripts/reset-2fa.js --email …` on the server.
 - Cookie-authenticated endpoints additionally check the `Origin` header against the allowed origins (defence in depth against CSRF).
 - Rate limiting on sign-in endpoints (see [API.md](API.md)).
 - **SMS budget protection** (against SMS-pumping bots): SMS codes go only to +7 numbers, at most
