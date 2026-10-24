@@ -7,6 +7,8 @@ import { ConfirmDialog } from '@/components/ui/overlay';
 import { toast, toastError } from '@/components/ui/toast';
 import { api, call, errorCode } from '@/lib/api/client';
 import { fmt } from '@/lib/format';
+import { messagesFor, useT } from '@/lib/i18n';
+import { sessionMessages } from '@/lib/i18n/messages/sessions';
 import { useRefreshClientData } from './session-actions';
 
 /**
@@ -16,6 +18,7 @@ import { useRefreshClientData } from './session-actions';
  */
 export function CancelBookingDialog({ bookingId, open, onOpenChange }: { bookingId: string; open: boolean; onOpenChange: (open: boolean) => void }) {
   const refresh = useRefreshClientData();
+  const t = useT(sessionMessages);
   const preview = useQuery({
     queryKey: ['my', 'cancel-preview', bookingId],
     queryFn: () => call(api.GET('/api/bookings/{id}/cancellation-preview', { params: { path: { id: bookingId } } })),
@@ -29,7 +32,8 @@ export function CancelBookingDialog({ bookingId, open, onOpenChange }: { booking
     onSuccess: async (result) => {
       onOpenChange(false);
       await refresh();
-      toast.success(result.visitReturned ? `Cancelled. Your visit was returned — ${result.visitsRemaining ?? ''} left.` : 'Booking cancelled. The visit was not returned.');
+      const m = messagesFor(sessionMessages);
+      toast.success(result.visitReturned ? m.cancelledReturned(result.visitsRemaining ?? '') : m.cancelledNotReturned);
     },
     onError: async (error) => {
       // The deadline passed while the dialog was open — show the late version.
@@ -47,10 +51,10 @@ export function CancelBookingDialog({ bookingId, open, onOpenChange }: { booking
     <ConfirmDialog
       open={open}
       onOpenChange={onOpenChange}
-      title={p?.title ?? 'Cancel this session?'}
+      title={p?.title ?? t.cancelTitle}
       description={p ? p.message : undefined}
-      confirmLabel={late ? 'Cancel anyway' : 'Cancel booking'}
-      cancelLabel="Keep my booking"
+      confirmLabel={late ? t.cancelAnyway : t.cancelBooking}
+      cancelLabel={t.keepBooking}
       tone={late ? 'danger' : 'primary'}
       loading={cancel.isPending}
       disabled={!p?.canCancel}
@@ -61,11 +65,11 @@ export function CancelBookingDialog({ bookingId, open, onOpenChange }: { booking
       ) : p ? (
         late ? (
           <InlineAlert tone="warning" icon={<TriangleAlert className="h-5 w-5" />}>
-            Free cancellation ended {fmt.weekdayDate(p.deadline)} at {fmt.time(p.deadline)}.
+            {t.freeCancelEndedAt(fmt.weekdayDate(p.deadline), fmt.time(p.deadline))}
           </InlineAlert>
         ) : p.canCancel ? (
-          <InlineAlert tone="success" title="Free cancellation">
-            Available until {fmt.weekdayDate(p.deadline)}, {fmt.time(p.deadline)}.
+          <InlineAlert tone="success" title={t.freeCancellation}>
+            {t.availableUntil(`${fmt.weekdayDate(p.deadline)}, ${fmt.time(p.deadline)}`)}
           </InlineAlert>
         ) : null
       ) : null}

@@ -14,6 +14,8 @@ import { toast, toastError } from '@/components/ui/toast';
 import { api, call, downloadFile } from '@/lib/api/client';
 import { fmt } from '@/lib/format';
 import { keys } from '@/lib/queries';
+import { messagesFor, useT } from '@/lib/i18n';
+import { profileMessages } from '@/lib/i18n/messages/profile';
 
 export default function PrivacyPage() {
   return (
@@ -29,23 +31,24 @@ function Privacy() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [reason, setReason] = useState('');
   const [requested, setRequested] = useState(false);
+  const t = useT(profileMessages);
   const deletion = useMutation({
     mutationFn: () => call(api.POST('/api/my/deletion-request', { body: { reason: reason.trim() || undefined } })),
     onSuccess: () => {
       setDeleteOpen(false);
       setRequested(true);
-      toast.success('Request received. The club will contact you to confirm.');
+      toast.success(messagesFor(profileMessages).requestReceived);
     },
     onError: toastError,
   });
 
   return (
     <div className="space-y-6 pt-5">
-      <PageHeader back="/profile" title="Privacy & data" />
+      <PageHeader back="/profile" title={t.privacy} />
 
-      <Section title="Your data">
+      <Section title={t.yourData}>
         <Card className="space-y-3">
-          <p className="text-sm text-muted">Download a copy of your profile, bookings, memberships, payments, feedback and consents (JSON).</p>
+          <p className="text-sm text-muted">{t.yourDataText}</p>
           <Button
             variant="outline"
             leftIcon={<Download className="h-4 w-4" />}
@@ -61,12 +64,12 @@ function Privacy() {
               }
             }}
           >
-            Download my data
+            {t.download}
           </Button>
         </Card>
       </Section>
 
-      <Section title="Agreements">
+      <Section title={t.agreements}>
         {agreements.isLoading ? (
           <SkeletonList count={2} />
         ) : (
@@ -79,27 +82,25 @@ function Privacy() {
                     {a.title}
                   </Link>
                   <p className="text-xs text-muted">
-                    Version {a.version} · accepted {fmt.date(a.acceptedAt)}
+                    {t.agreementVersion(a.version, fmt.date(a.acceptedAt))}
                   </p>
                 </div>
               </div>
             ))}
-            {!agreements.data?.length && <p className="px-5 py-4 text-sm text-muted">No agreements recorded.</p>}
+            {!agreements.data?.length && <p className="px-5 py-4 text-sm text-muted">{t.noAgreements}</p>}
           </Card>
         )}
       </Section>
 
-      <Section title="Delete account">
+      <Section title={t.deleteAccount}>
         <Card className="space-y-3">
           {requested ? (
-            <InlineAlert tone="success">Your deletion request was sent. The administrator will confirm it with you; payment records are kept as required by law.</InlineAlert>
+            <InlineAlert tone="success">{t.deletionSent}</InlineAlert>
           ) : (
             <>
-              <p className="text-sm text-muted">
-                We will delete or anonymise your personal data. Remaining visits on your membership will be lost. Payment records are kept as required by law.
-              </p>
+              <p className="text-sm text-muted">{t.deletionText}</p>
               <Button variant="ghost" className="text-danger-700 hover:bg-danger-50" leftIcon={<Trash2 className="h-4 w-4" />} onClick={() => setDeleteOpen(true)}>
-                Request account deletion
+                {t.requestDeletion}
               </Button>
             </>
           )}
@@ -109,15 +110,15 @@ function Privacy() {
       <ConfirmDialog
         open={deleteOpen}
         onOpenChange={setDeleteOpen}
-        title="Delete your account?"
-        description="This sends a deletion request to the club. Your remaining visits will be lost once it's processed."
-        confirmLabel="Send request"
-        cancelLabel="Keep my account"
+        title={t.deleteTitle}
+        description={t.deleteText}
+        confirmLabel={t.sendRequest}
+        cancelLabel={t.keepAccount}
         tone="danger"
         loading={deletion.isPending}
         onConfirm={() => deletion.mutate()}
       >
-        <Textarea placeholder="Reason (optional)" value={reason} onChange={(e) => setReason(e.target.value)} rows={3} maxLength={500} />
+        <Textarea placeholder={t.reasonOptional} value={reason} onChange={(e) => setReason(e.target.value)} rows={3} maxLength={500} />
       </ConfirmDialog>
     </div>
   );

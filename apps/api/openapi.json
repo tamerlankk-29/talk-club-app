@@ -10484,6 +10484,43 @@
         ]
       }
     },
+    "/api/me/locale": {
+      "patch": {
+        "operationId": "Me_setLocale",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetLocaleDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionUserDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Set the interface and message language (en, ru, kk)",
+        "tags": [
+          "Me (client self-service)"
+        ]
+      }
+    },
     "/api/my/home": {
       "get": {
         "operationId": "Me_home",
@@ -12307,6 +12344,15 @@
           "code"
         ]
       },
+      "Locale": {
+        "type": "string",
+        "enum": [
+          "en",
+          "ru",
+          "kk"
+        ],
+        "description": "Interface and message language"
+      },
       "SessionClientDto": {
         "type": "object",
         "properties": {
@@ -12377,6 +12423,14 @@
       "SessionUserDto": {
         "type": "object",
         "properties": {
+          "locale": {
+            "description": "Interface and message language",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Locale"
+              }
+            ]
+          },
           "id": {
             "type": "string"
           },
@@ -12436,6 +12490,7 @@
           }
         },
         "required": [
+          "locale",
           "id",
           "displayName",
           "phone",
@@ -23033,6 +23088,21 @@
         "required": [
           "user",
           "profile"
+        ]
+      },
+      "SetLocaleDto": {
+        "type": "object",
+        "properties": {
+          "locale": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Locale"
+              }
+            ]
+          }
+        },
+        "required": [
+          "locale"
         ]
       },
       "HomeStatsDto": {

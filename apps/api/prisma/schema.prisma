@@ -446,6 +446,8 @@ model User {
   totpRecoveryCodes String[]   @default([]) @map("totp_recovery_codes")
   totpFailedCount   Int        @default(0) @map("totp_failed_count")
   totpLockedUntil   DateTime?  @map("totp_locked_until") @db.Timestamptz(3)
+  /// Interface and message language: en, ru or kk.
+  locale            String     @default("en")
   /// { reminders: { push, email, sms, whatsapp, telegram }, marketing: { … } }
   notificationPrefs Json       @default("{}") @map("notification_prefs")
   createdAt         DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)

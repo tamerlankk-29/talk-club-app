@@ -5,6 +5,8 @@ import { ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { ReactNode } from 'react';
+import { messagesFor } from '@/lib/i18n/active';
+import { uiMessages } from '@/lib/i18n/messages/ui';
 import { cn } from '@/lib/utils';
 import { Skeleton } from './feedback';
 
@@ -48,11 +50,11 @@ export function PageHeader({
       <div className="flex min-w-0 items-start gap-2">
         {back &&
           (typeof back === 'string' ? (
-            <Link href={back} className="-ml-2 mt-0.5 rounded-xl p-2 text-ink hover:bg-brand-50" aria-label="Back">
+            <Link href={back} className="-ml-2 mt-0.5 rounded-xl p-2 text-ink hover:bg-brand-50" aria-label={messagesFor(uiMessages).back}>
               <ArrowLeft className="h-5 w-5" />
             </Link>
           ) : (
-            <button type="button" onClick={() => router.back()} className="-ml-2 mt-0.5 rounded-xl p-2 text-ink hover:bg-brand-50" aria-label="Back">
+            <button type="button" onClick={() => router.back()} className="-ml-2 mt-0.5 rounded-xl p-2 text-ink hover:bg-brand-50" aria-label={messagesFor(uiMessages).back}>
               <ArrowLeft className="h-5 w-5" />
             </button>
           ))}
@@ -200,7 +202,7 @@ export function DataTable<T>({
       </div>
     );
   }
-  if (!rows?.length) return <>{empty ?? <p className="py-10 text-center text-sm text-muted">Nothing here yet.</p>}</>;
+  if (!rows?.length) return <>{empty ?? <p className="py-10 text-center text-sm text-muted">{messagesFor(uiMessages).nothingYet}</p>}</>;
   return (
     <div className={cn('overflow-x-auto rounded-2xl border border-line bg-white', className)}>
       <table className="w-full min-w-[640px] text-left text-sm">
@@ -244,13 +246,13 @@ export function Pagination({ page, pageSize, total, onChange }: { page: number; 
         {(page - 1) * pageSize + 1}–{Math.min(total, page * pageSize)} of {total}
       </span>
       <div className="flex items-center gap-1">
-        <button type="button" disabled={page <= 1} onClick={() => onChange(page - 1)} className="rounded-lg p-2 hover:bg-brand-50 disabled:opacity-30" aria-label="Previous page">
+        <button type="button" disabled={page <= 1} onClick={() => onChange(page - 1)} className="rounded-lg p-2 hover:bg-brand-50 disabled:opacity-30" aria-label={messagesFor(uiMessages).previousPage}>
           <ChevronLeft className="h-4 w-4" />
         </button>
         <span className="px-2 font-semibold text-ink">
           {page} / {pages}
         </span>
-        <button type="button" disabled={page >= pages} onClick={() => onChange(page + 1)} className="rounded-lg p-2 hover:bg-brand-50 disabled:opacity-30" aria-label="Next page">
+        <button type="button" disabled={page >= pages} onClick={() => onChange(page + 1)} className="rounded-lg p-2 hover:bg-brand-50 disabled:opacity-30" aria-label={messagesFor(uiMessages).nextPage}>
           <ChevronRight className="h-4 w-4" />
         </button>
       </div>

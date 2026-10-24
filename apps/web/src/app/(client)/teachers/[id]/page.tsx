@@ -8,9 +8,12 @@ import { Avatar, ErrorState, Skeleton, SkeletonList } from '@/components/ui/feed
 import { Card, PageHeader, Section } from '@/components/ui/layout';
 import { api, call } from '@/lib/api/client';
 import { useAuth } from '@/lib/auth';
+import { useT } from '@/lib/i18n';
+import { clubMessages } from '@/lib/i18n/messages/club';
 import { keys } from '@/lib/queries';
 
 export default function TeacherPage() {
+  const m = useT(clubMessages);
   const { id } = useParams<{ id: string }>();
   const { actingClientId, user } = useAuth();
   const teacher = useQuery({ queryKey: keys.teacher(id), queryFn: () => call(api.GET('/api/public/teachers/{id}', { params: { path: { id } } })) });
@@ -23,7 +26,7 @@ export default function TeacherPage() {
   const t = teacher.data;
   return (
     <div className="space-y-5 pt-5">
-      <PageHeader back title="Teacher" />
+      <PageHeader back title={m.teacher} />
       <Card className="text-center">
         {t ? (
           <>
@@ -53,10 +56,10 @@ export default function TeacherPage() {
       {t?.bio && (
         <Card>
           <p className="whitespace-pre-line text-[15px] leading-relaxed">{t.bio}</p>
-          {t.specialization && <p className="mt-3 text-sm text-muted">Focus: {t.specialization}</p>}
+          {t.specialization && <p className="mt-3 text-sm text-muted">{m.focus(t.specialization)}</p>}
         </Card>
       )}
-      <Section title={t ? `Sessions with ${t.firstName}` : 'Sessions'}>
+      <Section title={t ? m.sessionsWith(t.firstName) : m.sessions}>
         {sessions.isLoading ? (
           <SkeletonList count={2} />
         ) : sessions.data?.length ? (
@@ -66,7 +69,7 @@ export default function TeacherPage() {
             ))}
           </div>
         ) : (
-          <p className="text-sm text-muted">No open sessions in the next two weeks.</p>
+          <p className="text-sm text-muted">{m.noOpenSessions}</p>
         )}
       </Section>
     </div>

@@ -14,6 +14,7 @@ import { api, call } from '@/lib/api/client';
 import type { S } from '@/lib/api/types';
 import { adminKeys, useUrlState } from '@/lib/admin-queries';
 import { clubNow, CLUB_TZ, fmt } from '@/lib/format';
+import { intlLocale } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 
 type Detail = S<'AdminSessionDetailDto'>;
@@ -27,7 +28,7 @@ const OPTIONS: Array<{ value: AttendanceStatus; label: string; active: string }>
 
 function Board() {
   const url = useUrlState();
-  const day = DateTime.fromISO(url.get('date') || clubNow().toISODate()!, { zone: CLUB_TZ }).setLocale('en-GB');
+  const day = DateTime.fromISO(url.get('date') || clubNow().toISODate()!, { zone: CLUB_TZ }).setLocale(intlLocale());
   const iso = day.toISODate()!;
   const list = useQuery({
     queryKey: ['admin', 'sessions', 'attendance', iso],

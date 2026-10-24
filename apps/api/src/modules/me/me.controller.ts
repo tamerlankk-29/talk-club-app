@@ -22,7 +22,8 @@ import type { AuthUser } from '../../common/auth/auth-user';
 import { ActingClient, ActingClientRef, ClientArea, CurrentUser } from '../../common/auth/decorators';
 import { ClientStatsDto, ClientStatsService } from '../clients/client-stats.service';
 import { MeService } from './me.service';
-import { UpdateProfileDto, ChildDto, UpdateChildDto, DeletionRequestDto } from './dto/me-http.dto';
+import { UpdateProfileDto, ChildDto, UpdateChildDto, DeletionRequestDto, SetLocaleDto } from './dto/me-http.dto';
+import { SessionUserDto } from '../auth/dto/auth.dto';
 import { ClientProfileDto } from '../clients/dto/client.dto';
 import { AgreementDto, DeletionRequestResultDto, FamilyMemberDto, HomeDto, MeDto, ReferralInfoDto } from './dto/me-responses.dto';
 
@@ -39,6 +40,12 @@ export class MeController {
   @ApiOperation({ summary: 'Signed-in user, roles/areas and client profile' })
   getMe(@CurrentUser() user: AuthUser): Promise<MeDto> {
     return this.me.me(user);
+  }
+
+  @Patch('me/locale')
+  @ApiOperation({ summary: 'Set the interface and message language (en, ru, kk)' })
+  setLocale(@Body() dto: SetLocaleDto, @CurrentUser() user: AuthUser): Promise<SessionUserDto> {
+    return this.me.setLocale(user, dto.locale);
   }
 
   @ClientArea()

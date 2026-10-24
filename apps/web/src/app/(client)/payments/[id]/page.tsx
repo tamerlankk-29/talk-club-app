@@ -15,6 +15,8 @@ import { toast, toastError } from '@/components/ui/toast';
 import { api, call } from '@/lib/api/client';
 import { fmt } from '@/lib/format';
 import { keys, useClub } from '@/lib/queries';
+import { messagesFor, useT } from '@/lib/i18n';
+import { membershipMessages } from '@/lib/i18n/messages/membership';
 
 export default function PaymentPage() {
   return (
@@ -30,6 +32,7 @@ function PaymentView() {
   const refresh = useRefreshClientData();
   const { data: club } = useClub();
   const [cancelOpen, setCancelOpen] = useState(false);
+  const t = useT(membershipMessages);
   const query = useQuery({
     queryKey: keys.payment(id),
     queryFn: () => call(api.GET('/api/my/payments/{id}', { params: { path: { id } } })),
@@ -41,7 +44,7 @@ function PaymentView() {
     onSuccess: async () => {
       setCancelOpen(false);
       await Promise.all([refresh(), query.refetch()]);
-      toast.success('Payment request cancelled.');
+      toast.success(messagesFor(membershipMessages).paymentCancelled);
     },
     onError: toastError,
   });
@@ -54,7 +57,7 @@ function PaymentView() {
 
   return (
     <div className="space-y-5 pt-5">
-      <PageHeader back="/membership" title="Payment" />
+      <PageHeader back="/membership" title={t.payment} />
       <Card className="text-center">
         {p.status === 'PAID' ? (
           <CircleCheckBig className="mx-auto h-14 w-14 animate-pop text-success-600" />
@@ -71,7 +74,7 @@ function PaymentView() {
       {p.status === 'PENDING' && (
         <>
           {p.instructions && (
-            <InlineAlert tone="info" title={p.productType === 'TRIAL' ? 'How to pay for your trial' : 'How to pay'}>
+            <InlineAlert tone="info" title={p.productType === 'TRIAL' ? t.howToPayTrial : t.howToPay}>
               {p.instructions}
             </InlineAlert>
           )}
@@ -82,19 +85,19 @@ function PaymentView() {
               rightIcon={<ExternalLink className="h-4 w-4" />}
               onClick={() => (checkoutPath.origin === window.location.origin ? router.push(checkoutPath.pathname) : window.location.assign(checkoutPath.toString()))}
             >
-              Continue to payment
+              {t.continueToPayment}
             </Button>
           )}
           {!checkoutPath && (
             <p className="text-center text-sm text-muted">
-              We&apos;ll activate your membership as soon as the payment is confirmed. Questions?{' '}
+              {t.activateSoon}{' '}
               {club?.club.whatsapp ? (
                 <a href={`https://wa.me/${club.club.whatsapp.replace(/\D/g, '')}`} className="font-semibold text-brand-700" target="_blank" rel="noreferrer">
-                  Message us on WhatsApp
+                  {t.whatsapp}
                 </a>
               ) : (
                 <Link href="/contact" className="font-semibold text-brand-700">
-                  Contact us
+                  {t.contactUs}
                 </Link>
               )}
             </p>
@@ -104,14 +107,14 @@ function PaymentView() {
 
       {p.status === 'PAID' && p.membershipId && (
         <Link href={`/membership/${p.membershipId}`} className={buttonClasses('primary', 'lg', 'w-full')}>
-          View my membership
+          {t.viewMyMembership}
         </Link>
       )}
       {p.status === 'FAILED' && (
-        <InlineAlert tone="danger" title="Payment failed">
-          {p.failureReason ?? 'The payment did not go through.'}{' '}
+        <InlineAlert tone="danger" title={t.paymentFailed}>
+          {p.failureReason ?? t.didNotGoThrough}{' '}
           <Link href="/membership/buy" className="font-semibold underline">
-            Try again
+            {t.tryAgain}
           </Link>
         </InlineAlert>
       )}
@@ -119,11 +122,11 @@ function PaymentView() {
       <Card>
         <KeyValue
           items={[
-            { label: 'Method', value: p.method.name },
-            { label: 'Created', value: fmt.dateTime(p.createdAt) },
-            ...(p.paidAt ? [{ label: 'Paid', value: fmt.dateTime(p.paidAt) }] : []),
-            ...(p.reference ? [{ label: 'Reference', value: p.reference }] : []),
-            ...(p.refundedAmount ? [{ label: 'Refunded', value: `${fmt.money(p.refundedAmount)}${p.refundedAt ? ` · ${fmt.date(p.refundedAt)}` : ''}` }] : []),
+            { label: t.method, value: p.method.name },
+            { label: t.created, value: fmt.dateTime(p.createdAt) },
+            ...(p.paidAt ? [{ label: t.paid, value: fmt.dateTime(p.paidAt) }] : []),
+            ...(p.reference ? [{ label: t.reference, value: p.reference }] : []),
+            ...(p.refundedAmount ? [{ label: t.refunded, value: `${fmt.money(p.refundedAmount)}${p.refundedAt ? ` · ${fmt.date(p.refundedAt)}` : ''}` }] : []),
           ]}
         />
       </Card>
@@ -131,15 +134,15 @@ function PaymentView() {
       {p.status === 'PENDING' && p.productType === 'MEMBERSHIP' && (
         <>
           <Button variant="ghost" block className="text-danger-700" onClick={() => setCancelOpen(true)}>
-            Cancel payment request
+            {t.cancelRequest}
           </Button>
           <ConfirmDialog
             open={cancelOpen}
             onOpenChange={setCancelOpen}
-            title="Cancel this payment request?"
-            description="If you have already paid, don't cancel — the administrator will confirm your payment."
-            confirmLabel="Cancel request"
-            cancelLabel="Keep it"
+            title={t.cancelRequestTitle}
+            description={t.cancelRequestText}
+            confirmLabel={t.cancelRequestConfirm}
+            cancelLabel={t.keepIt}
             tone="danger"
             loading={cancel.isPending}
             onConfirm={() => cancel.mutate()}

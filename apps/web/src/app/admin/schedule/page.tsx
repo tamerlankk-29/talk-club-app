@@ -16,6 +16,7 @@ import type { S } from '@/lib/api/types';
 import { useAdminRooms, useAdminTeachers, useUrlState } from '@/lib/admin-queries';
 import { useCan } from '@/lib/auth';
 import { clubNow, CLUB_TZ } from '@/lib/format';
+import { intlLocale } from '@/lib/i18n';
 import { useClub } from '@/lib/queries';
 import { cn } from '@/lib/utils';
 
@@ -151,7 +152,7 @@ function Schedule() {
   const { data: teachers } = useAdminTeachers();
   const { data: rooms } = useAdminRooms();
   const view = (url.get('view', 'week') as View) || 'week';
-  const anchor = DateTime.fromISO(url.get('date') || clubNow().toISODate()!, { zone: CLUB_TZ }).setLocale('en-GB');
+  const anchor = DateTime.fromISO(url.get('date') || clubNow().toISODate()!, { zone: CLUB_TZ }).setLocale(intlLocale());
   const teacherId = url.get('teacher') || undefined;
   const roomId = url.get('room') || undefined;
   const [draft, setDraft] = useState<SessionDraft | null>(url.get('new') === '1' ? {} : null);

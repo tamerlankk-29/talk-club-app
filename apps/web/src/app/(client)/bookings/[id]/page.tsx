@@ -15,6 +15,11 @@ import { api, call } from '@/lib/api/client';
 import type { Booking } from '@/lib/api/types';
 import { dayLabel, fmt } from '@/lib/format';
 import { keys, useMyMembership, useMyPayments } from '@/lib/queries';
+import { messagesFor, Rich, useT } from '@/lib/i18n';
+import { commonMessages } from '@/lib/i18n/messages/common';
+import { sessionMessages } from '@/lib/i18n/messages/sessions';
+
+const bold = { b: (c: ReactNode) => <span className="font-semibold text-ink">{c}</span> };
 
 export default function BookingPage() {
   return (
@@ -45,6 +50,7 @@ function BookingView() {
 
 function SessionSummary({ booking }: { booking: Booking }) {
   const s = booking.session;
+  const t = useT(sessionMessages);
   return (
     <div className="space-y-3 text-sm">
       {s.teacher && (
@@ -62,16 +68,16 @@ function SessionSummary({ booking }: { booking: Booking }) {
         <span className="font-semibold">{fmt.localDate(s.localDate)}</span>
       </Line>
       <Line icon={<Clock className="h-4 w-4" />}>
-        {s.startTime}–{s.endTime} · {s.durationMinutes} min
+        {s.startTime}–{s.endTime} · {t.durationMin(s.durationMinutes)}
       </Line>
       {s.format === 'ONLINE' ? (
         <Line icon={<Video className="h-4 w-4" />}>
           {booking.onlineUrl ? (
             <a href={booking.onlineUrl} target="_blank" rel="noreferrer" className="font-semibold text-brand-700 underline">
-              Join the online session
+              {t.joinOnlineSession}
             </a>
           ) : (
-            'Online — the link will appear here before the session'
+            t.onlineLinkLater
           )}
         </Line>
       ) : (
@@ -104,41 +110,47 @@ function useMembershipFor(booking: Booking) {
 function TrialPaymentNotice() {
   const { data: payments } = useMyPayments();
   const pending = payments?.find((p) => p.productType === 'TRIAL' && p.status === 'PENDING');
+  const t = useT(sessionMessages);
   if (!pending) return null;
   return (
     <InlineAlert
       tone="warning"
       icon={<Wallet className="h-5 w-5" />}
-      title={`Trial payment · ${fmt.money(pending.amount)}`}
+      title={t.trialPayment(fmt.money(pending.amount))}
       action={
         <Link href={`/payments/${pending.id}`} className="text-sm font-semibold underline">
-          How to pay
+          {t.howToPay}
         </Link>
       }
     >
-      Pay at the club before the session or by Kaspi invoice.
+      {t.trialPayText}
     </InlineAlert>
   );
 }
 
-/** "today at 16:45", "tomorrow at 18:30", "on Mon, 5 Oct at 18:30" */
+/** "See you today at 16:45", "… tomorrow at 18:30", "… on Mon, 5 Oct at 18:30" */
 function seeYouWhen(iso: string): string {
   const day = dayLabel(iso);
   const time = fmt.time(iso);
-  return day === 'Today' || day === 'Tomorrow' ? `${day.toLowerCase()} at ${time}` : `on ${day} at ${time}`;
+  const t = messagesFor(sessionMessages);
+  const common = messagesFor(commonMessages);
+  if (day === common.today) return t.seeYouToday(time);
+  if (day === common.tomorrow) return t.seeYouTomorrow(time);
+  return t.seeYouOn(day, time);
 }
 
 function Confirmation({ booking }: { booking: Booking }) {
   const membership = useMembershipFor(booking);
   const c = booking.cancellation;
+  const t = useT(sessionMessages);
   return (
     <div className="space-y-5 pt-8">
       <div className="text-center">
         <div className="mx-auto flex h-20 w-20 animate-pop items-center justify-center rounded-full bg-zest text-brand-950 shadow-float">
           <CircleCheckBig className="h-10 w-10" />
         </div>
-        <h1 className="mt-5 font-display text-[28px] font-semibold">You&apos;re booked! 🎉</h1>
-        <p className="mt-1 text-muted">See you {seeYouWhen(booking.session.startsAt)}.</p>
+        <h1 className="mt-5 font-display text-[28px] font-semibold">{t.youreBooked}</h1>
+        <p className="mt-1 text-muted">{seeYouWhen(booking.session.startsAt)}</p>
       </div>
 
       <Card>
@@ -152,8 +164,7 @@ function Confirmation({ booking }: { booking: Booking }) {
           <div className="flex items-center gap-3 rounded-2xl bg-brand-50 p-4 text-sm text-brand-900">
             <Ticket className="h-5 w-5 shrink-0" />
             <p>
-              <span className="font-semibold">{membership.planName}</span>: {membership.visitsRemaining} {membership.visitsRemaining === 1 ? 'visit' : 'visits'} left · valid until{' '}
-              {fmt.dayMonth(membership.expiresAt)}
+              <span className="font-semibold">{membership.planName}</span>: {t.visitsLeftUntil(membership.visitsRemaining, fmt.dayMonth(membership.expiresAt))}
             </p>
           </div>
         )
@@ -163,13 +174,7 @@ function Confirmation({ booking }: { booking: Booking }) {
         <div className="flex items-start gap-3 rounded-2xl bg-white p-4 text-sm ring-1 ring-line">
           <ShieldCheck className="h-5 w-5 shrink-0 text-success-600" />
           <p className="text-muted">
-            {c.isLate ? (
-              'Free cancellation is no longer available for this session.'
-            ) : (
-              <>
-                Free cancellation until <span className="font-semibold text-ink">{fmt.weekdayDate(c.deadline)}, {fmt.time(c.deadline)}</span>.
-              </>
-            )}
+            {c.isLate ? t.noFreeCancelAnymore : <Rich text={t.freeCancelUntilShort(`${fmt.weekdayDate(c.deadline)}, ${fmt.time(c.deadline)}`)} tags={bold} />}
           </p>
         </div>
       )}
@@ -178,14 +183,14 @@ function Confirmation({ booking }: { booking: Booking }) {
         <AddToCalendar booking={booking} block />
         {booking.session.format !== 'ONLINE' && (
           <Link href="/location" className={buttonClasses('outline', 'md', 'w-full')}>
-            <Navigation className="h-4 w-4" /> Get directions
+            <Navigation className="h-4 w-4" /> {t.getDirections}
           </Link>
         )}
         <Link href="/bookings" className={buttonClasses('primary', 'lg', 'w-full')}>
-          Go to my bookings
+          {t.goToBookings}
         </Link>
         <Link href="/schedule" className="py-2 text-center text-sm font-semibold text-brand-700">
-          Book another session
+          {t.bookAnother}
         </Link>
       </div>
     </div>
@@ -194,6 +199,7 @@ function Confirmation({ booking }: { booking: Booking }) {
 
 function Details({ booking }: { booking: Booking }) {
   const [cancelOpen, setCancelOpen] = useState(false);
+  const t = useT(sessionMessages);
   const membership = useMembershipFor(booking);
   const s = booking.session;
   const upcoming = booking.status === 'BOOKED' && new Date(s.endsAt).getTime() > Date.now();
@@ -201,11 +207,11 @@ function Details({ booking }: { booking: Booking }) {
 
   return (
     <div className="space-y-4 pt-5">
-      <PageHeader back="/bookings" title="Booking" actions={<StatusBadge status={booking.status} />} />
+      <PageHeader back="/bookings" title={t.booking} actions={<StatusBadge status={booking.status} />} />
 
       {s.status === 'CANCELLED' && (
-        <InlineAlert tone="warning" icon={<TriangleAlert className="h-5 w-5" />} title="This session was cancelled by the club">
-          {booking.visitReturned ? 'Your visit has been returned to your membership.' : null}
+        <InlineAlert tone="warning" icon={<TriangleAlert className="h-5 w-5" />} title={t.cancelledByClub}>
+          {booking.visitReturned ? t.visitReturnedLong : null}
         </InlineAlert>
       )}
 
@@ -218,27 +224,27 @@ function Details({ booking }: { booking: Booking }) {
       <Card>
         <KeyValue
           items={[
-            { label: 'Booked', value: fmt.dateTime(booking.bookedAt) },
-            { label: 'Type', value: booking.kind === 'TRIAL' ? <Badge tone="zest">Trial session</Badge> : (booking.membershipName ?? 'Membership') },
-            ...(booking.attendance ? [{ label: 'Attendance', value: <StatusBadge status={booking.attendance.status} /> }] : []),
-            ...(booking.cancelledAt ? [{ label: 'Cancelled', value: fmt.dateTime(booking.cancelledAt) }] : []),
+            { label: t.bookedAt, value: fmt.dateTime(booking.bookedAt) },
+            { label: t.type, value: booking.kind === 'TRIAL' ? <Badge tone="zest">{t.trialSession}</Badge> : (booking.membershipName ?? t.membership) },
+            ...(booking.attendance ? [{ label: t.attendance, value: <StatusBadge status={booking.attendance.status} /> }] : []),
+            ...(booking.cancelledAt ? [{ label: t.cancelledAt, value: fmt.dateTime(booking.cancelledAt) }] : []),
             ...(booking.membershipId
               ? [
                   {
-                    label: 'Visit',
-                    value: booking.visitReturned ? 'Returned to membership' : booking.visitDeducted ? 'Used' : '—',
+                    label: t.visit,
+                    value: booking.visitReturned ? t.returnedToMembership : booking.visitDeducted ? t.used : '—',
                   },
                 ]
               : []),
-            ...(membership && upcoming ? [{ label: 'Visits left', value: `${membership.visitsRemaining} (until ${fmt.dayMonth(membership.expiresAt)})` }] : []),
+            ...(membership && upcoming ? [{ label: t.visitsLeft, value: t.visitsLeftValue(membership.visitsRemaining, fmt.dayMonth(membership.expiresAt)) }] : []),
           ]}
         />
-        {booking.cancelReason && <p className="mt-3 text-sm text-muted">Reason: {booking.cancelReason}</p>}
+        {booking.cancelReason && <p className="mt-3 text-sm text-muted">{t.reason(booking.cancelReason)}</p>}
       </Card>
 
       {booking.hasFeedback && (
         <Link href="/profile/progress" className="flex items-center gap-3 rounded-2xl bg-brand-50 p-4 text-sm font-semibold text-brand-800">
-          <MessageSquareQuote className="h-5 w-5" /> Your teacher left feedback for this session →
+          <MessageSquareQuote className="h-5 w-5" /> {t.feedbackLeft}
         </Link>
       )}
 
@@ -248,15 +254,10 @@ function Details({ booking }: { booking: Booking }) {
             <div className="flex items-start gap-3 rounded-2xl bg-white p-4 text-sm ring-1 ring-line">
               {c.isLate ? <TriangleAlert className="h-5 w-5 shrink-0 text-warning-600" /> : <ShieldCheck className="h-5 w-5 shrink-0 text-success-600" />}
               <p className="text-muted">
-                {c.isLate ? (
-                  <>
-                    Free cancellation ended {fmt.weekdayDate(c.deadline)}, {fmt.time(c.deadline)}. If you cancel now, <span className="font-semibold text-ink">the visit will not be returned</span>.
-                  </>
-                ) : (
-                  <>
-                    Free cancellation until <span className="font-semibold text-ink">{fmt.weekdayDate(c.deadline)}, {fmt.time(c.deadline)}</span> — your visit will be returned.
-                  </>
-                )}
+                <Rich
+                  text={(c.isLate ? t.lateCancelWarning : t.freeCancelReturn)(`${fmt.weekdayDate(c.deadline)}, ${fmt.time(c.deadline)}`)}
+                  tags={bold}
+                />
               </p>
             </div>
           )}
@@ -264,7 +265,7 @@ function Details({ booking }: { booking: Booking }) {
             <AddToCalendar booking={booking} block />
             {c?.canCancel && (
               <Button variant="ghost" className="text-danger-700 hover:bg-danger-50" onClick={() => setCancelOpen(true)}>
-                Cancel booking
+                {t.cancelBooking}
               </Button>
             )}
           </div>

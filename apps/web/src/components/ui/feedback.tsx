@@ -1,6 +1,8 @@
 import { CircleAlert, RefreshCw } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { errorMessage } from '@/lib/api/client';
+import { messagesFor } from '@/lib/i18n/active';
+import { uiMessages } from '@/lib/i18n/messages/ui';
 import { cn, initials } from '@/lib/utils';
 import { Button } from './button';
 
@@ -26,59 +28,59 @@ export function Badge({ tone = 'neutral', className, children, dot }: { tone?: T
   );
 }
 
-const STATUS: Record<string, { label: string; tone: Tone }> = {
+/** Badge colour per status; the label comes from the translations. */
+const STATUS_TONE: Record<string, Tone> = {
   // Bookings
-  BOOKED: { label: 'Booked', tone: 'brand' },
-  ATTENDED: { label: 'Attended', tone: 'success' },
-  NO_SHOW: { label: 'No-show', tone: 'danger' },
-  CANCELLED: { label: 'Cancelled', tone: 'neutral' },
-  LATE_CANCELLED: { label: 'Late cancelled', tone: 'warning' },
-  WAITLISTED: { label: 'Waitlisted', tone: 'info' },
+  BOOKED: 'brand',
+  ATTENDED: 'success',
+  NO_SHOW: 'danger',
+  CANCELLED: 'neutral',
+  LATE_CANCELLED: 'warning',
+  WAITLISTED: 'info',
   // Sessions
-  SCHEDULED: { label: 'Scheduled', tone: 'neutral' },
-  OPEN: { label: 'Open', tone: 'success' },
-  ALMOST_FULL: { label: 'Almost full', tone: 'warning' },
-  FULL: { label: 'Full', tone: 'danger' },
-  STARTED: { label: 'In progress', tone: 'info' },
-  COMPLETED: { label: 'Completed', tone: 'neutral' },
+  SCHEDULED: 'neutral',
+  OPEN: 'success',
+  ALMOST_FULL: 'warning',
+  FULL: 'danger',
+  STARTED: 'info',
+  COMPLETED: 'neutral',
   // Memberships
-  ACTIVE: { label: 'Active', tone: 'success' },
-  USED_UP: { label: 'No visits left', tone: 'warning' },
-  EXPIRED: { label: 'Expired', tone: 'neutral' },
-  NOT_STARTED: { label: 'Not started', tone: 'info' },
+  ACTIVE: 'success',
+  USED_UP: 'warning',
+  EXPIRED: 'neutral',
+  NOT_STARTED: 'info',
   // Payments
-  PENDING: { label: 'Pending', tone: 'warning' },
-  PAID: { label: 'Paid', tone: 'success' },
-  FAILED: { label: 'Failed', tone: 'danger' },
-  REFUNDED: { label: 'Refunded', tone: 'neutral' },
-  PARTIALLY_REFUNDED: { label: 'Partly refunded', tone: 'neutral' },
+  PENDING: 'warning',
+  PAID: 'success',
+  FAILED: 'danger',
+  REFUNDED: 'neutral',
+  PARTIALLY_REFUNDED: 'neutral',
   // Attendance
-  PRESENT: { label: 'Present', tone: 'success' },
-  LATE: { label: 'Late', tone: 'warning' },
-  ABSENT: { label: 'Absent', tone: 'danger' },
+  PRESENT: 'success',
+  LATE: 'warning',
+  ABSENT: 'danger',
   // Waitlist
-  WAITING: { label: 'Waiting', tone: 'info' },
-  OFFERED: { label: 'Place reserved', tone: 'zest' },
+  WAITING: 'info',
+  OFFERED: 'zest',
   // Trials
-  REQUESTED: { label: 'Requested', tone: 'info' },
+  REQUESTED: 'info',
   // Tasks
-  IN_PROGRESS: { label: 'In progress', tone: 'info' },
-  DONE: { label: 'Done', tone: 'success' },
-  DRAFT: { label: 'Draft', tone: 'neutral' },
-  SENDING: { label: 'Sending', tone: 'info' },
-  SENT: { label: 'Sent', tone: 'success' },
-  SKIPPED: { label: 'Skipped', tone: 'neutral' },
+  IN_PROGRESS: 'info',
+  DONE: 'success',
+  DRAFT: 'neutral',
+  SENDING: 'info',
+  SENT: 'success',
+  SKIPPED: 'neutral',
 };
 
 export function statusLabel(status: string): string {
-  return STATUS[status]?.label ?? status.replaceAll('_', ' ').toLowerCase().replace(/^\w/, (c) => c.toUpperCase());
+  return messagesFor(uiMessages).status[status] ?? status.replaceAll('_', ' ').toLowerCase().replace(/^\w/, (c) => c.toUpperCase());
 }
 
 export function StatusBadge({ status, className, label }: { status: string; className?: string; label?: string }) {
-  const s = STATUS[status] ?? { label: statusLabel(status), tone: 'neutral' as Tone };
   return (
-    <Badge tone={s.tone} className={className} dot>
-      {label ?? s.label}
+    <Badge tone={STATUS_TONE[status] ?? 'neutral'} className={className} dot>
+      {label ?? statusLabel(status)}
     </Badge>
   );
 }
@@ -89,7 +91,7 @@ export function Skeleton({ className }: { className?: string }) {
 
 export function SkeletonList({ count = 3, className }: { count?: number; className?: string }) {
   return (
-    <div className={cn('space-y-3', className)} aria-busy="true" aria-label="Loading">
+    <div className={cn('space-y-3', className)} aria-busy="true" aria-label={messagesFor(uiMessages).loading}>
       {Array.from({ length: count }).map((_, i) => (
         <Skeleton key={i} className="h-24 w-full rounded-2xl" />
       ))}
@@ -127,7 +129,7 @@ export function ErrorState({ error, onRetry, className }: { error: unknown; onRe
       <p className="text-sm font-medium text-danger-700">{errorMessage(error)}</p>
       {onRetry && (
         <Button variant="outline" size="sm" className="mt-4" leftIcon={<RefreshCw className="h-4 w-4" />} onClick={onRetry}>
-          Try again
+          {messagesFor(uiMessages).tryAgain}
         </Button>
       )}
     </div>

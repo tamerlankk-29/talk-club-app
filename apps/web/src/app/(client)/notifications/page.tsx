@@ -11,6 +11,8 @@ import { EmptyState, ErrorState, SkeletonList } from '@/components/ui/feedback';
 import { PageHeader } from '@/components/ui/layout';
 import { api, call } from '@/lib/api/client';
 import type { NotificationItem } from '@/lib/api/types';
+import { useT } from '@/lib/i18n';
+import { inboxMessages } from '@/lib/i18n/messages/club';
 import { fmt } from '@/lib/format';
 import { keys } from '@/lib/queries';
 import { cn } from '@/lib/utils';
@@ -38,6 +40,7 @@ export default function NotificationsPage() {
 }
 
 function Inbox() {
+  const t = useT(inboxMessages);
   const router = useRouter();
   const qc = useQueryClient();
   const query = useQuery({
@@ -62,9 +65,9 @@ function Inbox() {
     <div className="space-y-4 pt-5">
       <PageHeader
         back
-        title="Notifications"
+        title={t.title}
         actions={
-          <Link href="/profile/notifications" className="rounded-xl p-2 text-muted hover:bg-brand-50" aria-label="Notification settings">
+          <Link href="/profile/notifications" className="rounded-xl p-2 text-muted hover:bg-brand-50" aria-label={t.settings}>
             <Settings className="h-5 w-5" />
           </Link>
         }
@@ -73,7 +76,7 @@ function Inbox() {
       {query.data && query.data.unreadCount > 0 && (
         <div className="flex justify-end">
           <Button variant="link" size="sm" loading={readAll.isPending} onClick={() => readAll.mutate()}>
-            Mark all as read
+            {t.markAllRead}
           </Button>
         </div>
       )}
@@ -82,7 +85,7 @@ function Inbox() {
       ) : query.error ? (
         <ErrorState error={query.error} onRetry={() => query.refetch()} />
       ) : !query.data?.items.length ? (
-        <EmptyState icon={<BellOff className="h-7 w-7" />} title="No notifications yet" description="Booking confirmations, reminders and club news will appear here." />
+        <EmptyState icon={<BellOff className="h-7 w-7" />} title={t.emptyTitle} description={t.emptyText} />
       ) : (
         <ul className="space-y-2">
           {query.data.items.map((n) => (
@@ -103,7 +106,7 @@ function Inbox() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-2">
                     <p className={cn('text-sm', n.readAt ? 'font-medium' : 'font-semibold')}>{n.title}</p>
-                    {!n.readAt && <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-brand-600" aria-label="Unread" />}
+                    {!n.readAt && <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-brand-600" aria-label={t.unread} />}
                   </div>
                   <p className="mt-0.5 whitespace-pre-line text-sm text-muted">{n.body}</p>
                   <div className="mt-2 flex flex-wrap items-center gap-3">

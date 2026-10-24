@@ -12,6 +12,8 @@ import { Card, PageHeader, Section } from '@/components/ui/layout';
 import { api, call, errorMessage, fieldErrors } from '@/lib/api/client';
 import type { S } from '@/lib/api/types';
 import { useAuth } from '@/lib/auth';
+import { Rich, useT } from '@/lib/i18n';
+import { trialMessages } from '@/lib/i18n/messages/club';
 import { fmt, phoneDigitsComplete } from '@/lib/format';
 import { keys, useClub, useLeadSources, useLevels } from '@/lib/queries';
 import { TIME_OF_DAY_LABELS, WEEKDAYS_SHORT } from '@/lib/utils';
@@ -19,6 +21,7 @@ import { TIME_OF_DAY_LABELS, WEEKDAYS_SHORT } from '@/lib/utils';
 type TimeOfDay = S<'TimeOfDay'>;
 
 export default function TrialPage() {
+  const t = useT(trialMessages);
   const { status, user, actingClientId } = useAuth();
   const { data: club } = useClub();
   const trial = club?.policies.trial;
@@ -26,16 +29,16 @@ export default function TrialPage() {
 
   return (
     <div className="space-y-5 pt-5">
-      <PageHeader back title="Trial session" subtitle={trial ? `Try a 90-minute speaking session for ${fmt.money(trial.price)}.` : undefined} />
+      <PageHeader back title={t.title} subtitle={trial ? t.subtitle(fmt.money(trial.price)) : undefined} />
       {trial && !trial.enabled ? (
-        <InlineAlert tone="info">Trial sessions are not available right now. Contact us and we&apos;ll help you get started.</InlineAlert>
+        <InlineAlert tone="info">{t.unavailable}</InlineAlert>
       ) : isClient && trial?.selfBooking ? (
         <TrialSessions />
       ) : (
         <>
           {trial?.selfBooking && status === 'anonymous' && (
-            <InlineAlert tone="brand" action={<Link href="/register?next=/trial" className={buttonClasses('primary', 'sm')}>Create an account</Link>}>
-              Create an account to choose the session yourself — or leave a request and we&apos;ll find a group for you.
+            <InlineAlert tone="brand" action={<Link href="/register?next=/trial" className={buttonClasses('primary', 'sm')}>{t.createAccount}</Link>}>
+              {t.createAccountText}
             </InlineAlert>
           )}
           <TrialRequestForm />
@@ -46,13 +49,14 @@ export default function TrialPage() {
 }
 
 function TrialSessions() {
+  const t = useT(trialMessages);
   const query = useQuery({
     queryKey: keys.sessions({ trial: true }),
     queryFn: () => call(api.GET('/api/sessions', { params: { query: { availableOnly: true } } })),
   });
   const trialable = (query.data ?? []).filter((s) => s.bookability?.canBookTrial);
   return (
-    <Section title="Choose your first session" description="Small groups, native speakers — you'll fit right in.">
+    <Section title={t.chooseFirst} description={t.chooseFirstText}>
       {query.isLoading ? (
         <SkeletonList count={3} />
       ) : trialable.length ? (
@@ -64,8 +68,8 @@ function TrialSessions() {
       ) : (
         <InlineAlert tone="info">
           {query.data?.some((s) => s.bookability?.reason === 'BOOKING_TRIAL_ALREADY_USED')
-            ? 'You have already used your trial session. Choose a membership to keep going!'
-            : 'No sessions are open for trial bookings right now. Please check back later or contact us.'}
+            ? t.alreadyUsed
+            : t.noneOpen}
         </InlineAlert>
       )}
     </Section>
@@ -73,6 +77,7 @@ function TrialSessions() {
 }
 
 function TrialRequestForm() {
+  const t = useT(trialMessages);
   const { data: levels } = useLevels();
   const { data: sources } = useLeadSources();
   const [form, setForm] = useState({ name: '', phone: '', levelId: '', days: [] as number[], times: [] as TimeOfDay[], comment: '', sourceCode: '' });
@@ -98,10 +103,10 @@ function TrialRequestForm() {
     return (
       <Card className="py-10 text-center">
         <PartyPopper className="mx-auto h-12 w-12 animate-pop text-brand-700" />
-        <p className="mt-4 font-display text-xl font-semibold">Request received!</p>
-        <p className="mt-2 text-sm text-muted">We&apos;ll message you shortly to pick a time for your trial session.</p>
+        <p className="mt-4 font-display text-xl font-semibold">{t.received}</p>
+        <p className="mt-2 text-sm text-muted">{t.receivedText}</p>
         <Link href="/schedule" className={buttonClasses('outline', 'md', 'mt-6')}>
-          Browse the schedule
+          {t.browseSchedule}
         </Link>
       </Card>
     );
@@ -116,15 +121,15 @@ function TrialRequestForm() {
           submit.mutate();
         }}
       >
-        <Field label="Your name" required htmlFor="t-name" error={errors.name}>
+        <Field label={t.name} required htmlFor="t-name" error={errors.name}>
           <Input id="t-name" autoComplete="name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required maxLength={120} />
         </Field>
-        <Field label="Phone (WhatsApp)" required htmlFor="t-phone" error={errors.phone}>
+        <Field label={t.phone} required htmlFor="t-phone" error={errors.phone}>
           <PhoneInput id="t-phone" value={form.phone} onChange={(phone) => setForm({ ...form, phone })} />
         </Field>
-        <Field label="Your English level" htmlFor="t-level">
+        <Field label={t.level} htmlFor="t-level">
           <Select id="t-level" value={form.levelId} onChange={(e) => setForm({ ...form, levelId: e.target.value })}>
-            <option value="">I&apos;m not sure</option>
+            <option value="">{t.notSure}</option>
             {levels?.map((l) => (
               <option key={l.id} value={l.id}>
                 {l.name}
@@ -132,21 +137,21 @@ function TrialRequestForm() {
             ))}
           </Select>
         </Field>
-        <Field label="Convenient days">
+        <Field label={t.days}>
           <ChipGroup size="sm" multiple options={[1, 2, 3, 4, 5, 6].map((d) => ({ value: d, label: WEEKDAYS_SHORT[d] }))} value={form.days} onChange={(v) => setForm({ ...form, days: v as number[] })} />
         </Field>
-        <Field label="Convenient time">
+        <Field label={t.time}>
           <ChipGroup
             size="sm"
             multiple
-            options={(['AFTERNOON', 'EVENING'] as const).map((t) => ({ value: t, label: TIME_OF_DAY_LABELS[t] }))}
+            options={(['AFTERNOON', 'EVENING'] as const).map((tod) => ({ value: tod, label: TIME_OF_DAY_LABELS[tod] }))}
             value={form.times}
             onChange={(v) => setForm({ ...form, times: v as TimeOfDay[] })}
           />
         </Field>
-        <Field label="How did you hear about us?" htmlFor="t-source">
+        <Field label={t.source} htmlFor="t-source">
           <Select id="t-source" value={form.sourceCode} onChange={(e) => setForm({ ...form, sourceCode: e.target.value })}>
-            <option value="">Choose…</option>
+            <option value="">{t.choose}</option>
             {sources?.map((s) => (
               <option key={s.id} value={s.code}>
                 {s.name}
@@ -154,19 +159,24 @@ function TrialRequestForm() {
             ))}
           </Select>
         </Field>
-        <Field label="Comment" htmlFor="t-comment">
+        <Field label={t.comment} htmlFor="t-comment">
           <Textarea id="t-comment" rows={3} value={form.comment} onChange={(e) => setForm({ ...form, comment: e.target.value })} maxLength={500} />
         </Field>
         {submit.error && !Object.keys(errors).length && <InlineAlert tone="danger">{errorMessage(submit.error)}</InlineAlert>}
         <Button type="submit" size="lg" block loading={submit.isPending} disabled={!form.name.trim() || !phoneDigitsComplete(form.phone)}>
-          Request a trial
+          {t.submit}
         </Button>
         <p className="text-center text-xs text-muted">
-          By sending you agree to the{' '}
-          <Link href="/legal/PRIVACY_POLICY" className="underline">
-            Privacy Policy
-          </Link>
-          .
+          <Rich
+            text={t.consent}
+            tags={{
+              a: (c) => (
+                <Link href="/legal/PRIVACY_POLICY" className="underline">
+                  {c}
+                </Link>
+              ),
+            }}
+          />
         </p>
       </form>
     </Card>

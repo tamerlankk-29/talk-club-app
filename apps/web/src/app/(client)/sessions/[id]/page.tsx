@@ -15,6 +15,10 @@ import { api, call } from '@/lib/api/client';
 import { useAuth } from '@/lib/auth';
 import { fmt } from '@/lib/format';
 import { keys } from '@/lib/queries';
+import { Rich, useT } from '@/lib/i18n';
+import { sessionMessages } from '@/lib/i18n/messages/sessions';
+
+const bold = { b: (c: ReactNode) => <span className="font-semibold text-ink">{c}</span> };
 
 export default function SessionPage() {
   const { id } = useParams<{ id: string }>();
@@ -26,6 +30,7 @@ export default function SessionPage() {
   });
   const leave = useLeaveWaitlist();
   const claim = useClaimOffer();
+  const t = useT(sessionMessages);
 
   if (query.error) return <ErrorState error={query.error} onRetry={() => query.refetch()} className="mt-10" />;
   const s = query.data;
@@ -43,7 +48,7 @@ export default function SessionPage() {
 
   return (
     <div className="space-y-4 pt-5">
-      <PageHeader back title="Session" />
+      <PageHeader back title={t.session} />
 
       <Card className="overflow-hidden" padded={false}>
         <div className="h-2" style={{ background: s.groupType?.color ?? 'var(--color-brand-600)' }} />
@@ -52,7 +57,7 @@ export default function SessionPage() {
             <div>
               <p className="text-sm font-semibold text-brand-700">{s.levelLabel}</p>
               <h1 className="mt-1 font-display text-2xl font-semibold leading-tight">{s.title}</h1>
-              {s.topic && <p className="mt-1 text-sm text-muted">Topic: {s.topic}</p>}
+              {s.topic && <p className="mt-1 text-sm text-muted">{t.topic(s.topic)}</p>}
             </div>
             <StatusBadge status={s.status} />
           </div>
@@ -61,16 +66,16 @@ export default function SessionPage() {
               <span className="font-semibold">{fmt.localDate(s.localDate)}</span>
             </Row>
             <Row icon={<Clock className="h-4 w-4" />}>
-              {s.startTime}–{s.endTime} · {s.durationMinutes} min
+              {s.startTime}–{s.endTime} · {t.durationMin(s.durationMinutes)}
             </Row>
             <Row icon={s.format === 'ONLINE' ? <Video className="h-4 w-4" /> : <MapPin className="h-4 w-4" />}>
               {s.format === 'ONLINE' ? (
                 s.onlineUrl ? (
                   <a href={s.onlineUrl} target="_blank" rel="noreferrer" className="font-semibold text-brand-700 underline">
-                    Join online
+                    {t.joinOnline}
                   </a>
                 ) : (
-                  'Online — the link appears here after booking'
+                  t.onlineLinkAfterBooking
                 )
               ) : (
                 <span>
@@ -78,7 +83,7 @@ export default function SessionPage() {
                   {s.location.address}
                   {s.location.addressDetails ? `, ${s.location.addressDetails}` : ''}{' '}
                   <Link href="/location" className="font-semibold text-brand-700">
-                    Map
+                    {t.map}
                   </Link>
                 </span>
               )}
@@ -86,7 +91,7 @@ export default function SessionPage() {
             <Row icon={<Users className="h-4 w-4" />}>
               <SeatsIndicator session={s} />
             </Row>
-            {s.waitlistCount > 0 && <p className="pl-7 text-xs text-muted">{s.waitlistCount} on the waitlist</p>}
+            {s.waitlistCount > 0 && <p className="pl-7 text-xs text-muted">{t.onWaitlistCount(s.waitlistCount)}</p>}
           </div>
         </div>
       </Card>
@@ -96,7 +101,7 @@ export default function SessionPage() {
           <Card className="flex items-center gap-4 transition hover:border-brand-200">
             <Avatar name={s.teacher.name} src={s.teacher.photoUrl} size="lg" />
             <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted">Teacher</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted">{t.teacher}</p>
               <p className="font-semibold">{s.teacher.name}</p>
               <p className="truncate text-sm text-muted">{[s.teacher.country, s.teacher.headline].filter(Boolean).join(' · ')}</p>
             </div>
@@ -111,13 +116,13 @@ export default function SessionPage() {
       )}
 
       {offered && s.myWaitlist && (
-        <InlineAlert tone="zest" title="A place is reserved for you!">
-          Book it before {s.myWaitlist.offerExpiresAt ? fmt.time(s.myWaitlist.offerExpiresAt) : 'the offer expires'} — after that it goes to the next person.
+        <InlineAlert tone="zest" title={t.reservedTitle}>
+          {t.reservedText(s.myWaitlist.offerExpiresAt ? fmt.time(s.myWaitlist.offerExpiresAt) : t.offerExpires)}
         </InlineAlert>
       )}
       {s.myWaitlist && !offered && (
-        <InlineAlert tone="info" title={`You're #${s.myWaitlist.position} on the waitlist`}>
-          We&apos;ll notify you as soon as a place opens up.
+        <InlineAlert tone="info" title={t.waitlistTitle(s.myWaitlist.position)}>
+          {t.waitlistText}
         </InlineAlert>
       )}
 
@@ -130,13 +135,12 @@ export default function SessionPage() {
           )}
           {b.canBook && b.membershipName && (
             <InlineAlert tone="brand" icon={<Info className="h-5 w-5" />}>
-              Uses 1 visit from <span className="font-semibold">{b.membershipName}</span>
-              {b.visitsRemainingAfter !== null ? ` — ${b.visitsRemainingAfter} will remain.` : '.'}
+              <Rich text={b.visitsRemainingAfter !== null ? t.usesVisitRemain(b.membershipName, b.visitsRemainingAfter) : t.usesVisit(b.membershipName)} tags={bold} />
             </InlineAlert>
           )}
           {b.canBookTrial && (
-            <InlineAlert tone="zest" title={`Trial session · ${fmt.money(b.trialPrice)}`}>
-              Your first session at Talk Club. Pay at the club or by Kaspi invoice.
+            <InlineAlert tone="zest" title={t.trialTitle(fmt.money(b.trialPrice))}>
+              {t.trialText}
             </InlineAlert>
           )}
           {!b.canBook && !b.canBookTrial && b.message && (
@@ -146,7 +150,7 @@ export default function SessionPage() {
                 <>
                   {' '}
                   <Link href="/membership/buy" className="font-semibold underline">
-                    View memberships
+                    {t.viewMemberships}
                   </Link>
                 </>
               )}
@@ -159,8 +163,7 @@ export default function SessionPage() {
         <div className="flex gap-3 rounded-2xl bg-white p-4 text-sm ring-1 ring-line">
           <ShieldCheck className="h-5 w-5 shrink-0 text-success-600" />
           <p className="text-muted">
-            Free cancellation until <span className="font-semibold text-ink">{fmt.weekdayDate(s.cancellationDeadline)}, {fmt.time(s.cancellationDeadline)}</span>. Later
-            cancellations and no-shows use the visit.
+            <Rich text={t.freeCancelUntil(`${fmt.weekdayDate(s.cancellationDeadline)}, ${fmt.time(s.cancellationDeadline)}`)} tags={bold} />
           </p>
         </div>
       )}
@@ -169,15 +172,15 @@ export default function SessionPage() {
         {offered && s.myWaitlist ? (
           <>
             <Button variant="ghost" size="lg" loading={leave.isPending} onClick={() => leave.mutate(s.id)}>
-              Decline
+              {t.decline}
             </Button>
             <Button size="lg" block loading={claim.isPending} onClick={() => claim.mutate(s.myWaitlist!.id)}>
-              Book the place
+              {t.bookThePlace}
             </Button>
           </>
         ) : s.myWaitlist ? (
           <Button variant="outline" size="lg" block loading={leave.isPending} onClick={() => leave.mutate(s.id)}>
-            Leave the waitlist
+            {t.leaveWaitlist}
           </Button>
         ) : (
           <div className="flex-1 [&>button]:w-full">

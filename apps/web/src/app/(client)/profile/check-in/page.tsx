@@ -9,6 +9,8 @@ import { Card, PageHeader } from '@/components/ui/layout';
 import { api, call } from '@/lib/api/client';
 import { fmt } from '@/lib/format';
 import { useHome } from '@/lib/queries';
+import { useT } from '@/lib/i18n';
+import { profileMessages } from '@/lib/i18n/messages/profile';
 
 export default function CheckInPage() {
   return (
@@ -21,6 +23,7 @@ export default function CheckInPage() {
 /** Rotating QR code the teacher or reception scans to mark attendance. */
 function CheckIn() {
   const { data: home } = useHome();
+  const t = useT(profileMessages);
   const code = useQuery({
     queryKey: ['my', 'checkin-code'],
     queryFn: () => call(api.GET('/api/my/checkin-code')),
@@ -37,23 +40,23 @@ function CheckIn() {
   const next = home?.nextBooking;
   return (
     <div className="space-y-5 pt-5">
-      <PageHeader back="/profile" title="Check-in" subtitle="Show this code to your teacher when you arrive." />
+      <PageHeader back="/profile" title={t.checkIn} subtitle={t.checkInSubtitle} />
       {code.error ? (
         <ErrorState error={code.error} onRetry={() => code.refetch()} />
       ) : (
         <Card className="flex flex-col items-center gap-4 py-8">
           {image ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={image} alt="Your check-in QR code" className="h-64 w-64 rounded-2xl" />
+            <img src={image} alt={t.qrAlt} className="h-64 w-64 rounded-2xl" />
           ) : (
             <Skeleton className="h-64 w-64 rounded-2xl" />
           )}
-          <p className="text-xs text-muted">The code refreshes automatically for your security.</p>
+          <p className="text-xs text-muted">{t.refreshes}</p>
         </Card>
       )}
       {next && (
         <Card className="text-sm">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted">Your next session</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted">{t.nextSession}</p>
           <p className="mt-1 font-semibold">
             {next.session.title}
             {next.session.teacher ? ` · ${next.session.teacher.name}` : ''}

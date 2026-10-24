@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { ClientCategory, FormatPreference, TimeOfDay } from '@prisma/client';
+import { LOCALES, type Locale } from '../../../common/utils/locale';
 import {
   ArrayMaxSize,
   Equals,
@@ -239,6 +240,9 @@ export class SessionUserDto {
   phone: string | null;
   email: string | null;
   hasPassword: boolean;
+  /** Interface and message language */
+  @ApiProperty({ enum: LOCALES, enumName: 'Locale' })
+  locale: Locale;
   roles: string[];
   permissions: string[];
   client: SessionClientDto | null;

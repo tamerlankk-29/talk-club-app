@@ -5,11 +5,14 @@ import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { toast, toastError } from '@/components/ui/toast';
 import { enablePush, getPushState, type PushState } from '@/lib/push';
+import { Rich, useT } from '@/lib/i18n';
+import { shellMessages } from '@/lib/i18n/messages/client-shell';
 
 /** Invites the member to turn on push reminders (or explains how on iPhone). */
 export function PushPrompt({ compact }: { compact?: boolean }) {
   const [state, setState] = useState<PushState | null>(null);
   const [busy, setBusy] = useState(false);
+  const t = useT(shellMessages);
   useEffect(() => {
     void getPushState().then(setState);
   }, []);
@@ -18,11 +21,24 @@ export function PushPrompt({ compact }: { compact?: boolean }) {
     return (
       <div className="rounded-3xl bg-brand-50 p-4 text-sm text-brand-900 ring-1 ring-brand-100">
         <p className="flex items-center gap-2 font-semibold">
-          <BellRing className="h-4 w-4" /> Get reminders on your iPhone
+          <BellRing className="h-4 w-4" /> {t.iphoneTitle}
         </p>
         <p className="mt-1 text-brand-900/80">
-          Tap <Share className="inline h-4 w-4 align-text-bottom" /> Share, then <SquarePlus className="inline h-4 w-4 align-text-bottom" /> “Add to Home Screen”. Open Talk Club from the
-          Home Screen and turn on notifications.
+          <Rich
+            text={t.iphoneSteps}
+            tags={{
+              share: (c) => (
+                <>
+                  <Share className="inline h-4 w-4 align-text-bottom" /> {c}
+                </>
+              ),
+              add: (c) => (
+                <>
+                  <SquarePlus className="inline h-4 w-4 align-text-bottom" /> {c}
+                </>
+              ),
+            }}
+          />
         </p>
       </div>
     );
@@ -34,8 +50,8 @@ export function PushPrompt({ compact }: { compact?: boolean }) {
         <BellRing className="h-5 w-5" />
       </span>
       <div className="min-w-0 flex-1 text-sm">
-        <p className="font-semibold">Turn on notifications</p>
-        {!compact && <p className="text-white/80">Session reminders, waitlist places and membership alerts.</p>}
+        <p className="font-semibold">{t.pushTitle}</p>
+        {!compact && <p className="text-white/80">{t.pushText}</p>}
       </div>
       <Button
         variant="accent"
@@ -46,8 +62,8 @@ export function PushPrompt({ compact }: { compact?: boolean }) {
           try {
             const next = await enablePush();
             setState(next);
-            if (next === 'enabled') toast.success('Notifications are on.');
-            if (next === 'denied') toast.error('Notifications are blocked in your browser settings.');
+            if (next === 'enabled') toast.success(t.pushOn);
+            if (next === 'denied') toast.error(t.pushBlocked);
           } catch (error) {
             toastError(error);
           } finally {
@@ -55,7 +71,7 @@ export function PushPrompt({ compact }: { compact?: boolean }) {
           }
         }}
       >
-        Enable
+        {t.enable}
       </Button>
     </div>
   );

@@ -4,6 +4,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { toast, toastError } from '@/components/ui/toast';
 import { api, call } from '@/lib/api/client';
+import { messagesFor } from '@/lib/i18n';
+import { sessionMessages } from '@/lib/i18n/messages/sessions';
 import { keys } from '@/lib/queries';
 
 /** Invalidates everything that changes when a booking changes. */
@@ -37,7 +39,7 @@ export function useJoinWaitlist() {
     mutationFn: (sessionId: string) => call(api.POST('/api/sessions/{id}/waitlist', { params: { path: { id: sessionId } } })),
     onSuccess: async (entry) => {
       await refresh();
-      toast.success(`You're on the waitlist (#${entry.position}). We'll notify you when a place opens.`);
+      toast.success(messagesFor(sessionMessages).onWaitlist(entry.position));
     },
     onError: toastError,
   });
@@ -49,7 +51,7 @@ export function useLeaveWaitlist() {
     mutationFn: (sessionId: string) => call(api.DELETE('/api/sessions/{id}/waitlist', { params: { path: { id: sessionId } } })),
     onSuccess: async () => {
       await refresh();
-      toast.success('You left the waitlist.');
+      toast.success(messagesFor(sessionMessages).leftWaitlist);
     },
     onError: toastError,
   });

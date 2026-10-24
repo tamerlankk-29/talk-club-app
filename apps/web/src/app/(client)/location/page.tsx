@@ -4,12 +4,15 @@ import { Clock, MapPin, Navigation, Phone } from 'lucide-react';
 import { buttonClasses } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/feedback';
 import { Card, PageHeader } from '@/components/ui/layout';
+import { useT } from '@/lib/i18n';
+import { clubMessages } from '@/lib/i18n/messages/club';
 import { useClub } from '@/lib/queries';
 import { WEEKDAYS } from '@/lib/utils';
 
 type Hours = Record<string, { open: string; close: string } | null>;
 
 export default function LocationPage() {
+  const m = useT(clubMessages);
   const { data: club } = useClub();
   const loc = club?.location;
   const hasCoords = loc?.latitude !== null && loc?.latitude !== undefined && loc.longitude !== null;
@@ -21,11 +24,11 @@ export default function LocationPage() {
 
   return (
     <div className="space-y-5 pt-5">
-      <PageHeader back title="How to find us" />
+      <PageHeader back title={m.findUs} />
       <Card padded={false} className="overflow-hidden">
         {loc ? (
           <iframe
-            title="Talk Club on the map"
+            title={m.onMap}
             className="h-64 w-full border-0"
             loading="lazy"
             referrerPolicy="no-referrer-when-downgrade"
@@ -68,7 +71,7 @@ export default function LocationPage() {
       </Card>
       <Card>
         <p className="mb-3 flex items-center gap-2 font-semibold">
-          <Clock className="h-4 w-4 text-brand-700" /> Opening hours
+          <Clock className="h-4 w-4 text-brand-700" /> {m.openingHours}
         </p>
         <dl className="space-y-1.5 text-sm">
           {[1, 2, 3, 4, 5, 6, 7].map((d) => {
@@ -76,7 +79,7 @@ export default function LocationPage() {
             return (
               <div key={d} className="flex justify-between">
                 <dt className="text-muted">{WEEKDAYS[d]}</dt>
-                <dd className="font-medium">{h ? `${h.open} – ${h.close}` : 'Closed'}</dd>
+                <dd className="font-medium">{h ? `${h.open} – ${h.close}` : m.closed}</dd>
               </div>
             );
           })}
@@ -84,7 +87,7 @@ export default function LocationPage() {
       </Card>
       {(loc?.phone || club?.club.phone) && (
         <a href={`tel:${loc?.phone ?? club?.club.phone}`} className={buttonClasses('outline', 'lg', 'w-full')}>
-          <Phone className="h-4 w-4" /> Call the club
+          <Phone className="h-4 w-4" /> {m.callClub}
         </a>
       )}
     </div>

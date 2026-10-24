@@ -14,7 +14,10 @@ import { Modal } from '@/components/ui/overlay';
 import { api, call } from '@/lib/api/client';
 import type { S } from '@/lib/api/types';
 import { useAuth } from '@/lib/auth';
-import { clubNow, fmt, localDayLabel } from '@/lib/format';
+import { clubNow, fmt, formatDate, localDayLabel } from '@/lib/format';
+import { messagesFor, useT } from '@/lib/i18n';
+import { commonMessages } from '@/lib/i18n/messages/common';
+import { sessionMessages } from '@/lib/i18n/messages/sessions';
 import { keys, useClub, useLevels, useTeachers } from '@/lib/queries';
 import { useHydrated } from '@/lib/use-hydrated';
 import { cn, FORMAT_LABELS, TIME_OF_DAY_LABELS } from '@/lib/utils';
@@ -64,6 +67,7 @@ function Schedule() {
   const { data: club } = useClub();
   const filters = readFilters(params);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const t = useT(sessionMessages);
 
   const hydrated = useHydrated();
   const daysAhead = hydrated ? Math.min(Math.max(club?.policies.bookingOpenDaysAhead ?? 14, 7), 31) : 14;
@@ -108,9 +112,9 @@ function Schedule() {
 
   return (
     <div className="space-y-4">
-      <ClientTopBar title="Schedule" />
+      <ClientTopBar title={t.schedule} />
 
-      <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 scrollbar-none" role="tablist" aria-label="Choose a day">
+      <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 scrollbar-none" role="tablist" aria-label={t.chooseDay}>
         {days.map((d) => {
           const iso = d.toISODate()!;
           const count = (byDay.get(iso) ?? []).filter((s) => s.available > 0 && s.status !== 'COMPLETED' && s.status !== 'STARTED').length;
@@ -129,7 +133,7 @@ function Schedule() {
                 closed && !active && 'opacity-50',
               )}
             >
-              <span className={cn('text-[11px] font-semibold uppercase', active ? 'text-white/80' : 'text-muted')}>{d.setLocale('en-GB').toFormat('ccc')}</span>
+              <span className={cn('text-[11px] font-semibold uppercase', active ? 'text-white/80' : 'text-muted')}>{formatDate(d, 'ccc')}</span>
               <span className="font-display text-lg font-semibold leading-tight">{d.day}</span>
               <span className={cn('mt-1 h-1.5 w-1.5 rounded-full', count ? (active ? 'bg-zest' : 'bg-brand-500') : 'bg-transparent')} />
             </button>
@@ -146,24 +150,25 @@ function Schedule() {
             activeFilterCount ? 'border-brand-700 bg-brand-700 text-white' : 'border-line bg-white',
           )}
         >
-          <SlidersHorizontal className="h-4 w-4" /> Filters{activeFilterCount ? ` · ${activeFilterCount}` : ''}
+          <SlidersHorizontal className="h-4 w-4" /> {t.filters}
+          {activeFilterCount ? ` · ${activeFilterCount}` : ''}
         </button>
         <QuickChip active={!!filters.availableOnly} onClick={() => update({ ...filters, availableOnly: !filters.availableOnly || undefined })}>
-          Free seats
+          {t.freeSeats}
         </QuickChip>
         {isClient && (
           <QuickChip active={!!filters.matchMyLevel} onClick={() => update({ ...filters, matchMyLevel: !filters.matchMyLevel || undefined })}>
-            My level
+            {t.myLevel}
           </QuickChip>
         )}
-        {(['AFTERNOON', 'EVENING'] as const).map((t) => (
-          <QuickChip key={t} active={filters.timeOfDay === t} onClick={() => update({ ...filters, timeOfDay: filters.timeOfDay === t ? undefined : t })}>
-            {TIME_OF_DAY_LABELS[t]}
+        {(['AFTERNOON', 'EVENING'] as const).map((time) => (
+          <QuickChip key={time} active={filters.timeOfDay === time} onClick={() => update({ ...filters, timeOfDay: filters.timeOfDay === time ? undefined : time })}>
+            {TIME_OF_DAY_LABELS[time]}
           </QuickChip>
         ))}
         {activeFilterCount > 0 && (
           <button type="button" onClick={() => update({})} className="inline-flex shrink-0 items-center gap-1 px-2 text-sm font-semibold text-brand-700">
-            <X className="h-4 w-4" /> Clear
+            <X className="h-4 w-4" /> {t.clear}
           </button>
         )}
       </div>
@@ -177,12 +182,12 @@ function Schedule() {
       ) : sessions.length === 0 ? (
         <EmptyState
           icon={<CalendarX2 className="h-7 w-7" />}
-          title={closedDay(days.find((d) => d.toISODate() === selected) ?? today) ? 'The club is closed this day' : 'No sessions match'}
-          description={activeFilterCount ? 'Try removing some filters or pick another day.' : 'Pick another day to see available sessions.'}
+          title={closedDay(days.find((d) => d.toISODate() === selected) ?? today) ? t.closedDay : t.noMatch}
+          description={activeFilterCount ? t.removeFilters : t.pickAnotherDay}
           action={
             activeFilterCount ? (
               <Button variant="outline" size="sm" onClick={() => update({}, requested)}>
-                Clear filters
+                {t.clearFilters}
               </Button>
             ) : undefined
           }
@@ -203,7 +208,8 @@ function Schedule() {
 function headingFor(isoDate: string): string {
   const label = fmt.localDate(isoDate);
   const relative = localDayLabel(isoDate);
-  return relative === 'Today' || relative === 'Tomorrow' ? `${relative} · ${label}` : label;
+  const common = messagesFor(commonMessages);
+  return relative === common.today || relative === common.tomorrow ? `${relative} · ${label}` : label;
 }
 
 function QuickChip({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
@@ -238,6 +244,7 @@ function FiltersSheet({
   const { data: teachers } = useTeachers();
   const { data: levels } = useLevels();
   const [draft, setDraft] = useState<Filters>(filters);
+  const t = useT(sessionMessages);
   const [lastOpen, setLastOpen] = useState(false);
   if (open && !lastOpen) {
     setLastOpen(true);
@@ -250,11 +257,11 @@ function FiltersSheet({
     <Modal
       open={open}
       onOpenChange={onOpenChange}
-      title="Filters"
+      title={t.filters}
       footer={
         <>
           <Button variant="ghost" onClick={() => setDraft({})}>
-            Reset
+            {t.reset}
           </Button>
           <Button
             onClick={() => {
@@ -262,25 +269,25 @@ function FiltersSheet({
               onOpenChange(false);
             }}
           >
-            Show sessions
+            {t.showSessions}
           </Button>
         </>
       }
     >
       <div className="space-y-5">
-        <Field label="Teacher" htmlFor="f-teacher">
+        <Field label={t.teacher} htmlFor="f-teacher">
           <Select id="f-teacher" value={draft.teacherId ?? ''} onChange={(e) => setDraft({ ...draft, teacherId: e.target.value || undefined })}>
-            <option value="">Any teacher</option>
-            {teachers?.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
+            <option value="">{t.anyTeacher}</option>
+            {teachers?.map((teacher) => (
+              <option key={teacher.id} value={teacher.id}>
+                {teacher.name}
               </option>
             ))}
           </Select>
         </Field>
-        <Field label="Level" htmlFor="f-level">
+        <Field label={t.level} htmlFor="f-level">
           <Select id="f-level" value={draft.levelId ?? ''} onChange={(e) => setDraft({ ...draft, levelId: e.target.value || undefined, matchMyLevel: undefined })}>
-            <option value="">Any level</option>
+            <option value="">{t.anyLevel}</option>
             {levels?.map((l) => (
               <option key={l.id} value={l.id}>
                 {l.name}
@@ -288,15 +295,15 @@ function FiltersSheet({
             ))}
           </Select>
         </Field>
-        <Field label="Time of day">
+        <Field label={t.timeOfDay}>
           <ChipGroup
             size="sm"
-            options={(['MORNING', 'AFTERNOON', 'EVENING'] as const).map((t) => ({ value: t, label: TIME_OF_DAY_LABELS[t] }))}
+            options={(['MORNING', 'AFTERNOON', 'EVENING'] as const).map((time) => ({ value: time, label: TIME_OF_DAY_LABELS[time] }))}
             value={draft.timeOfDay ?? null}
             onChange={(v) => setDraft({ ...draft, timeOfDay: v === draft.timeOfDay ? undefined : (v as TimeOfDay) })}
           />
         </Field>
-        <Field label="Format">
+        <Field label={t.format}>
           <ChipGroup
             size="sm"
             options={(['OFFLINE', 'ONLINE'] as const).map((f) => ({ value: f, label: FORMAT_LABELS[f] }))}
@@ -304,13 +311,13 @@ function FiltersSheet({
             onChange={(v) => setDraft({ ...draft, format: v === draft.format ? undefined : (v as SessionFormat) })}
           />
         </Field>
-        <Switch checked={!!draft.availableOnly} onChange={(v) => setDraft({ ...draft, availableOnly: v || undefined })} label="Only sessions with free seats" />
+        <Switch checked={!!draft.availableOnly} onChange={(v) => setDraft({ ...draft, availableOnly: v || undefined })} label={t.onlyFree} />
         {isClient && (
           <Switch
             checked={!!draft.matchMyLevel}
             onChange={(v) => setDraft({ ...draft, matchMyLevel: v || undefined, levelId: v ? undefined : draft.levelId })}
-            label="Match my level"
-            description="Sessions suitable for the level in your profile"
+            label={t.matchMyLevel}
+            description={t.matchMyLevelHint}
           />
         )}
       </div>

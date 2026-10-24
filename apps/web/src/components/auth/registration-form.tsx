@@ -9,14 +9,13 @@ import { Checkbox, ChipGroup, Field, Input, Select } from '@/components/ui/input
 import { api, call, errorMessage, fieldErrors } from '@/lib/api/client';
 import type { AuthTokens, S } from '@/lib/api/types';
 import { useLeadSources, useLevels } from '@/lib/queries';
+import { Rich, useT } from '@/lib/i18n';
+import { authMessages } from '@/lib/i18n/messages/auth';
 import { FORMAT_LABELS, TIME_OF_DAY_LABELS, WEEKDAYS_SHORT } from '@/lib/utils';
 
 type TimeOfDay = S<'TimeOfDay'>;
 type FormatPreference = S<'FormatPreference'>;
 
-const DAY_OPTIONS = [1, 2, 3, 4, 5, 6].map((d) => ({ value: d, label: WEEKDAYS_SHORT[d] }));
-const TIME_OPTIONS = (['MORNING', 'AFTERNOON', 'EVENING'] as const).map((t) => ({ value: t, label: TIME_OF_DAY_LABELS[t] }));
-const FORMAT_OPTIONS = (['OFFLINE', 'ONLINE', 'ANY'] as const).map((f) => ({ value: f, label: FORMAT_LABELS[f] }));
 
 export function RegistrationForm({
   registrationToken,
@@ -27,6 +26,10 @@ export function RegistrationForm({
   referralCode?: string;
   onDone: (tokens: AuthTokens) => void;
 }) {
+  const t = useT(authMessages);
+  const DAY_OPTIONS = [1, 2, 3, 4, 5, 6].map((d) => ({ value: d, label: WEEKDAYS_SHORT[d] }));
+  const TIME_OPTIONS = (['MORNING', 'AFTERNOON', 'EVENING'] as const).map((v) => ({ value: v, label: TIME_OF_DAY_LABELS[v] }));
+  const FORMAT_OPTIONS = (['OFFLINE', 'ONLINE', 'ANY'] as const).map((f) => ({ value: f, label: FORMAT_LABELS[f] }));
   const { data: levels } = useLevels();
   const { data: sources } = useLeadSources();
   const [firstName, setFirstName] = useState('');
@@ -73,19 +76,19 @@ export function RegistrationForm({
       }}
     >
       <div className="grid grid-cols-2 gap-3">
-        <Field label="First name" required htmlFor="firstName" error={errors.firstName}>
+        <Field label={t.firstName} required htmlFor="firstName" error={errors.firstName}>
           <Input id="firstName" autoComplete="given-name" value={firstName} onChange={(e) => setFirstName(e.target.value)} required maxLength={60} autoFocus />
         </Field>
-        <Field label="Last name" htmlFor="lastName" error={errors.lastName}>
+        <Field label={t.lastName} htmlFor="lastName" error={errors.lastName}>
           <Input id="lastName" autoComplete="family-name" value={lastName} onChange={(e) => setLastName(e.target.value)} maxLength={60} />
         </Field>
       </div>
-      <Field label="Email" hint="For receipts and important updates (optional)" htmlFor="email" error={errors.email}>
+      <Field label={t.email} hint={t.emailHint} htmlFor="email" error={errors.email}>
         <Input id="email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} maxLength={120} />
       </Field>
-      <Field label="Your English level" hint="Not sure? Leave it — the teacher will help after your first session." htmlFor="level">
+      <Field label={t.level} hint={t.levelHint} htmlFor="level">
         <Select id="level" value={levelId} onChange={(e) => setLevelId(e.target.value)}>
-          <option value="">I&apos;m not sure</option>
+          <option value="">{t.levelUnsure}</option>
           {levels?.map((l) => (
             <option key={l.id} value={l.id}>
               {l.name}
@@ -93,18 +96,18 @@ export function RegistrationForm({
           ))}
         </Select>
       </Field>
-      <Field label="Which days suit you?">
+      <Field label={t.days}>
         <ChipGroup options={DAY_OPTIONS} value={days} onChange={(v) => setDays(v as number[])} multiple size="sm" />
       </Field>
-      <Field label="Preferred time">
+      <Field label={t.time}>
         <ChipGroup options={TIME_OPTIONS} value={times} onChange={(v) => setTimes(v as TimeOfDay[])} multiple size="sm" />
       </Field>
-      <Field label="Format">
+      <Field label={t.format}>
         <ChipGroup options={FORMAT_OPTIONS} value={format} onChange={(v) => setFormat(v as FormatPreference)} size="sm" />
       </Field>
-      <Field label="How did you hear about us?" htmlFor="source">
+      <Field label={t.source} htmlFor="source">
         <Select id="source" value={sourceCode} onChange={(e) => setSourceCode(e.target.value)}>
-          <option value="">Choose…</option>
+          <option value="">{t.choose}</option>
           {sources?.map((s) => (
             <option key={s.id} value={s.code}>
               {s.name}
@@ -117,23 +120,28 @@ export function RegistrationForm({
           checked={acceptTerms}
           onChange={setAcceptTerms}
           label={
-            <>
-              I accept the{' '}
-              <Link href="/legal/TERMS" target="_blank" className="font-semibold text-brand-700 underline">
-                Terms of Use
-              </Link>{' '}
-              and{' '}
-              <Link href="/legal/PRIVACY_POLICY" target="_blank" className="font-semibold text-brand-700 underline">
-                Privacy Policy
-              </Link>
-            </>
+            <Rich
+              text={t.acceptTerms}
+              tags={{
+                terms: (c) => (
+                  <Link href="/legal/TERMS" target="_blank" className="font-semibold text-brand-700 underline">
+                    {c}
+                  </Link>
+                ),
+                privacy: (c) => (
+                  <Link href="/legal/PRIVACY_POLICY" target="_blank" className="font-semibold text-brand-700 underline">
+                    {c}
+                  </Link>
+                ),
+              }}
+            />
           }
         />
-        <Checkbox checked={marketing} onChange={setMarketing} label="Send me news, events and special offers" description="You can change this any time in your profile." />
+        <Checkbox checked={marketing} onChange={setMarketing} label={t.marketing} description={t.marketingHint} />
       </div>
       {register.error && !Object.keys(errors).length && <InlineAlert tone="danger">{errorMessage(register.error)}</InlineAlert>}
       <Button type="submit" size="lg" block loading={register.isPending} disabled={!firstName.trim() || !acceptTerms}>
-        Create account
+        {t.create}
       </Button>
     </form>
   );

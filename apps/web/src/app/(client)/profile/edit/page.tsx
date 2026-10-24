@@ -15,6 +15,9 @@ import { api, call, errorMessage, fieldErrors, uploadFile } from '@/lib/api/clie
 import type { ClientProfile, S } from '@/lib/api/types';
 import { useAuth } from '@/lib/auth';
 import { useLevels, useProfile, useTeachers } from '@/lib/queries';
+import { useT } from '@/lib/i18n';
+import { profileMessages } from '@/lib/i18n/messages/profile';
+import { messagesFor } from '@/lib/i18n';
 import { FORMAT_LABELS, TIME_OF_DAY_LABELS, WEEKDAYS_SHORT } from '@/lib/utils';
 
 type TimeOfDay = S<'TimeOfDay'>;
@@ -42,6 +45,7 @@ function ProfileForm({ profile }: { profile: ClientProfile }) {
   const { data: levels } = useLevels();
   const { data: teachers } = useTeachers();
   const fileRef = useRef<HTMLInputElement>(null);
+  const t = useT(profileMessages);
   const [form, setForm] = useState({
     firstName: profile.firstName,
     lastName: profile.lastName ?? '',
@@ -51,7 +55,7 @@ function ProfileForm({ profile }: { profile: ClientProfile }) {
     preferredDays: profile.preferredDays,
     preferredTimes: profile.preferredTimes as TimeOfDay[],
     formatPreference: profile.formatPreference as FormatPreference,
-    preferredTeacherIds: profile.preferredTeachers.map((t) => t.id),
+    preferredTeacherIds: profile.preferredTeachers.map((teacher) => teacher.id),
     photoUrl: profile.photoUrl,
   });
   const [uploading, setUploading] = useState(false);
@@ -79,7 +83,7 @@ function ProfileForm({ profile }: { profile: ClientProfile }) {
       ),
     onSuccess: async () => {
       await Promise.all([qc.invalidateQueries({ queryKey: ['my'] }), qc.invalidateQueries({ queryKey: ['sessions'] }), reloadUser()]);
-      toast.success('Profile saved.');
+      toast.success(messagesFor(profileMessages).profileSaved);
       router.push('/profile');
     },
   });
@@ -106,39 +110,39 @@ function ProfileForm({ profile }: { profile: ClientProfile }) {
         save.mutate();
       }}
     >
-      <PageHeader back="/profile" title="Edit profile" />
+      <PageHeader back="/profile" title={t.menu.edit} />
       <div className="flex flex-col items-center gap-3">
-        <button type="button" onClick={() => fileRef.current?.click()} className="relative" aria-label="Change photo">
+        <button type="button" onClick={() => fileRef.current?.click()} className="relative" aria-label={t.changePhoto}>
           <Avatar name={`${form.firstName} ${form.lastName}`} src={form.photoUrl} size="xl" className="h-24 w-24 text-3xl" />
           <span className="absolute -bottom-1 -right-1 flex h-9 w-9 items-center justify-center rounded-full bg-brand-700 text-white ring-4 ring-canvas">
             <Camera className="h-4 w-4" />
           </span>
         </button>
         <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={(e) => void onPhoto(e.target.files?.[0])} />
-        {uploading && <p className="text-xs text-muted">Uploading…</p>}
+        {uploading && <p className="text-xs text-muted">{t.uploading}</p>}
         {form.photoUrl && (
           <button type="button" className="text-xs font-semibold text-muted" onClick={() => setForm({ ...form, photoUrl: null })}>
-            Remove photo
+            {t.removePhoto}
           </button>
         )}
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <Field label="First name" required htmlFor="firstName" error={errors.firstName}>
+        <Field label={t.firstName} required htmlFor="firstName" error={errors.firstName}>
           <Input id="firstName" value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} required maxLength={60} />
         </Field>
-        <Field label="Last name" htmlFor="lastName" error={errors.lastName}>
+        <Field label={t.lastName} htmlFor="lastName" error={errors.lastName}>
           <Input id="lastName" value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} maxLength={60} />
         </Field>
       </div>
-      <Field label="Email" htmlFor="email" error={errors.email}>
+      <Field label={t.email} htmlFor="email" error={errors.email}>
         <Input id="email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
       </Field>
-      <Field label="Date of birth" htmlFor="birthDate" error={errors.birthDate}>
+      <Field label={t.birthDate} htmlFor="birthDate" error={errors.birthDate}>
         <Input id="birthDate" type="date" value={form.birthDate} onChange={(e) => setForm({ ...form, birthDate: e.target.value })} />
       </Field>
-      <Field label="English level" htmlFor="level" hint="Your teacher may update this after sessions.">
+      <Field label={t.level} htmlFor="level" hint={t.levelHint}>
         <Select id="level" value={form.levelId} onChange={(e) => setForm({ ...form, levelId: e.target.value })}>
-          <option value="">Not sure</option>
+          <option value="">{t.notSure}</option>
           {levels?.map((l) => (
             <option key={l.id} value={l.id}>
               {l.name}
@@ -146,7 +150,7 @@ function ProfileForm({ profile }: { profile: ClientProfile }) {
           ))}
         </Select>
       </Field>
-      <Field label="Preferred days">
+      <Field label={t.preferredDays}>
         <ChipGroup
           size="sm"
           multiple
@@ -155,16 +159,16 @@ function ProfileForm({ profile }: { profile: ClientProfile }) {
           onChange={(v) => setForm({ ...form, preferredDays: v as number[] })}
         />
       </Field>
-      <Field label="Preferred time">
+      <Field label={t.preferredTime}>
         <ChipGroup
           size="sm"
           multiple
-          options={(['MORNING', 'AFTERNOON', 'EVENING'] as const).map((t) => ({ value: t, label: TIME_OF_DAY_LABELS[t] }))}
+          options={(['MORNING', 'AFTERNOON', 'EVENING'] as const).map((time) => ({ value: time, label: TIME_OF_DAY_LABELS[time] }))}
           value={form.preferredTimes}
           onChange={(v) => setForm({ ...form, preferredTimes: v as TimeOfDay[] })}
         />
       </Field>
-      <Field label="Format">
+      <Field label={t.format}>
         <ChipGroup
           size="sm"
           options={(['OFFLINE', 'ONLINE', 'ANY'] as const).map((f) => ({ value: f, label: FORMAT_LABELS[f] }))}
@@ -173,21 +177,21 @@ function ProfileForm({ profile }: { profile: ClientProfile }) {
         />
       </Field>
       {teachers && teachers.length > 0 && (
-        <Field label="Favourite teachers" hint="We'll recommend their sessions first.">
+        <Field label={t.favouriteTeachers} hint={t.favouriteTeachersHint}>
           <ChipGroup
             size="sm"
             multiple
-            options={teachers.map((t) => ({ value: t.id, label: t.firstName }))}
+            options={teachers.map((teacher) => ({ value: teacher.id, label: teacher.firstName }))}
             value={form.preferredTeacherIds}
             onChange={(v) => setForm({ ...form, preferredTeacherIds: v as string[] })}
           />
         </Field>
       )}
-      <p className="text-xs text-muted">To change your phone number, please contact the administrator.</p>
+      <p className="text-xs text-muted">{t.phoneNote}</p>
       {save.error && !Object.keys(errors).length && <InlineAlert tone="danger">{errorMessage(save.error)}</InlineAlert>}
       <StickyActions>
         <Button type="submit" size="lg" block loading={save.isPending} disabled={!form.firstName.trim() || uploading}>
-          Save changes
+          {t.saveChanges}
         </Button>
       </StickyActions>
     </form>

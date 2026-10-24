@@ -14,6 +14,8 @@ import { toast } from '@/components/ui/toast';
 import { api, call, errorMessage, fieldErrors } from '@/lib/api/client';
 import { useAuth } from '@/lib/auth';
 import { keys, useLevels } from '@/lib/queries';
+import { messagesFor, useT } from '@/lib/i18n';
+import { profileMessages } from '@/lib/i18n/messages/profile';
 import { CATEGORY_LABELS } from '@/lib/utils';
 
 export default function FamilyPage() {
@@ -31,6 +33,7 @@ function Family() {
   const { data: levels } = useLevels();
   const query = useQuery({ queryKey: keys.family, queryFn: () => call(api.GET('/api/my/family')) });
   const [open, setOpen] = useState(false);
+  const t = useT(profileMessages);
   const [form, setForm] = useState({ firstName: '', lastName: '', birthDate: '', levelId: '', category: 'CHILD' as 'CHILD' | 'TEEN' });
 
   const add = useMutation({
@@ -51,14 +54,14 @@ function Family() {
       await reloadUser();
       setOpen(false);
       setForm({ firstName: '', lastName: '', birthDate: '', levelId: '', category: 'CHILD' });
-      toast.success('Profile added. You can now book sessions for them.');
+      toast.success(messagesFor(profileMessages).childAdded);
     },
   });
   const errors = fieldErrors(add.error);
 
   return (
     <div className="space-y-5 pt-5">
-      <PageHeader back="/profile" title="Family" subtitle="Book sessions and manage memberships for your children." />
+      <PageHeader back="/profile" title={t.family} subtitle={t.familySubtitle} />
       {query.isLoading ? (
         <SkeletonList count={2} />
       ) : query.error ? (
@@ -73,7 +76,7 @@ function Family() {
                 <div className="mt-1 flex flex-wrap gap-1.5">
                   <Badge>{CATEGORY_LABELS[m.profile.category] ?? m.profile.category}</Badge>
                   {m.profile.level && <Badge tone="brand">{m.profile.level.name}</Badge>}
-                  {m.membership ? <Badge tone="success">{m.membership.visitsRemaining} visits left</Badge> : <Badge tone="warning">No membership</Badge>}
+                  {m.membership ? <Badge tone="success">{t.visitsLeft(m.membership.visitsRemaining)}</Badge> : <Badge tone="warning">{t.noMembership}</Badge>}
                 </div>
               </div>
               <Button
@@ -84,54 +87,54 @@ function Family() {
                   router.push('/');
                 }}
               >
-                Switch
+                {t.switch}
               </Button>
             </Card>
           ))}
         </div>
       ) : (
-        <EmptyState icon={<Users className="h-7 w-7" />} title="No children added" description="Add your child's profile to book Kids or Teens sessions for them." />
+        <EmptyState icon={<Users className="h-7 w-7" />} title={t.noChildren} description={t.noChildrenText} />
       )}
       <Button variant="outline" size="lg" block leftIcon={<Plus className="h-5 w-5" />} onClick={() => setOpen(true)}>
-        Add a child
+        {t.addChild}
       </Button>
 
       <Modal
         open={open}
         onOpenChange={setOpen}
-        title="Add a child"
+        title={t.addChild}
         footer={
           <>
             <Button variant="ghost" onClick={() => setOpen(false)}>
-              Cancel
+              {t.cancel}
             </Button>
             <Button loading={add.isPending} disabled={!form.firstName.trim()} onClick={() => add.mutate()}>
-              Add profile
+              {t.addProfile}
             </Button>
           </>
         }
       >
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
-            <Field label="First name" required htmlFor="c-first" error={errors.firstName}>
+            <Field label={t.firstName} required htmlFor="c-first" error={errors.firstName}>
               <Input id="c-first" value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} maxLength={60} />
             </Field>
-            <Field label="Last name" htmlFor="c-last" error={errors.lastName}>
+            <Field label={t.lastName} htmlFor="c-last" error={errors.lastName}>
               <Input id="c-last" value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} maxLength={60} />
             </Field>
           </div>
-          <Field label="Group" htmlFor="c-cat">
+          <Field label={t.group} htmlFor="c-cat">
             <Select id="c-cat" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value as 'CHILD' | 'TEEN' })}>
-              <option value="CHILD">Kids</option>
-              <option value="TEEN">Teens</option>
+              <option value="CHILD">{t.kids}</option>
+              <option value="TEEN">{t.teens}</option>
             </Select>
           </Field>
-          <Field label="Date of birth" htmlFor="c-birth" error={errors.birthDate}>
+          <Field label={t.birthDate} htmlFor="c-birth" error={errors.birthDate}>
             <Input id="c-birth" type="date" value={form.birthDate} onChange={(e) => setForm({ ...form, birthDate: e.target.value })} />
           </Field>
-          <Field label="English level" htmlFor="c-level">
+          <Field label={t.level} htmlFor="c-level">
             <Select id="c-level" value={form.levelId} onChange={(e) => setForm({ ...form, levelId: e.target.value })}>
-              <option value="">Not sure</option>
+              <option value="">{t.notSure}</option>
               {levels?.map((l) => (
                 <option key={l.id} value={l.id}>
                   {l.name}

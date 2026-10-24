@@ -2911,6 +2911,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/me/locale": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Set the interface and message language (en, ru, kk) */
+        patch: operations["Me_setLocale"];
+        trace?: never;
+    };
     "/api/my/home": {
         parameters: {
             query?: never;
@@ -3511,6 +3528,11 @@ export interface components {
             phone: string;
             code: string;
         };
+        /**
+         * @description Interface and message language
+         * @enum {string}
+         */
+        Locale: "en" | "ru" | "kk";
         SessionClientDto: {
             id: string;
             firstName: string;
@@ -3531,6 +3553,8 @@ export interface components {
             teacher: boolean;
         };
         SessionUserDto: {
+            /** @description Interface and message language */
+            locale: components["schemas"]["Locale"];
             id: string;
             displayName: string;
             phone: string | null;
@@ -6275,6 +6299,9 @@ export interface components {
             user: components["schemas"]["SessionUserDto"];
             /** @description The signed-in user's own client profile */
             profile: components["schemas"]["ClientProfileDto"] | null;
+        };
+        SetLocaleDto: {
+            locale: components["schemas"]["Locale"];
         };
         HomeStatsDto: {
             attendedThisMonth: number;
@@ -14327,6 +14354,29 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MeDto"];
+                };
+            };
+        };
+    };
+    Me_setLocale: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetLocaleDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionUserDto"];
                 };
             };
         };

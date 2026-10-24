@@ -14,6 +14,10 @@ import { api, call, errorCode, errorMessage } from '@/lib/api/client';
 import type { AuthTokens, SessionUser } from '@/lib/api/types';
 import { useAuth } from '@/lib/auth';
 import { phoneDigitsComplete } from '@/lib/format';
+import { Rich, useT } from '@/lib/i18n';
+import { authMessages } from '@/lib/i18n/messages/auth';
+import { commonMessages } from '@/lib/i18n/messages/common';
+import { LanguageSwitcher } from '@/components/ui/language-switcher';
 import { RegistrationForm } from './registration-form';
 import { Turnstile } from './turnstile';
 import { TwoFactorChallenge, twoFactorChallenge, TwoFactorStep } from './two-factor-step';
@@ -53,19 +57,24 @@ export function clearReferralCode(): void {
   }
 }
 
+const bold = { b: (c: ReactNode) => <span className="font-semibold text-ink">{c}</span> };
+
 function AuthHeader({ title, subtitle, onBack }: { title: string; subtitle?: ReactNode; onBack?: () => void }) {
+  const t = useT(authMessages);
+  const common = useT(commonMessages);
   return (
     <div className="pb-6 pt-5">
       <div className="flex h-11 items-center justify-between">
         {onBack ? (
-          <button type="button" onClick={onBack} className="-ml-2 rounded-xl p-2 hover:bg-brand-50" aria-label="Back">
+          <button type="button" onClick={onBack} className="-ml-2 rounded-xl p-2 hover:bg-brand-50" aria-label={common.back}>
             <ArrowLeft className="h-5 w-5" />
           </button>
         ) : (
-          <Link href="/" aria-label="Talk Club home">
+          <Link href="/" aria-label={t.homeLink}>
             <Logo />
           </Link>
         )}
+        <LanguageSwitcher />
       </div>
       <h1 className="mt-6 font-display text-[28px] font-semibold leading-tight">{title}</h1>
       {subtitle && <p className="mt-2 text-[15px] text-muted">{subtitle}</p>}
@@ -94,6 +103,8 @@ export function AuthFlow({ mode }: { mode: 'login' | 'register' }) {
   const params = useSearchParams();
   const next = params.get('next');
   const { status, user, applySession } = useAuth();
+  const t = useT(authMessages);
+  const common = useT(commonMessages);
   const referralCode = useReferralCode();
   const [step, setStep] = useState<Step>({ name: 'phone' });
   const [phone, setPhone] = useState('');
@@ -189,7 +200,7 @@ export function AuthFlow({ mode }: { mode: 'login' | 'register' }) {
   if (step.name === 'register') {
     return (
       <>
-        <AuthHeader title="Nice to meet you!" subtitle="A few details so we can find the right group for you." onBack={() => setStep({ name: 'phone' })} />
+        <AuthHeader title={t.niceToMeet} subtitle={t.niceToMeetSubtitle} onBack={() => setStep({ name: 'phone' })} />
         <RegistrationForm registrationToken={step.token} referralCode={referralCode} onDone={(tokens) => {
           clearReferralCode();
           applySession(tokens);
@@ -215,7 +226,7 @@ export function AuthFlow({ mode }: { mode: 'login' | 'register' }) {
 
   const captchaPanel = captcha && (
     <div className="mb-5 rounded-2xl border border-line bg-white p-4">
-      <p className="mb-3 text-center text-sm font-medium text-ink">Please confirm that you are not a robot</p>
+      <p className="mb-3 text-center text-sm font-medium text-ink">{t.notRobot}</p>
       <Turnstile
         siteKey={captcha.siteKey}
         onToken={(token) => requestOtp.mutate({ ...captcha.retry, captchaToken: token })}
@@ -226,25 +237,27 @@ export function AuthFlow({ mode }: { mode: 'login' | 'register' }) {
   if (step.name === 'telegram-link') {
     return (
       <>
-        <AuthHeader title="Get your code in Telegram" subtitle="Link your number to the Talk Club bot once — next time the code arrives right away." onBack={() => setStep({ name: 'phone' })} />
+        <AuthHeader title={t.telegramTitle} subtitle={t.telegramSubtitle} onBack={() => setStep({ name: 'phone' })} />
         <ol className="mb-6 list-decimal space-y-2 pl-5 text-[15px] text-ink">
-          <li>Open the Talk Club bot in Telegram and tap <span className="font-semibold">Start</span>.</li>
-          <li>Tap <span className="font-semibold">Share my phone number</span> and confirm.</li>
-          <li>Come back here and tap <span className="font-semibold">Send code</span>.</li>
+          {[t.telegramStep1, t.telegramStep2, t.telegramStep3].map((text) => (
+            <li key={text}>
+              <Rich text={text} tags={bold} />
+            </li>
+          ))}
         </ol>
         {captchaPanel}
         <div className="space-y-3">
           {step.botUrl && (
             <a href={step.botUrl} target="_blank" rel="noopener noreferrer" className={buttonClasses('outline', 'lg', 'w-full gap-2')}>
-              <Send className="h-5 w-5" /> Open Telegram
+              <Send className="h-5 w-5" /> {t.openTelegram}
             </a>
           )}
           <Button size="lg" block loading={requestOtp.isPending} onClick={() => requestOtp.mutate({ value: step.phone, channel: 'telegram' })}>
-            Send code
+            {t.sendCode}
           </Button>
           {channels.data?.sms && (
             <Button variant="ghost" size="lg" block disabled={requestOtp.isPending} onClick={() => requestOtp.mutate({ value: step.phone, channel: 'sms' })}>
-              Get the code by SMS instead
+              {t.smsInstead}
             </Button>
           )}
         </div>
@@ -254,10 +267,10 @@ export function AuthFlow({ mode }: { mode: 'login' | 'register' }) {
 
   if (step.name === 'code') {
     const wait = Math.max(0, Math.ceil((resendAt - now) / 1000));
-    const via = step.channel === 'telegram' ? 'in Telegram' : 'by SMS';
+    const sentTo = step.channel === 'telegram' ? t.codeSentTelegram(step.phone) : t.codeSentSms(step.phone);
     return (
       <>
-        <AuthHeader title="Enter the code" subtitle={<>We sent a 6-digit code {via} to <span className="font-semibold text-ink">{step.phone}</span></>} onBack={() => setStep({ name: 'phone' })} />
+        <AuthHeader title={t.enterCode} subtitle={<Rich text={sentTo} tags={bold} />} onBack={() => setStep({ name: 'phone' })} />
         {captchaPanel}
         <form
           className="space-y-5"
@@ -273,19 +286,19 @@ export function AuthFlow({ mode }: { mode: 'login' | 'register' }) {
             </p>
           )}
           {devCode && (
-            <InlineAlert tone="info" icon={<MessageSquareText className="h-5 w-5" />} title="Development mode">
-              Messaging is not connected. Your code is <button type="button" className="font-mono font-bold underline" onClick={() => setCode(devCode)}>{devCode}</button>
+            <InlineAlert tone="info" icon={<MessageSquareText className="h-5 w-5" />} title={t.devMode}>
+              {t.devCode} <button type="button" className="font-mono font-bold underline" onClick={() => setCode(devCode)}>{devCode}</button>
             </InlineAlert>
           )}
           <Button type="submit" size="lg" block loading={verifyOtp.isPending} disabled={code.length !== 6}>
-            Continue
+            {common.continue}
           </Button>
           <div className="text-center text-sm">
             {wait > 0 ? (
-              <span className="text-muted">Resend code in 0:{String(wait).padStart(2, '0')}</span>
+              <span className="text-muted">{t.resendIn(`0:${String(wait).padStart(2, '0')}`)}</span>
             ) : (
               <button type="button" className="font-semibold text-brand-700" onClick={() => requestOtp.mutate({ value: step.phone, channel: step.channel })} disabled={requestOtp.isPending}>
-                Send a new code
+                {t.sendNewCode}
               </button>
             )}
           </div>
@@ -306,17 +319,17 @@ export function AuthFlow({ mode }: { mode: 'login' | 'register' }) {
   return (
     <>
       <AuthHeader
-        title={mode === 'register' ? 'Join Talk Club' : 'Welcome back'}
-        subtitle={mode === 'register' ? 'Create your account with your phone number — it takes a minute.' : 'Sign in with your phone number. We will send you a code.'}
+        title={mode === 'register' ? t.join : t.welcomeBack}
+        subtitle={mode === 'register' ? t.joinSubtitle : t.welcomeBackSubtitle}
       />
       {referralCode && mode === 'register' && (
-        <InlineAlert tone="zest" className="mb-5" title="You were invited by a friend 🎉">
-          Your referral code <span className="font-semibold">{referralCode}</span> will be applied.
+        <InlineAlert tone="zest" className="mb-5" title={t.invitedTitle}>
+          <Rich text={t.invitedBody(referralCode)} tags={bold} />
         </InlineAlert>
       )}
       {captchaPanel}
       <form onSubmit={submitPhone} className="space-y-5">
-        <Field label="Phone number" htmlFor="phone">
+        <Field label={t.phone} htmlFor="phone">
           <PhoneInput id="phone" value={phone} onChange={setPhone} autoFocus />
         </Field>
         <Button
@@ -327,7 +340,7 @@ export function AuthFlow({ mode }: { mode: 'login' | 'register' }) {
           loading={requestOtp.isPending && requestOtp.variables?.channel === preferred}
           disabled={!phoneDigitsComplete(phone) || requestOtp.isPending}
         >
-          {preferred === 'telegram' ? 'Get code in Telegram' : 'Get code'}
+          {preferred === 'telegram' ? t.getCodeTelegram : t.getCode}
         </Button>
         {alternative && (
           <Button
@@ -340,36 +353,49 @@ export function AuthFlow({ mode }: { mode: 'login' | 'register' }) {
             disabled={!phoneDigitsComplete(phone) || requestOtp.isPending}
             onClick={() => requestOtp.mutate({ value: phone, channel: alternative })}
           >
-            Get code by SMS
+            {t.getCodeSms}
           </Button>
         )}
       </form>
       <div className="my-6 flex items-center gap-3 text-xs font-semibold uppercase tracking-wide text-subtle">
-        <span className="h-px flex-1 bg-line" /> or <span className="h-px flex-1 bg-line" />
+        <span className="h-px flex-1 bg-line" /> {t.or} <span className="h-px flex-1 bg-line" />
       </div>
       <Button variant="outline" size="lg" block leftIcon={<KeyRound className="h-5 w-5" />} onClick={() => setStep({ name: 'password' })}>
-        Sign in with password
+        {t.signInWithPassword}
       </Button>
       <p className="mt-auto pt-10 text-center text-sm text-muted">
         {mode === 'register' ? (
           <>
-            Already a member?{' '}
+            {t.alreadyMember}{' '}
             <Link href={`/login${next ? `?next=${encodeURIComponent(next)}` : ''}`} className="font-semibold text-brand-700">
-              Sign in
+              {t.signIn}
             </Link>
           </>
         ) : (
           <>
-            New to Talk Club?{' '}
+            {t.newHere}{' '}
             <Link href={`/register${next ? `?next=${encodeURIComponent(next)}` : ''}`} className="font-semibold text-brand-700">
-              Create an account
+              {t.createAccount}
             </Link>
           </>
         )}
       </p>
       <p className="mt-3 text-center text-xs text-subtle">
-        By continuing you agree to the <Link href="/legal/TERMS" className="underline">Terms</Link> and{' '}
-        <Link href="/legal/PRIVACY_POLICY" className="underline">Privacy Policy</Link>.
+        <Rich
+          text={t.agreement}
+          tags={{
+            terms: (c) => (
+              <Link href="/legal/TERMS" className="underline">
+                {c}
+              </Link>
+            ),
+            privacy: (c) => (
+              <Link href="/legal/PRIVACY_POLICY" className="underline">
+                {c}
+              </Link>
+            ),
+          }}
+        />
       </p>
     </>
   );
@@ -384,6 +410,7 @@ function PasswordLogin({
   onDone: (tokens: AuthTokens) => void;
   onTwoFactor: (challenge: TwoFactorChallenge) => void;
 }) {
+  const t = useT(authMessages);
   const [login, setLogin] = useState('');
   const [password, setPassword] = useState('');
   const mutation = useMutation({
@@ -397,7 +424,7 @@ function PasswordLogin({
   const shownError = mutation.error && !twoFactorChallenge(mutation.error) ? mutation.error : null;
   return (
     <>
-      <AuthHeader title="Sign in" subtitle="Use your email or phone number and password." onBack={onBack} />
+      <AuthHeader title={t.passwordTitle} subtitle={t.passwordSubtitle} onBack={onBack} />
       <form
         className="space-y-4"
         onSubmit={(e) => {
@@ -405,23 +432,23 @@ function PasswordLogin({
           mutation.mutate();
         }}
       >
-        <Field label="Email or phone" htmlFor="login">
+        <Field label={t.login} htmlFor="login">
           <Input id="login" autoComplete="username" leftIcon={<Mail className="h-4 w-4" />} value={login} onChange={(e) => setLogin(e.target.value)} autoFocus required />
         </Field>
-        <Field label="Password" htmlFor="password">
+        <Field label={t.password} htmlFor="password">
           <Input id="password" type="password" autoComplete="current-password" leftIcon={<Lock className="h-4 w-4" />} value={password} onChange={(e) => setPassword(e.target.value)} required />
         </Field>
         {shownError && (
           <InlineAlert tone="danger">
-            {errorCode(shownError) === 'AUTH_INVALID_CREDENTIALS' ? 'Wrong login or password.' : errorMessage(shownError)}
+            {errorCode(shownError) === 'AUTH_INVALID_CREDENTIALS' ? t.wrongPassword : errorMessage(shownError)}
           </InlineAlert>
         )}
         <Button type="submit" size="lg" block loading={mutation.isPending} disabled={!login || !password}>
-          Sign in
+          {t.signIn}
         </Button>
         <p className="text-center text-sm">
           <Link href="/reset-password" className="font-semibold text-brand-700">
-            Forgot password?
+            {t.forgotPassword}
           </Link>
         </p>
       </form>

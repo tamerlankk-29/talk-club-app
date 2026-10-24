@@ -10,6 +10,8 @@ import {
   type TextareaHTMLAttributes,
 } from 'react';
 import { formatPhoneInput } from '@/lib/format';
+import { messagesFor } from '@/lib/i18n/active';
+import { uiMessages } from '@/lib/i18n/messages/ui';
 import { cn } from '@/lib/utils';
 
 const control =
@@ -287,7 +289,7 @@ export function OtpInput({
         pattern="\d*"
         maxLength={length}
         autoFocus={autoFocus}
-        aria-label="Verification code"
+        aria-label={messagesFor(uiMessages).verificationCode}
         value={value}
         onChange={(e) => onChange(e.target.value.replace(/\D/g, '').slice(0, length))}
         className="absolute inset-0 z-10 h-full w-full cursor-text opacity-0"

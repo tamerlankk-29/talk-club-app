@@ -8,11 +8,14 @@ import { Markdown } from '@/components/ui/markdown';
 import { api, call } from '@/lib/api/client';
 import type { S } from '@/lib/api/types';
 import { fmt } from '@/lib/format';
+import { useT } from '@/lib/i18n';
+import { clubMessages } from '@/lib/i18n/messages/club';
 
 type LegalType = S<'LegalDocumentType'>;
 const TYPES: LegalType[] = ['TERMS', 'PRIVACY_POLICY', 'PUBLIC_OFFER'];
 
 export default function LegalPage() {
+  const m = useT(clubMessages);
   const { type } = useParams<{ type: string }>();
   const valid = TYPES.includes(type as LegalType);
   const { data, error, refetch } = useQuery({
@@ -25,7 +28,7 @@ export default function LegalPage() {
   if (error) return <ErrorState error={error} onRetry={() => refetch()} className="mt-10" />;
   return (
     <div className="space-y-5 pt-5">
-      <PageHeader back title={data?.title ?? 'Legal'} subtitle={data ? `Version ${data.version} · ${fmt.date(data.publishedAt)}` : undefined} />
+      <PageHeader back title={data?.title ?? m.legal} subtitle={data ? m.version(data.version, fmt.date(data.publishedAt)) : undefined} />
       <Card>{data ? <Markdown className="prose-club text-[15px]">{data.content}</Markdown> : <Skeleton className="h-80 w-full" />}</Card>
     </div>
   );

@@ -1,4 +1,4 @@
-import { ApiBearerAuth, ApiOperation, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiProperty, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
 import { ClientCategory, FormatPreference, TimeOfDay } from '@prisma/client';
 import {
   ArrayMaxSize,
@@ -16,6 +16,13 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
+import { LOCALES, type Locale } from '../../../common/utils/locale';
+
+export class SetLocaleDto {
+  @ApiProperty({ enum: LOCALES, enumName: 'Locale' })
+  @IsIn(LOCALES)
+  locale: Locale;
+}
 
 export class UpdateProfileDto {
   @IsOptional()
