@@ -31,6 +31,14 @@ export interface AppConfig {
     telegram: string;
     emailFrom: string;
   };
+  telegram: {
+    /** Bot API token from @BotFather. */
+    botToken: string | null;
+    /** Bot username without "@", used for t.me links. */
+    botUsername: string | null;
+    /** Shared secret Telegram sends with every webhook call. */
+    webhookSecret: string | null;
+  };
   payments: {
     mockOnlineEnabled: boolean;
     webhookSecret: string | null;
@@ -92,6 +100,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       telegram: env.NOTIFY_TELEGRAM_PROVIDER ?? 'console',
       emailFrom: env.EMAIL_FROM ?? 'Talk Club <hello@talkclub.kz>',
     },
+    telegram: {
+      botToken: str(env.TELEGRAM_BOT_TOKEN),
+      botUsername: str(env.TELEGRAM_BOT_USERNAME)?.replace(/^@/, '') ?? null,
+      webhookSecret: str(env.TELEGRAM_WEBHOOK_SECRET),
+    },
     payments: {
       mockOnlineEnabled: bool(env.PAYMENT_MOCK_ONLINE_ENABLED, !isProduction),
       webhookSecret: str(env.PAYMENT_WEBHOOK_SECRET),
@@ -121,6 +134,12 @@ function validateConfig(config: AppConfig): void {
   }
   if (config.isProduction && config.payments.mockOnlineEnabled) {
     problems.push('PAYMENT_MOCK_ONLINE_ENABLED must be false in staging/production');
+  }
+  if (config.telegram.botToken && !config.telegram.botUsername) {
+    problems.push('TELEGRAM_BOT_USERNAME is required when TELEGRAM_BOT_TOKEN is set');
+  }
+  if (config.isProduction && config.telegram.botToken && (config.telegram.webhookSecret?.length ?? 0) < 24) {
+    problems.push('TELEGRAM_WEBHOOK_SECRET must be at least 24 random characters when the Telegram bot is enabled');
   }
   if (problems.length) {
     throw new Error(`Invalid configuration:\n - ${problems.join('\n - ')}`);

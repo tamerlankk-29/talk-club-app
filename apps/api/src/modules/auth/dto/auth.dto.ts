@@ -26,13 +26,30 @@ export class RequestOtpDto {
   @IsString()
   @MaxLength(32)
   phone: string;
+
+  /** Where to send the code. Defaults to SMS when it is available, otherwise Telegram. */
+  @ApiPropertyOptional({ enum: ['sms', 'telegram'] })
+  @IsOptional()
+  @IsIn(['sms', 'telegram'])
+  channel?: 'sms' | 'telegram';
 }
 
 export class OtpRequestedDto {
+  @ApiProperty({ enum: ['sms', 'telegram'] })
+  channel: 'sms' | 'telegram';
   expiresInSeconds: number;
   resendInSeconds: number;
   /** Development only (AUTH_OTP_DEV_ECHO=true): the code that was "sent". */
   devCode?: string;
+}
+
+export class OtpChannelsDto {
+  /** Codes can be sent by SMS. */
+  sms: boolean;
+  /** Codes can be sent through the Talk Club Telegram bot. */
+  telegram: boolean;
+  /** Link that opens the bot, where members share their phone number once. */
+  telegramBotUrl: string | null;
 }
 
 export class VerifyOtpDto {
@@ -149,6 +166,12 @@ export class ResetPasswordRequestDto {
   @IsString()
   @MaxLength(32)
   phone: string;
+
+  /** Where to send the code. Defaults to SMS when it is available, otherwise Telegram. */
+  @ApiPropertyOptional({ enum: ['sms', 'telegram'] })
+  @IsOptional()
+  @IsIn(['sms', 'telegram'])
+  channel?: 'sms' | 'telegram';
 }
 
 export class ResetPasswordDto {

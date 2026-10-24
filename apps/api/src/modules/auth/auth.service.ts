@@ -14,7 +14,7 @@ import { isStaffPermissionSet, ROLE_KEYS } from '../rbac/permissions';
 import { ReferralsService } from '../referrals/referrals.service';
 import { AuthContextService } from './auth-context.service';
 import { RegisterDto, SessionUserDto } from './dto/auth.dto';
-import { OtpService } from './otp.service';
+import { OtpChannel, OtpService } from './otp.service';
 import { hashPassword, isStrongPassword, verifyPassword } from './password';
 import { TokenService } from './token.service';
 
@@ -51,9 +51,13 @@ export class AuthService {
     return phone;
   }
 
-  async requestLoginCode(rawPhone: string) {
+  async requestLoginCode(rawPhone: string, channel?: OtpChannel) {
     const phone = this.requirePhone(rawPhone);
-    return this.otp.request(phone, 'LOGIN', RequestContext.get()?.ip ?? null);
+    return this.otp.request(phone, 'LOGIN', RequestContext.get()?.ip ?? null, channel);
+  }
+
+  otpChannels() {
+    return this.otp.availableChannels();
   }
 
   /**
@@ -184,12 +188,16 @@ export class AuthService {
     return this.issueSession(user.id);
   }
 
-  async requestPasswordReset(rawPhone: string) {
+  async requestPasswordReset(rawPhone: string, channel?: OtpChannel) {
     const phone = this.requirePhone(rawPhone);
     const user = await this.prisma.user.findUnique({ where: { phone } });
     // Do not reveal whether the account exists.
-    if (!user) return { expiresInSeconds: 300, resendInSeconds: 60 };
-    return this.otp.request(phone, 'RESET_PASSWORD', RequestContext.get()?.ip ?? null);
+    if (!user) {
+      const available = this.otp.availableChannels();
+      const shown: OtpChannel = channel ?? (available.sms || !available.telegram ? 'sms' : 'telegram');
+      return { channel: shown, expiresInSeconds: 300, resendInSeconds: 60 };
+    }
+    return this.otp.request(phone, 'RESET_PASSWORD', RequestContext.get()?.ip ?? null, channel);
   }
 
   async resetPassword(rawPhone: string, code: string, newPassword: string): Promise<IssuedSession> {

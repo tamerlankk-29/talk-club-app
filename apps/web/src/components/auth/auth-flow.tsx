@@ -1,12 +1,12 @@
 'use client';
 
-import { useMutation } from '@tanstack/react-query';
-import { ArrowLeft, KeyRound, Lock, Mail, MessageSquareText } from 'lucide-react';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { ArrowLeft, KeyRound, Lock, Mail, MessageSquareText, Send } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { Logo } from '@/components/icons';
-import { Button } from '@/components/ui/button';
+import { Button, buttonClasses } from '@/components/ui/button';
 import { InlineAlert } from '@/components/ui/feedback';
 import { Field, Input, OtpInput, PhoneInput } from '@/components/ui/inputs';
 import { toastError } from '@/components/ui/toast';
@@ -71,10 +71,17 @@ function AuthHeader({ title, subtitle, onBack }: { title: string; subtitle?: Rea
   );
 }
 
-type Step = { name: 'phone' } | { name: 'code'; phone: string } | { name: 'register'; phone: string; token: string } | { name: 'password' };
+type OtpChannel = 'sms' | 'telegram';
+
+type Step =
+  | { name: 'phone' }
+  | { name: 'telegram-link'; phone: string; botUrl: string | null }
+  | { name: 'code'; phone: string; channel: OtpChannel }
+  | { name: 'register'; phone: string; token: string } | { name: 'password' };
 
 /**
- * Phone-first sign-in: phone → SMS code → (new users) profile details.
+ * Phone-first sign-in: phone → code by SMS or Telegram → (new users) profile details.
+ * Telegram needs a one-time link: the member shares their number with the bot.
  * The same flow serves /login and /register; returning members are simply
  * signed in when they verify their number.
  */
@@ -108,17 +115,31 @@ export function AuthFlow({ mode }: { mode: 'login' | 'register' }) {
     router.replace(destinationFor(tokens.user, next));
   };
 
+  const channels = useQuery({
+    queryKey: ['public', 'otp-channels'],
+    queryFn: () => call(api.GET('/api/auth/otp/channels')),
+    staleTime: 5 * 60_000,
+  });
+
   const requestOtp = useMutation({
-    mutationFn: (value: string) => call(api.POST('/api/auth/otp/request', { body: { phone: value } })),
-    onSuccess: (result, value) => {
+    mutationFn: ({ value, channel }: { value: string; channel?: OtpChannel }) =>
+      call(api.POST('/api/auth/otp/request', { body: { phone: value, channel } })),
+    onSuccess: (result, { value }) => {
       setDevCode(result.devCode);
       setResendAt(Date.now() + result.resendInSeconds * 1000);
       setNow(Date.now());
       setCode('');
       setCodeError(null);
-      setStep({ name: 'code', phone: value });
+      setStep({ name: 'code', phone: value, channel: result.channel });
     },
-    onError: toastError,
+    onError: (error, { value }) => {
+      if (errorCode(error) === 'AUTH_TELEGRAM_NOT_LINKED') {
+        const details = (error as { details?: { botUrl?: string | null } }).details;
+        setStep({ name: 'telegram-link', phone: value, botUrl: details?.botUrl ?? channels.data?.telegramBotUrl ?? null });
+        return;
+      }
+      toastError(error);
+    },
   });
 
   const verifyOtp = useMutation({
@@ -162,11 +183,40 @@ export function AuthFlow({ mode }: { mode: 'login' | 'register' }) {
     return <PasswordLogin onBack={() => setStep({ name: 'phone' })} onDone={finish} />;
   }
 
-  if (step.name === 'code') {
-    const wait = Math.max(0, Math.ceil((resendAt - now) / 1000));
+  if (step.name === 'telegram-link') {
     return (
       <>
-        <AuthHeader title="Enter the code" subtitle={<>We sent a 6-digit code to <span className="font-semibold text-ink">{step.phone}</span></>} onBack={() => setStep({ name: 'phone' })} />
+        <AuthHeader title="Get your code in Telegram" subtitle="Link your number to the Talk Club bot once — next time the code arrives right away." onBack={() => setStep({ name: 'phone' })} />
+        <ol className="mb-6 list-decimal space-y-2 pl-5 text-[15px] text-ink">
+          <li>Open the Talk Club bot in Telegram and tap <span className="font-semibold">Start</span>.</li>
+          <li>Tap <span className="font-semibold">Share my phone number</span> and confirm.</li>
+          <li>Come back here and tap <span className="font-semibold">Send code</span>.</li>
+        </ol>
+        <div className="space-y-3">
+          {step.botUrl && (
+            <a href={step.botUrl} target="_blank" rel="noopener noreferrer" className={buttonClasses('outline', 'lg', 'w-full gap-2')}>
+              <Send className="h-5 w-5" /> Open Telegram
+            </a>
+          )}
+          <Button size="lg" block loading={requestOtp.isPending} onClick={() => requestOtp.mutate({ value: step.phone, channel: 'telegram' })}>
+            Send code
+          </Button>
+          {channels.data?.sms && (
+            <Button variant="ghost" size="lg" block disabled={requestOtp.isPending} onClick={() => requestOtp.mutate({ value: step.phone, channel: 'sms' })}>
+              Get the code by SMS instead
+            </Button>
+          )}
+        </div>
+      </>
+    );
+  }
+
+  if (step.name === 'code') {
+    const wait = Math.max(0, Math.ceil((resendAt - now) / 1000));
+    const via = step.channel === 'telegram' ? 'in Telegram' : 'by SMS';
+    return (
+      <>
+        <AuthHeader title="Enter the code" subtitle={<>We sent a 6-digit code {via} to <span className="font-semibold text-ink">{step.phone}</span></>} onBack={() => setStep({ name: 'phone' })} />
         <form
           className="space-y-5"
           onSubmit={(e) => {
@@ -182,7 +232,7 @@ export function AuthFlow({ mode }: { mode: 'login' | 'register' }) {
           )}
           {devCode && (
             <InlineAlert tone="info" icon={<MessageSquareText className="h-5 w-5" />} title="Development mode">
-              SMS is not connected. Your code is <button type="button" className="font-mono font-bold underline" onClick={() => setCode(devCode)}>{devCode}</button>
+              Messaging is not connected. Your code is <button type="button" className="font-mono font-bold underline" onClick={() => setCode(devCode)}>{devCode}</button>
             </InlineAlert>
           )}
           <Button type="submit" size="lg" block loading={verifyOtp.isPending} disabled={code.length !== 6}>
@@ -192,7 +242,7 @@ export function AuthFlow({ mode }: { mode: 'login' | 'register' }) {
             {wait > 0 ? (
               <span className="text-muted">Resend code in 0:{String(wait).padStart(2, '0')}</span>
             ) : (
-              <button type="button" className="font-semibold text-brand-700" onClick={() => requestOtp.mutate(step.phone)} disabled={requestOtp.isPending}>
+              <button type="button" className="font-semibold text-brand-700" onClick={() => requestOtp.mutate({ value: step.phone, channel: step.channel })} disabled={requestOtp.isPending}>
                 Send a new code
               </button>
             )}
@@ -202,9 +252,13 @@ export function AuthFlow({ mode }: { mode: 'login' | 'register' }) {
     );
   }
 
+  // Telegram first when the bot is connected (free and instant); SMS as the alternative.
+  const preferred: OtpChannel | undefined = channels.data?.telegram ? 'telegram' : channels.data?.sms ? 'sms' : undefined;
+  const alternative: OtpChannel | undefined = preferred === 'telegram' && channels.data?.sms ? 'sms' : undefined;
+
   const submitPhone = (e: FormEvent) => {
     e.preventDefault();
-    if (phoneDigitsComplete(phone)) requestOtp.mutate(phone);
+    if (phoneDigitsComplete(phone)) requestOtp.mutate({ value: phone, channel: preferred });
   };
 
   return (
@@ -222,9 +276,30 @@ export function AuthFlow({ mode }: { mode: 'login' | 'register' }) {
         <Field label="Phone number" htmlFor="phone">
           <PhoneInput id="phone" value={phone} onChange={setPhone} autoFocus />
         </Field>
-        <Button type="submit" size="lg" block loading={requestOtp.isPending} disabled={!phoneDigitsComplete(phone)}>
-          Get code
+        <Button
+          type="submit"
+          size="lg"
+          block
+          leftIcon={preferred === 'telegram' ? <Send className="h-5 w-5" /> : undefined}
+          loading={requestOtp.isPending && requestOtp.variables?.channel === preferred}
+          disabled={!phoneDigitsComplete(phone) || requestOtp.isPending}
+        >
+          {preferred === 'telegram' ? 'Get code in Telegram' : 'Get code'}
         </Button>
+        {alternative && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="lg"
+            block
+            leftIcon={<MessageSquareText className="h-5 w-5" />}
+            loading={requestOtp.isPending && requestOtp.variables?.channel === alternative}
+            disabled={!phoneDigitsComplete(phone) || requestOtp.isPending}
+            onClick={() => requestOtp.mutate({ value: phone, channel: alternative })}
+          >
+            Get code by SMS
+          </Button>
+        )}
       </form>
       <div className="my-6 flex items-center gap-3 text-xs font-semibold uppercase tracking-wide text-subtle">
         <span className="h-px flex-1 bg-line" /> or <span className="h-px flex-1 bg-line" />

@@ -12,6 +12,7 @@ import {
   AuthTokensDto,
   ChangePasswordDto,
   LoginDto,
+  OtpChannelsDto,
   OtpRequestedDto,
   RefreshDto,
   RegisterDto,
@@ -48,9 +49,16 @@ export class AuthController {
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post('otp/request')
   @HttpCode(200)
-  @ApiOperation({ summary: 'Send a 6-digit SMS code for sign-in / registration' })
+  @ApiOperation({ summary: 'Send a 6-digit code by SMS or Telegram for sign-in / registration' })
   requestOtp(@Body() dto: RequestOtpDto): Promise<OtpRequestedDto> {
-    return this.auth.requestLoginCode(dto.phone);
+    return this.auth.requestLoginCode(dto.phone, dto.channel);
+  }
+
+  @Public()
+  @Get('otp/channels')
+  @ApiOperation({ summary: 'Which channels can deliver sign-in codes (SMS, Telegram)' })
+  otpChannels(): OtpChannelsDto {
+    return this.auth.otpChannels();
   }
 
   @Public()
@@ -139,9 +147,9 @@ export class AuthController {
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post('password/reset/request')
   @HttpCode(200)
-  @ApiOperation({ summary: 'Send a password reset code by SMS' })
+  @ApiOperation({ summary: 'Send a password reset code by SMS or Telegram' })
   requestReset(@Body() dto: ResetPasswordRequestDto): Promise<OtpRequestedDto> {
-    return this.auth.requestPasswordReset(dto.phone);
+    return this.auth.requestPasswordReset(dto.phone, dto.channel);
   }
 
   @Public()

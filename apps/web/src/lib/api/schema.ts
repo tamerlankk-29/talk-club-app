@@ -98,8 +98,25 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Send a 6-digit SMS code for sign-in / registration */
+        /** Send a 6-digit code by SMS or Telegram for sign-in / registration */
         post: operations["Auth_requestOtp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/otp/channels": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Which channels can deliver sign-in codes (SMS, Telegram) */
+        get: operations["Auth_otpChannels"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -200,7 +217,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Send a password reset code by SMS */
+        /** Send a password reset code by SMS or Telegram */
         post: operations["Auth_requestReset"];
         delete?: never;
         options?: never;
@@ -3428,14 +3445,29 @@ export interface components {
             channels: components["schemas"]["ChannelStatusDto"][];
         };
         RequestOtpDto: {
+            /**
+             * @description Where to send the code. Defaults to SMS when it is available, otherwise Telegram.
+             * @enum {string}
+             */
+            channel?: "sms" | "telegram";
             /** @description Phone number in any common format, e.g. +7 701 123 45 67 */
             phone: string;
         };
         OtpRequestedDto: {
+            /** @enum {string} */
+            channel: "sms" | "telegram";
             expiresInSeconds: number;
             resendInSeconds: number;
             /** @description Development only (AUTH_OTP_DEV_ECHO=true): the code that was "sent". */
             devCode?: string;
+        };
+        OtpChannelsDto: {
+            /** @description Codes can be sent by SMS. */
+            sms: boolean;
+            /** @description Codes can be sent through the Talk Club Telegram bot. */
+            telegram: boolean;
+            /** @description Link that opens the bot, where members share their phone number once. */
+            telegramBotUrl: string | null;
         };
         VerifyOtpDto: {
             phone: string;
@@ -3535,6 +3567,11 @@ export interface components {
             ok: boolean;
         };
         ResetPasswordRequestDto: {
+            /**
+             * @description Where to send the code. Defaults to SMS when it is available, otherwise Telegram.
+             * @enum {string}
+             */
+            channel?: "sms" | "telegram";
             phone: string;
         };
         ResetPasswordDto: {
@@ -7096,6 +7133,25 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OtpRequestedDto"];
+                };
+            };
+        };
+    };
+    Auth_otpChannels: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OtpChannelsDto"];
                 };
             };
         };

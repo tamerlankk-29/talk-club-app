@@ -55,6 +55,25 @@ the delivery log. Rules:
 
 The service worker (`apps/web/public/sw.js`) shows the notification and opens the linked page on tap.
 
+### Sign-in codes in Telegram (included)
+
+Members can get their sign-in and password-reset codes from the Talk Club bot instead of SMS —
+free and instant, and it works before an SMS sender name is approved.
+
+1. Create the bot with @BotFather (`/newbot`) and keep the token out of chats and git.
+2. Set `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME` (without `@`) and `TELEGRAM_WEBHOOK_SECRET`
+   (24+ random characters). With `APP_URL` on `https://` the API registers the webhook
+   `APP_URL/api/telegram/webhook` on start; Telegram signs every call with the secret.
+3. In the app the member enters their phone and taps **Get code in Telegram**. The first time,
+   the app asks them to open the bot, tap **Start** and **Share my phone number**. The bot accepts
+   only the member's *own* contact (Telegram ties it to their account), which proves they hold the
+   number; the link is stored in `telegram_links`.
+4. `GET /api/auth/otp/channels` tells the apps which channels are available. In production SMS
+   counts as available only when a real SMS provider is configured, so until then codes go to
+   Telegram only.
+
+The bot answers in Russian, Kazakh or English, following the member's Telegram language.
+
 ### Adding WhatsApp, Telegram, SMS or email
 
 1. Create a class implementing `ChannelProvider`:

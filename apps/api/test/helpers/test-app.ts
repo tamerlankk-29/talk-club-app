@@ -1,5 +1,5 @@
 import type { INestApplication, Type } from '@nestjs/common';
-import { Test } from '@nestjs/testing';
+import { Test, TestingModuleBuilder } from '@nestjs/testing';
 import request from 'supertest';
 import { AppModule } from '../../src/app.module';
 import { configureApp } from '../../src/app.setup';
@@ -32,8 +32,10 @@ export async function resetDatabase(prisma: PrismaService): Promise<void> {
   }
 }
 
-export async function createTestApp(): Promise<TestApp> {
-  const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
+/** `configure` can swap providers, e.g. replace an external API client with a fake. */
+export async function createTestApp(configure?: (builder: TestingModuleBuilder) => TestingModuleBuilder): Promise<TestApp> {
+  const builder = Test.createTestingModule({ imports: [AppModule] });
+  const moduleRef = await (configure ? configure(builder) : builder).compile();
   const app = moduleRef.createNestApplication({ logger: ['error'] });
   configureApp(app, loadConfig());
   const prisma = app.get(PrismaService);
