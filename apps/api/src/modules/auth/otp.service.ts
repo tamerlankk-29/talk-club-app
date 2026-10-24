@@ -48,6 +48,8 @@ export class OtpService {
         purpose,
         codeHash: this.hash(phone, code),
         expiresAt: new Date(now.getTime() + CODE_TTL_SECONDS * 1000),
+        // Stamped from ClockService (not the DB default) so cooldown and hourly limits compare like with like.
+        createdAt: now,
         ip,
       },
     });

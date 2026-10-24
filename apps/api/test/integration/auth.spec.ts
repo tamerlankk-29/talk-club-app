@@ -47,7 +47,8 @@ describe('Authentication', () => {
     expect(client.marketingConsent).toBe(true);
     expect(await t.prisma.agreementAcceptance.count({ where: { clientId: client.id } })).toBeGreaterThanOrEqual(2); // Terms + Privacy
 
-    // The same number signs straight in next time.
+    // The same number signs straight in next time (after the resend cooldown).
+    t.clock.set(at('2026-10-05 10:02'));
     const sent = await t.http().post('/api/auth/otp/request').send({ phone: '+7 777 123 45 67' }).expect(200);
     const again = await t.http().post('/api/auth/otp/verify').send({ phone: '+77771234567', code: sent.body.devCode }).expect(200);
     expect(again.body.status).toBe('AUTHENTICATED');
