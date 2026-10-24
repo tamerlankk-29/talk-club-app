@@ -2,6 +2,8 @@ import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus, Logge
 import { ThrottlerException } from '@nestjs/throttler';
 import { Prisma } from '@prisma/client';
 import type { Request, Response } from 'express';
+import { localizeError, localizeFieldError } from '../i18n/error-messages';
+import { localeFromHeader } from '../utils/locale';
 import { DomainError } from './domain-error';
 import { ERROR_CATALOG, ErrorCode } from './error-codes';
 
@@ -43,6 +45,13 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
     const { status, body } = this.toResponse(exception);
     body.error.requestId = requestId;
+    const locale = localeFromHeader(request?.headers?.['accept-language']);
+    body.error.message = localizeError(body.error.message, locale);
+    const details = body.error.details as { fields?: Record<string, string>; constraints?: Record<string, string> } | undefined;
+    if (details?.fields && locale !== 'en') {
+      for (const [path, message] of Object.entries(details.fields)) details.fields[path] = localizeFieldError(message, details.constraints?.[path], locale);
+    }
+    if (details?.constraints) delete details.constraints;
 
     if (status >= 500) {
       const err = exception instanceof Error ? exception : new Error(String(exception));
@@ -70,14 +79,14 @@ export class AllExceptionsFilter implements ExceptionFilter {
       const status = exception.getStatus();
       const payload = exception.getResponse();
       if (status === HttpStatus.BAD_REQUEST && typeof payload === 'object' && payload && 'message' in payload) {
-        const { message: messages, fields } = payload as { message: unknown; fields?: Record<string, string> };
+        const { message: messages, fields, constraints } = payload as { message: unknown; fields?: Record<string, string>; constraints?: Record<string, string> };
         return {
           status,
           body: {
             error: {
               code: 'VALIDATION_FAILED',
               message: ERROR_CATALOG.VALIDATION_FAILED.message,
-              details: { fields: fields ?? {}, messages: Array.isArray(messages) ? messages.map(String) : [String(messages)] },
+              details: { fields: fields ?? {}, constraints, messages: Array.isArray(messages) ? messages.map(String) : [String(messages)] },
             },
           },
         };
