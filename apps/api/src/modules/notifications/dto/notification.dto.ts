@@ -139,6 +139,10 @@ export class PreferencesDto {
   marketing: boolean;
   /** Number of devices subscribed to push */
   pushSubscriptions: number;
+  /** The account phone is linked to the Telegram bot */
+  telegramLinked: boolean;
+  /** Link that opens the bot to connect Telegram (null when the bot is not set up) */
+  telegramBotUrl: string | null;
 }
 
 export class NotificationTemplateDto {

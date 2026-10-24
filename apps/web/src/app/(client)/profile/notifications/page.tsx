@@ -16,12 +16,21 @@ import { keys } from '@/lib/queries';
 
 type Channel = keyof S<'ChannelPrefsStateDto'>;
 const CHANNELS: Array<{ key: Channel; label: string; description: string }> = [
+  { key: 'telegram', label: 'Telegram', description: 'Messages from the Talk Club bot' },
   { key: 'push', label: 'Push notifications', description: 'On this phone or computer' },
   { key: 'whatsapp', label: 'WhatsApp', description: 'Messages to your phone number' },
-  { key: 'telegram', label: 'Telegram', description: 'If you have connected Telegram' },
-  { key: 'sms', label: 'SMS', description: 'Used when push is not available' },
+  { key: 'sms', label: 'SMS', description: 'Used when push and Telegram are not available' },
   { key: 'email', label: 'Email', description: 'Receipts and important updates' },
 ];
+
+function describe(channel: Channel, base: string, p: S<'PreferencesDto'>): string {
+  if (channel === 'push') return `${base} · ${p.pushSubscriptions} device${p.pushSubscriptions === 1 ? '' : 's'} connected`;
+  if (channel === 'telegram') {
+    if (p.telegramLinked) return `${base} · connected`;
+    return p.telegramBotUrl ? `${base} · not connected yet: open the bot and share your number` : `${base} · not available yet`;
+  }
+  return base;
+}
 
 export default function NotificationSettingsPage() {
   return (
@@ -70,9 +79,19 @@ function Settings() {
                   checked={p.channels[c.key]}
                   onChange={(v) => update.mutate({ channels: { [c.key]: v } })}
                   label={c.label}
-                  description={c.key === 'push' ? `${c.description} · ${p.pushSubscriptions} device${p.pushSubscriptions === 1 ? '' : 's'} connected` : c.description}
+                  description={describe(c.key, c.description, p)}
                 />
               ))}
+              {!p.telegramLinked && p.telegramBotUrl && p.channels.telegram && (
+                <a
+                  href={p.telegramBotUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center justify-center rounded-xl bg-sky-100 px-4 py-2.5 text-sm font-semibold text-sky-800 hover:bg-sky-200"
+                >
+                  Connect Telegram
+                </a>
+              )}
             </Card>
           </Section>
           {push === 'enabled' && (

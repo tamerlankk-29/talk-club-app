@@ -1,11 +1,11 @@
 import { Module } from '@nestjs/common';
-import { TelegramBotClient } from './telegram-bot.client';
 import { TelegramController } from './telegram.controller';
 import { TelegramService } from './telegram.service';
 
 @Module({
   controllers: [TelegramController],
-  providers: [TelegramBotClient, TelegramService],
-  exports: [TelegramService, TelegramBotClient],
+  // TelegramBotClient comes from the global MessagingModule (notifications use it too).
+  providers: [TelegramService],
+  exports: [TelegramService],
 })
 export class TelegramModule {}

@@ -30,7 +30,7 @@ export const DEFAULT_TEMPLATES: DefaultTemplate[] = [
     body: "You're booked for {{teacherName}}'s session {{dayWord}} at {{time}}. {{visitsNote}}",
     buttonLabel: 'View booking',
     buttonUrl: '/bookings/{{bookingId}}',
-    channels: ['IN_APP', 'PUSH'],
+    channels: ['IN_APP', 'PUSH', 'TELEGRAM'],
   },
   {
     key: 'booking.created_by_club',
@@ -41,7 +41,7 @@ export const DEFAULT_TEMPLATES: DefaultTemplate[] = [
     body: 'Talk Club booked you into {{sessionTitle}} with {{teacherName}} — {{dateTime}}.',
     buttonLabel: 'View booking',
     buttonUrl: '/bookings/{{bookingId}}',
-    channels: ['IN_APP', 'PUSH'],
+    channels: ['IN_APP', 'PUSH', 'TELEGRAM'],
   },
   {
     key: 'booking.moved',
@@ -52,7 +52,7 @@ export const DEFAULT_TEMPLATES: DefaultTemplate[] = [
     body: "You're now booked for {{sessionTitle}} with {{teacherName}} — {{dateTime}}.",
     buttonLabel: 'View booking',
     buttonUrl: '/bookings/{{bookingId}}',
-    channels: ['IN_APP', 'PUSH'],
+    channels: ['IN_APP', 'PUSH', 'TELEGRAM'],
   },
   {
     key: 'booking.cancelled',
@@ -72,7 +72,7 @@ export const DEFAULT_TEMPLATES: DefaultTemplate[] = [
     body: 'Talk Club cancelled your booking for {{sessionTitle}} — {{dateTime}}. {{visitNote}}',
     buttonLabel: 'Find another session',
     buttonUrl: '/schedule',
-    channels: ['IN_APP', 'PUSH'],
+    channels: ['IN_APP', 'PUSH', 'TELEGRAM'],
   },
   {
     key: 'session.cancelled',
@@ -83,7 +83,7 @@ export const DEFAULT_TEMPLATES: DefaultTemplate[] = [
     body: "{{teacherName}}'s session {{dateTime}} has been cancelled. Your visit was returned to your membership.",
     buttonLabel: 'Book another session',
     buttonUrl: '/schedule',
-    channels: ['IN_APP', 'PUSH', 'SMS'],
+    channels: ['IN_APP', 'PUSH', 'TELEGRAM', 'SMS'],
   },
   {
     key: 'session.changed',
@@ -94,7 +94,7 @@ export const DEFAULT_TEMPLATES: DefaultTemplate[] = [
     body: '{{sessionTitle}} is now {{dateTime}} with {{teacherName}}{{roomNote}}.',
     buttonLabel: 'View booking',
     buttonUrl: '/bookings/{{bookingId}}',
-    channels: ['IN_APP', 'PUSH'],
+    channels: ['IN_APP', 'PUSH', 'TELEGRAM'],
   },
   {
     key: 'session.reminder_day',
@@ -105,7 +105,7 @@ export const DEFAULT_TEMPLATES: DefaultTemplate[] = [
     body: 'Your Talk Club session starts {{dayWord}} at {{time}}.',
     buttonLabel: 'View session',
     buttonUrl: '/bookings/{{bookingId}}',
-    channels: ['IN_APP', 'PUSH'],
+    channels: ['IN_APP', 'PUSH', 'TELEGRAM'],
   },
   {
     key: 'session.reminder_soon',
@@ -128,7 +128,7 @@ export const DEFAULT_TEMPLATES: DefaultTemplate[] = [
     body: "A place has become available for {{teacherName}}'s session {{dayWord}} at {{time}}. It's reserved for you until {{expiresTime}}.",
     buttonLabel: 'Book the place',
     buttonUrl: '/sessions/{{sessionId}}',
-    channels: ['IN_APP', 'PUSH'],
+    channels: ['IN_APP', 'PUSH', 'TELEGRAM'],
   },
   {
     key: 'waitlist.open',
@@ -139,7 +139,7 @@ export const DEFAULT_TEMPLATES: DefaultTemplate[] = [
     body: "A place opened in {{teacherName}}'s session {{dayWord}} at {{time}}. First to book gets it!",
     buttonLabel: 'Book now',
     buttonUrl: '/sessions/{{sessionId}}',
-    channels: ['IN_APP', 'PUSH'],
+    channels: ['IN_APP', 'PUSH', 'TELEGRAM'],
   },
   // ─── Payments & memberships ───
   {
@@ -151,7 +151,7 @@ export const DEFAULT_TEMPLATES: DefaultTemplate[] = [
     body: 'Please pay {{amount}} KZT for {{description}}. {{instructions}}',
     buttonLabel: 'View payment',
     buttonUrl: '/payments/{{paymentId}}',
-    channels: ['IN_APP', 'PUSH'],
+    channels: ['IN_APP', 'PUSH', 'TELEGRAM'],
   },
   {
     key: 'payment.confirmed',
@@ -162,7 +162,7 @@ export const DEFAULT_TEMPLATES: DefaultTemplate[] = [
     body: 'We received {{amount}} KZT for {{description}}. Thank you!',
     buttonLabel: 'View payment',
     buttonUrl: '/payments/{{paymentId}}',
-    channels: ['IN_APP', 'PUSH'],
+    channels: ['IN_APP', 'PUSH', 'TELEGRAM'],
   },
   {
     key: 'membership.activated',
@@ -173,7 +173,7 @@ export const DEFAULT_TEMPLATES: DefaultTemplate[] = [
     body: '{{visits}} visits, valid until {{expiryDate}}. Time to book your next session!',
     buttonLabel: 'Book a session',
     buttonUrl: '/schedule',
-    channels: ['IN_APP', 'PUSH'],
+    channels: ['IN_APP', 'PUSH', 'TELEGRAM'],
   },
   {
     key: 'membership.expiring',
@@ -184,7 +184,7 @@ export const DEFAULT_TEMPLATES: DefaultTemplate[] = [
     body: 'Your Talk Club membership expires {{daysText}} ({{expiryDate}}). You have {{visitsRemaining}} visit(s) left.',
     buttonLabel: 'Renew membership',
     buttonUrl: '/membership/buy',
-    channels: ['IN_APP', 'PUSH'],
+    channels: ['IN_APP', 'PUSH', 'TELEGRAM'],
   },
   {
     key: 'membership.expired',
@@ -195,7 +195,7 @@ export const DEFAULT_TEMPLATES: DefaultTemplate[] = [
     body: 'Renew your membership to keep practising English with us.',
     buttonLabel: 'Renew membership',
     buttonUrl: '/membership/buy',
-    channels: ['IN_APP', 'PUSH'],
+    channels: ['IN_APP', 'PUSH', 'TELEGRAM'],
   },
   {
     key: 'membership.low_visits',
@@ -206,7 +206,7 @@ export const DEFAULT_TEMPLATES: DefaultTemplate[] = [
     body: 'You have {{visitsRemaining}} visit(s) left on your {{planName}} membership.',
     buttonLabel: 'View membership',
     buttonUrl: '/membership',
-    channels: ['IN_APP', 'PUSH'],
+    channels: ['IN_APP', 'PUSH', 'TELEGRAM'],
   },
   {
     key: 'membership.no_visits',
@@ -217,7 +217,7 @@ export const DEFAULT_TEMPLATES: DefaultTemplate[] = [
     body: 'Your membership has no remaining visits.',
     buttonLabel: 'Buy new membership',
     buttonUrl: '/membership/buy',
-    channels: ['IN_APP', 'PUSH'],
+    channels: ['IN_APP', 'PUSH', 'TELEGRAM'],
   },
   // ─── Trials ───
   {
@@ -229,7 +229,7 @@ export const DEFAULT_TEMPLATES: DefaultTemplate[] = [
     body: '{{sessionTitle}} with {{teacherName}} — {{dateTime}}. Trial price: {{amount}} KZT, pay at the club or by Kaspi.',
     buttonLabel: 'View booking',
     buttonUrl: '/bookings/{{bookingId}}',
-    channels: ['IN_APP', 'PUSH', 'SMS'],
+    channels: ['IN_APP', 'PUSH', 'TELEGRAM', 'SMS'],
   },
   {
     key: 'trial.follow_up',
@@ -242,7 +242,7 @@ export const DEFAULT_TEMPLATES: DefaultTemplate[] = [
     buttonUrl: '/membership/buy',
     secondaryButtonLabel: 'Book a Session',
     secondaryButtonUrl: '/schedule',
-    channels: ['IN_APP', 'PUSH', 'WHATSAPP'],
+    channels: ['IN_APP', 'PUSH', 'TELEGRAM', 'WHATSAPP'],
   },
   {
     key: 'client.welcome',
@@ -264,7 +264,7 @@ export const DEFAULT_TEMPLATES: DefaultTemplate[] = [
     body: '{{comment}}',
     buttonLabel: 'View progress',
     buttonUrl: '/profile/progress',
-    channels: ['IN_APP', 'PUSH'],
+    channels: ['IN_APP', 'PUSH', 'TELEGRAM'],
   },
   // ─── Staff alerts (admin notification center) ───
   {

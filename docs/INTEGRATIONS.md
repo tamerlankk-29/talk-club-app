@@ -7,7 +7,7 @@ connecting a real provider never touches business logic.
 | Area | Interface | Included implementations | Selected by |
 | --- | --- | --- | --- |
 | Payments | `PaymentProvider` (`apps/api/src/modules/payments/providers`) | `manual` (Kaspi invoice, cash, card at the desk, bank transfer), `mock_online` (test checkout, dev only), `kaspi` (skeleton) | Payment method's `provider` (Admin → Settings → Payment methods) |
-| Messaging | `ChannelProvider` (`apps/api/src/modules/messaging`) | `web-push` (VAPID), `console` for SMS / WhatsApp / Telegram / email | `NOTIFY_SMS_PROVIDER`, `NOTIFY_WHATSAPP_PROVIDER`, `NOTIFY_TELEGRAM_PROVIDER`, `NOTIFY_EMAIL_PROVIDER` |
+| Messaging | `ChannelProvider` (`apps/api/src/modules/messaging`) | `web-push` (VAPID), `telegram_bot`, `console` for SMS / WhatsApp / email | `NOTIFY_SMS_PROVIDER`, `NOTIFY_WHATSAPP_PROVIDER`, `NOTIFY_TELEGRAM_PROVIDER`, `NOTIFY_EMAIL_PROVIDER` |
 | File storage | `StorageProvider` (`apps/api/src/modules/files/storage.ts`) | `LocalDiskStorage` | `STORAGE_LOCAL_DIR` (an S3 adapter adds a `STORAGE_DRIVER` option) |
 | Data migration | CSV/XLSX importers (`apps/api/src/modules/data-transfer`) | Clients, Altegio clients / visits / payments | Admin → Import & export |
 
@@ -73,6 +73,22 @@ free and instant, and it works before an SMS sender name is approved.
    Telegram only.
 
 The bot answers in Russian, Kazakh or English, following the member's Telegram language.
+
+### Notifications in Telegram (included)
+
+Once a member's phone is linked to the bot, the same bot also delivers their notifications:
+booking confirmations, reminders, waitlist places, membership warnings and so on.
+
+- With `TELEGRAM_BOT_TOKEN` set, `NOTIFY_TELEGRAM_PROVIDER` defaults to `telegram_bot`. Set it to
+  `console` to keep messages in the log while testing.
+- Default templates that go to push also go to Telegram; admins can change channels per template
+  in **Admin → Notifications**, and per broadcast.
+- A member gets Telegram messages only when their phone is linked and the Telegram switch in
+  **Profile → Notifications** is on (on by default). The page shows whether Telegram is connected
+  and a **Connect Telegram** button that opens the bot.
+- SMS is a paid fallback: a template that includes SMS sends it only when neither push nor Telegram
+  reaches the person.
+- If a member blocks the bot, delivery fails after 3 attempts and shows in the delivery log.
 
 ### Adding WhatsApp, Telegram, SMS or email
 
