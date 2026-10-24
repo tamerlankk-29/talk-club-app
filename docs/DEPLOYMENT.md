@@ -159,7 +159,7 @@ problem (missing secret, dev-only flags enabled, …).
 
 - [ ] HTTPS on the public domain; `APP_URL`/`CORS_ORIGINS` set; `COOKIE_SECURE=true`
 - [ ] Strong `AUTH_SECRET` and database password stored in a secret manager, not in git
-- [ ] `AUTH_OTP_DEV_ECHO=false`, `PAYMENT_MOCK_ONLINE_ENABLED=false`, real SMS provider for sign-in codes
+- [ ] `AUTH_OTP_DEV_ECHO=false`, `PAYMENT_MOCK_ONLINE_ENABLED=false`, `MOBIZON_API_KEY` set (or codes via Telegram only)
 - [ ] VAPID keys configured; push tested on Android and an iPhone (installed to Home Screen)
 - [ ] Legal texts reviewed by a lawyer and published
 - [ ] Backups scheduled and a restore tested

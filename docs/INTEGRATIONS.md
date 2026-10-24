@@ -7,7 +7,7 @@ connecting a real provider never touches business logic.
 | Area | Interface | Included implementations | Selected by |
 | --- | --- | --- | --- |
 | Payments | `PaymentProvider` (`apps/api/src/modules/payments/providers`) | `manual` (Kaspi invoice, cash, card at the desk, bank transfer), `mock_online` (test checkout, dev only), `kaspi` (skeleton) | Payment method's `provider` (Admin → Settings → Payment methods) |
-| Messaging | `ChannelProvider` (`apps/api/src/modules/messaging`) | `web-push` (VAPID), `telegram_bot`, `console` for SMS / WhatsApp / email | `NOTIFY_SMS_PROVIDER`, `NOTIFY_WHATSAPP_PROVIDER`, `NOTIFY_TELEGRAM_PROVIDER`, `NOTIFY_EMAIL_PROVIDER` |
+| Messaging | `ChannelProvider` (`apps/api/src/modules/messaging`) | `web-push` (VAPID), `telegram_bot`, `mobizon` (SMS), `console` for WhatsApp / email | `NOTIFY_SMS_PROVIDER`, `NOTIFY_WHATSAPP_PROVIDER`, `NOTIFY_TELEGRAM_PROVIDER`, `NOTIFY_EMAIL_PROVIDER` |
 | File storage | `StorageProvider` (`apps/api/src/modules/files/storage.ts`) | `LocalDiskStorage` | `STORAGE_LOCAL_DIR` (an S3 adapter adds a `STORAGE_DRIVER` option) |
 | Data migration | CSV/XLSX importers (`apps/api/src/modules/data-transfer`) | Clients, Altegio clients / visits / payments | Admin → Import & export |
 
@@ -90,6 +90,22 @@ booking confirmations, reminders, waitlist places, membership warnings and so on
   reaches the person.
 - If a member blocks the bot, delivery fails after 3 attempts and shows in the delivery log.
 
+### SMS through Mobizon (included)
+
+Sign-in codes and SMS notifications go through [Mobizon](https://mobizon.kz).
+
+1. Create a Mobizon account on the business's legal details, top up the balance and copy the API
+   key (panel → Settings → API). Keep it out of chats and git: it goes only into `.env` on the server.
+2. Set `MOBIZON_API_KEY`. `NOTIFY_SMS_PROVIDER` then defaults to `mobizon`.
+3. Optional: request a sender name (for example `TalkClub`) in Mobizon and, once approved, set
+   `MOBIZON_FROM`. Until then Mobizon sends from its default sender.
+4. If Mobizon refuses a sign-in SMS (no balance, invalid number), the app shows "We could not send
+   the SMS" and suggests Telegram; the unsent code is dropped so the member can retry at once.
+   Notification SMS that fail are recorded in the delivery log.
+
+Codes go only to `+7` numbers and are capped by `AUTH_SMS_DAILY_LIMIT` (see `docs/SECURITY.md`).
+Set a low-balance alert in the Mobizon panel.
+
 ### Adding WhatsApp, Telegram, SMS or email
 
 1. Create a class implementing `ChannelProvider`:
@@ -108,7 +124,7 @@ booking confirmations, reminders, waitlist places, membership warnings and so on
    ```
 
 2. Register it in `ChannelRegistry.create()` under a name, e.g. `whatsapp_cloud`.
-3. Set `NOTIFY_WHATSAPP_PROVIDER=whatsapp_cloud` and the provider's credentials (`WHATSAPP_API_KEY`, `TELEGRAM_BOT_TOKEN`, `SMS_API_KEY`, SMTP settings…).
+3. Set `NOTIFY_WHATSAPP_PROVIDER=whatsapp_cloud` and the provider's credentials (`WHATSAPP_API_KEY`, SMTP settings…).
 4. Enable the channel on the templates that should use it (Admin → Notifications).
 
 Suggested providers for Kazakhstan: WhatsApp Business Cloud API (or a BSP such as Wazzup/Twilio), a Telegram bot, an SMS gateway such as Mobizon or SMSC.kz, and any SMTP/transactional email service.

@@ -24,6 +24,7 @@ export const ERROR_CATALOG = {
   AUTH_TELEGRAM_UNAVAILABLE: { status: 400, message: 'Codes in Telegram are not available right now. Please use SMS.' },
   AUTH_TELEGRAM_NOT_LINKED: { status: 409, message: 'Open the Talk Club bot in Telegram and share your phone number first.' },
   AUTH_SMS_COUNTRY_NOT_SUPPORTED: { status: 400, message: 'Codes by SMS go only to Kazakhstan numbers (+7). Please get your code in Telegram.' },
+  AUTH_SMS_SEND_FAILED: { status: 502, message: 'We could not send the SMS right now. Please try again in a minute or get your code in Telegram.' },
   AUTH_SMS_DAILY_LIMIT: { status: 429, message: 'Codes by SMS are paused for a while. Please get your code in Telegram.' },
   AUTH_CAPTCHA_REQUIRED: { status: 400, message: 'Please confirm that you are not a robot.' },
   AUTH_CAPTCHA_INVALID: { status: 400, message: 'The check did not pass. Please try again.' },

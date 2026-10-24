@@ -1,4 +1,5 @@
 import { CaptchaService } from '../../src/modules/auth/captcha.service';
+import { ChannelRegistry } from '../../src/modules/messaging/channel-registry';
 import { at } from '../helpers/factory';
 import { createTestApp, TestApp } from '../helpers/test-app';
 
@@ -82,5 +83,17 @@ describe('SMS code guard', () => {
     t.clock.set(at('2026-10-05 16:01'));
     await request({ phone: '+7 701 000 00 20' }).expect(200);
     t.clock.set(at('2026-10-05 10:00'));
+  });
+  it('tells the member when the SMS could not be sent and lets them retry at once', async () => {
+    const sms = t.get(ChannelRegistry).get('SMS')!;
+    const send = jest.spyOn(sms, 'send').mockResolvedValueOnce({ status: 'FAILED', provider: 'mobizon', error: 'Mobizon: Not enough funds' });
+    try {
+      const res = await request({ phone: '+7 701 000 00 77' }).expect(502);
+      expect(res.body.error.code).toBe('AUTH_SMS_SEND_FAILED');
+      expect(await t.prisma.otpCode.count({ where: { phone: '+77010000077' } })).toBe(0);
+      await request({ phone: '+7 701 000 00 77' }).expect(200);
+    } finally {
+      send.mockRestore();
+    }
   });
 });
