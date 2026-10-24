@@ -555,6 +555,8 @@ model OtpCode {
   phone      String
   codeHash   String     @map("code_hash")
   purpose    OtpPurpose
+  /// "sms" or "telegram": SMS codes count against the daily SMS budget.
+  channel    String     @default("sms")
   attempts   Int        @default(0)
   expiresAt  DateTime   @map("expires_at") @db.Timestamptz(3)
   consumedAt DateTime?  @map("consumed_at") @db.Timestamptz(3)
@@ -562,6 +564,8 @@ model OtpCode {
   createdAt  DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
 
   @@index([phone, createdAt])
+  @@index([channel, createdAt])
+  @@index([ip, createdAt])
   @@map("otp_codes")
 }
 

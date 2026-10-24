@@ -18,6 +18,15 @@ export interface AppConfig {
     refreshTtlDays: number;
     otpDevEcho: boolean;
     cookieSecure: boolean;
+    /** Most SMS codes the club sends in 24 hours; protects the SMS budget from bots. */
+    smsDailyLimit: number;
+  };
+  captcha: {
+    /** Cloudflare Turnstile keys; captcha is off when the secret is not set. */
+    turnstileSiteKey: string | null;
+    turnstileSecret: string | null;
+    /** Code requests per IP and hour allowed before a captcha is required. */
+    freeRequestsPerHour: number;
   };
   push: {
     publicKey: string | null;
@@ -87,6 +96,12 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       refreshTtlDays: int(env.AUTH_REFRESH_TOKEN_TTL_DAYS, 30),
       otpDevEcho: bool(env.AUTH_OTP_DEV_ECHO, false),
       cookieSecure: bool(env.COOKIE_SECURE, isProduction),
+      smsDailyLimit: int(env.AUTH_SMS_DAILY_LIMIT, 200),
+    },
+    captcha: {
+      turnstileSiteKey: str(env.TURNSTILE_SITE_KEY),
+      turnstileSecret: str(env.TURNSTILE_SECRET_KEY),
+      freeRequestsPerHour: int(env.CAPTCHA_FREE_REQUESTS_PER_HOUR, 2),
     },
     push: {
       publicKey: str(env.PUSH_VAPID_PUBLIC_KEY),
@@ -134,6 +149,9 @@ function validateConfig(config: AppConfig): void {
   }
   if (config.isProduction && config.payments.mockOnlineEnabled) {
     problems.push('PAYMENT_MOCK_ONLINE_ENABLED must be false in staging/production');
+  }
+  if (!!config.captcha.turnstileSecret !== !!config.captcha.turnstileSiteKey) {
+    problems.push('Set both TURNSTILE_SITE_KEY and TURNSTILE_SECRET_KEY, or neither');
   }
   if (config.telegram.botToken && !config.telegram.botUsername) {
     problems.push('TELEGRAM_BOT_USERNAME is required when TELEGRAM_BOT_TOKEN is set');

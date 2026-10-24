@@ -97,6 +97,8 @@ API variables (see `apps/api/.env.example` for all of them):
 | `COOKIE_SECURE` | default true in production | Must stay true behind HTTPS |
 | `PUSH_VAPID_PUBLIC_KEY` / `PRIVATE_KEY` / `SUBJECT` | for push | `npx web-push generate-vapid-keys` |
 | `NOTIFY_*_PROVIDER` + credentials | per channel | See [INTEGRATIONS.md](INTEGRATIONS.md) |
+| `AUTH_SMS_DAILY_LIMIT` | default 200 | Most SMS codes per 24 hours |
+| `TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY` | recommended | Captcha after a few code requests from one network; both or neither |
 | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME`, `TELEGRAM_WEBHOOK_SECRET` | for codes in Telegram | Secret ≥ 24 characters in production; the webhook is registered on start |
 | `PAYMENT_WEBHOOK_SECRET`, `KASPI_*` | when online payments are connected | |
 | `STORAGE_LOCAL_DIR` | yes (persistent volume) | Uploaded photos and images |

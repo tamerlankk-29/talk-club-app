@@ -51,7 +51,7 @@ export class AuthController {
   @HttpCode(200)
   @ApiOperation({ summary: 'Send a 6-digit code by SMS or Telegram for sign-in / registration' })
   requestOtp(@Body() dto: RequestOtpDto): Promise<OtpRequestedDto> {
-    return this.auth.requestLoginCode(dto.phone, dto.channel);
+    return this.auth.requestLoginCode(dto.phone, dto.channel, dto.captchaToken);
   }
 
   @Public()

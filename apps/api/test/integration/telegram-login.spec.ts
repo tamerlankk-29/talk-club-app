@@ -49,7 +49,7 @@ describe('Telegram sign-in codes', () => {
 
   it('lists Telegram as a sign-in channel with the bot link', async () => {
     const res = await t.http().get('/api/auth/otp/channels').expect(200);
-    expect(res.body).toEqual({ sms: true, telegram: true, telegramBotUrl: 'https://t.me/Talk_club_bot?start=login' });
+    expect(res.body).toEqual({ sms: true, telegram: true, telegramBotUrl: 'https://t.me/Talk_club_bot?start=login', captchaSiteKey: null });
   });
 
   it('rejects webhook calls without the secret', async () => {

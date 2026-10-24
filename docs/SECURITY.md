@@ -11,6 +11,11 @@
 - **Refresh token:** random, stored as a SHA-256 hash in `auth_sessions`, sent as an `httpOnly`, `Secure` (production), `SameSite=Strict` cookie restricted to `/api/auth`. Each refresh rotates it; the previous token stays valid for 60 seconds only to absorb aborted responses and parallel tabs. Sign-out revokes the session; blocked users are cut off on their next request.
 - Cookie-authenticated endpoints additionally check the `Origin` header against the allowed origins (defence in depth against CSRF).
 - Rate limiting on sign-in endpoints (see [API.md](API.md)).
+- **SMS budget protection** (against SMS-pumping bots): SMS codes go only to +7 numbers, at most
+  `AUTH_SMS_DAILY_LIMIT` SMS codes per 24 hours (the API logs an error when the cap is hit and
+  members are pointed to Telegram), and a Cloudflare Turnstile captcha after
+  `CAPTCHA_FREE_REQUESTS_PER_HOUR` sign-in code requests from one IP. Password-reset codes go only
+  to registered numbers.
 
 ## Authorisation
 

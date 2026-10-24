@@ -51,9 +51,9 @@ export class AuthService {
     return phone;
   }
 
-  async requestLoginCode(rawPhone: string, channel?: OtpChannel) {
+  async requestLoginCode(rawPhone: string, channel?: OtpChannel, captchaToken?: string) {
     const phone = this.requirePhone(rawPhone);
-    return this.otp.request(phone, 'LOGIN', RequestContext.get()?.ip ?? null, channel);
+    return this.otp.request(phone, 'LOGIN', RequestContext.get()?.ip ?? null, channel, captchaToken);
   }
 
   otpChannels() {
