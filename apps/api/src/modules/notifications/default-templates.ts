@@ -1,5 +1,13 @@
 import type { NotificationCategory, NotificationChannel } from '@prisma/client';
 
+/** The parts of a template people read; links and channels are the same in every language. */
+export interface TemplateText {
+  title: string;
+  body: string;
+  buttonLabel?: string | null;
+  secondaryButtonLabel?: string | null;
+}
+
 export interface DefaultTemplate {
   key: string;
   name: string;

@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { NotificationCategory, NotificationChannel, NotificationTemplate, Prisma } from '@prisma/client';
 import { ClockService } from '../../common/clock/clock.service';
 import { DomainError, notFound } from '../../common/errors/domain-error';
+import { type Locale, toLocale } from '../../common/utils/locale';
 import { fullName } from '../../common/utils/names';
 import { renderTemplate, TemplateVars } from '../../common/utils/template';
 import { APP_CONFIG, AppConfig } from '../../config/app-config';
@@ -10,7 +11,8 @@ import { ChannelRegistry } from '../messaging/channel-registry';
 import { SettingsValue } from '../settings/settings.schema';
 import { SettingsService } from '../settings/settings.service';
 import { TelegramBotClient } from '../telegram/telegram-bot.client';
-import { DEFAULT_TEMPLATES, DefaultTemplate } from './default-templates';
+import { DEFAULT_TEMPLATES, DefaultTemplate, TemplateText } from './default-templates';
+import { TEMPLATE_TRANSLATIONS } from './template-translations';
 
 export type StaffAlertKey = keyof SettingsValue<'notifications'>['adminAlerts'];
 
@@ -95,19 +97,25 @@ export class NotificationsService {
     this.templateCache = null;
   }
 
-  async render(opts: NotifyOptions): Promise<RenderedTemplate | null> {
+  /**
+   * Renders a template or custom content in the recipient's language. Built-in templates
+   * carry Russian and Kazakh texts; once an admin edits a template, its edited text is used
+   * for everyone. Custom content (broadcasts) is sent as written.
+   */
+  async render(opts: NotifyOptions, locale: Locale = 'en'): Promise<RenderedTemplate | null> {
     const vars = opts.vars ?? {};
+    const r = (text: string) => renderTemplate(text, vars, locale);
     if (opts.content) {
       return {
         templateKey: opts.templateKey ?? null,
         category: opts.category ?? 'TRANSACTIONAL',
         channels: opts.channels ?? ['IN_APP', 'PUSH', 'TELEGRAM'],
-        title: renderTemplate(opts.content.title, vars),
-        body: renderTemplate(opts.content.body, vars),
+        title: r(opts.content.title),
+        body: r(opts.content.body),
         buttonLabel: opts.content.buttonLabel ?? null,
-        buttonUrl: opts.content.buttonUrl ? renderTemplate(opts.content.buttonUrl, vars) : null,
+        buttonUrl: opts.content.buttonUrl ? r(opts.content.buttonUrl) : null,
         secondaryButtonLabel: opts.content.secondaryButtonLabel ?? null,
-        secondaryButtonUrl: opts.content.secondaryButtonUrl ? renderTemplate(opts.content.secondaryButtonUrl, vars) : null,
+        secondaryButtonUrl: opts.content.secondaryButtonUrl ? r(opts.content.secondaryButtonUrl) : null,
         imageUrl: opts.content.imageUrl ?? null,
       };
     }
@@ -120,18 +128,31 @@ export class NotificationsService {
       return null;
     }
     if ('isActive' in template && template.isActive === false) return null;
+    const text = this.textFor(template, fallback, locale);
     return {
       templateKey: opts.templateKey,
       category: opts.category ?? template.category,
       channels: opts.channels ?? template.channels,
-      title: renderTemplate(template.title, vars),
-      body: renderTemplate(template.body, vars).replace(/\s+\n/g, '\n').trim(),
-      buttonLabel: template.buttonLabel ? renderTemplate(template.buttonLabel, vars) : null,
-      buttonUrl: template.buttonUrl ? renderTemplate(template.buttonUrl, vars) : null,
-      secondaryButtonLabel: template.secondaryButtonLabel ? renderTemplate(template.secondaryButtonLabel, vars) : null,
-      secondaryButtonUrl: template.secondaryButtonUrl ? renderTemplate(template.secondaryButtonUrl, vars) : null,
+      title: r(text.title),
+      body: r(text.body).replace(/\s+\n/g, '\n').trim(),
+      buttonLabel: text.buttonLabel ? r(text.buttonLabel) : null,
+      buttonUrl: template.buttonUrl ? r(template.buttonUrl) : null,
+      secondaryButtonLabel: text.secondaryButtonLabel ? r(text.secondaryButtonLabel) : null,
+      secondaryButtonUrl: template.secondaryButtonUrl ? r(template.secondaryButtonUrl) : null,
       imageUrl: null,
     };
+  }
+
+  /** The built-in translation while the stored template still has the built-in English text. */
+  private textFor(template: TemplateText, builtIn: DefaultTemplate | undefined, locale: Locale): TemplateText {
+    const translation = locale === 'en' || !builtIn ? undefined : TEMPLATE_TRANSLATIONS[builtIn.key]?.[locale];
+    if (!builtIn || !translation) return template;
+    const unchanged =
+      template.title === builtIn.title &&
+      template.body === builtIn.body &&
+      (template.buttonLabel ?? null) === (builtIn.buttonLabel ?? null) &&
+      (template.secondaryButtonLabel ?? null) === (builtIn.secondaryButtonLabel ?? null);
+    return unchanged ? translation : template;
   }
 
   // ─── Sending ───
@@ -141,16 +162,22 @@ export class NotificationsService {
     const client = await this.prisma.client.findUnique({
       where: { id: clientId },
       include: {
-        user: { select: { id: true, email: true, phone: true, status: true, notificationPrefs: true } },
-        guardians: { include: { guardian: { select: { id: true, email: true, phone: true, status: true, notificationPrefs: true } } } },
+        user: { select: { id: true, email: true, phone: true, status: true, notificationPrefs: true, locale: true } },
+        guardians: { include: { guardian: { select: { id: true, email: true, phone: true, status: true, notificationPrefs: true, locale: true } } } },
       },
     });
     if (!client || client.status === 'ANONYMIZED') return [];
-    const rendered = await this.render({ ...opts, vars: { firstName: client.firstName, clientName: fullName(client.firstName, client.lastName), ...opts.vars } });
+    const withClient = { ...opts, vars: { firstName: client.firstName, clientName: fullName(client.firstName, client.lastName), ...opts.vars } };
+    const byLocale = new Map<Locale, RenderedTemplate | null>();
+    const renderFor = async (locale: Locale) => {
+      if (!byLocale.has(locale)) byLocale.set(locale, await this.render(withClient, locale));
+      return byLocale.get(locale)!;
+    };
+    const rendered = await renderFor('en');
     if (!rendered) return [];
     if (rendered.category === 'MARKETING' && !client.marketingConsent) return [];
 
-    const recipients: Array<{ userId: string | null; email: string | null; phone: string | null; prefs: NotificationPrefs; prefix: string }> = [];
+    const recipients: Array<{ userId: string | null; email: string | null; phone: string | null; prefs: NotificationPrefs; prefix: string; locale: Locale }> = [];
     if (client.user && client.user.status === 'ACTIVE') {
       recipients.push({
         userId: client.user.id,
@@ -158,6 +185,7 @@ export class NotificationsService {
         phone: client.user.phone ?? client.phone,
         prefs: this.prefs(client.user.notificationPrefs),
         prefix: '',
+        locale: toLocale(client.user.locale),
       });
     }
     for (const g of client.guardians) {
@@ -168,16 +196,18 @@ export class NotificationsService {
         phone: g.guardian.phone,
         prefs: this.prefs(g.guardian.notificationPrefs),
         prefix: `${client.firstName}: `,
+        locale: toLocale(g.guardian.locale),
       });
     }
     if (!recipients.length && client.phone) {
-      recipients.push({ userId: null, email: client.email, phone: client.phone, prefs: DEFAULT_PREFS, prefix: '' });
+      recipients.push({ userId: null, email: client.email, phone: client.phone, prefs: DEFAULT_PREFS, prefix: '', locale: 'en' });
     }
 
     const ids: string[] = [];
     for (const r of recipients) {
+      const text = (await renderFor(r.locale)) ?? rendered;
       const id = await this.create(
-        { ...rendered, title: r.prefix + rendered.title },
+        { ...text, title: r.prefix + text.title },
         { userId: r.userId, clientId, email: r.email, phone: r.phone, prefs: r.prefs },
         opts,
       );
@@ -191,7 +221,7 @@ export class NotificationsService {
   async notifyUser(userId: string, opts: NotifyOptions): Promise<string | null> {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user || user.status !== 'ACTIVE') return null;
-    const rendered = await this.render(opts);
+    const rendered = await this.render(opts, toLocale(user.locale));
     if (!rendered) return null;
     const id = await this.create(rendered, { userId, clientId: null, email: user.email, phone: user.phone, prefs: this.prefs(user.notificationPrefs) }, opts);
     this.kick();
@@ -207,13 +237,18 @@ export class NotificationsService {
         status: 'ACTIVE',
         roles: { some: { role: { permissions: { some: { permission: { key: permission } } } } } },
       },
-      select: { id: true },
+      select: { id: true, locale: true },
     });
-    const rendered = await this.render({ templateKey, vars, category: 'STAFF', channels: ['IN_APP'] });
-    if (!rendered) return;
-    if (users.length) {
-      await this.prisma.notification.createMany({
-        data: users.map((u) => ({
+    if (!users.length) return;
+    const byLocale = new Map<Locale, RenderedTemplate | null>();
+    for (const locale of new Set(users.map((u) => toLocale(u.locale)))) {
+      byLocale.set(locale, await this.render({ templateKey, vars, category: 'STAFF', channels: ['IN_APP'] }, locale));
+    }
+    const data = users.flatMap((u) => {
+      const rendered = byLocale.get(toLocale(u.locale));
+      if (!rendered) return [];
+      return [
+        {
           userId: u.id,
           category: 'STAFF' as const,
           templateKey,
@@ -222,9 +257,10 @@ export class NotificationsService {
           buttonLabel: rendered.buttonLabel ?? null,
           buttonUrl: rendered.buttonUrl ?? null,
           data: (vars ?? {}) as Prisma.InputJsonValue,
-        })),
-      });
-    }
+        },
+      ];
+    });
+    if (data.length) await this.prisma.notification.createMany({ data });
   }
 
   private async create(

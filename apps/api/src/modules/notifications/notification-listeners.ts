@@ -15,6 +15,7 @@ import {
   TrialRequestedEvent,
   WaitlistOfferedEvent,
 } from '../../common/events/events';
+import { localized, type LocalizedText } from '../../common/i18n/localized';
 import { formatClock } from '../../common/utils/time';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationVarsService } from './notification-vars.service';
@@ -25,6 +26,21 @@ import { NotificationsService } from './notifications.service';
  * Each handler is isolated: a failure is logged and never affects the
  * operation that produced the event.
  */
+const VISIT_RETURNED: LocalizedText = {
+  en: 'Your visit was returned to your membership.',
+  ru: 'Визит вернулся на абонемент.',
+  kk: 'Келу абонементіңізге қайтарылды.',
+};
+const VISIT_NOT_RETURNED: LocalizedText = {
+  en: 'The visit was not returned (late cancellation).',
+  ru: 'Визит не возвращён (поздняя отмена).',
+  kk: 'Келу қайтарылмады (кеш болдырмау).',
+};
+const LATE_CANCELLATION: LocalizedText = { en: 'Late cancellation', ru: 'Поздняя отмена', kk: 'Кеш болдырмау' };
+const CANCELLATION: LocalizedText = { en: 'Cancellation', ru: 'Отмена', kk: 'Болдырмау' };
+const TRIAL_BOOKED: LocalizedText = { en: 'booked a trial', ru: 'записался на пробное', kk: 'сынақ сабаққа жазылды' };
+const TRIAL_REQUEST: LocalizedText = { en: 'trial request', ru: 'заявка на пробное', kk: 'сынақ сабаққа өтінім' };
+
 @Injectable()
 export class NotificationListeners {
   private readonly logger = new Logger(NotificationListeners.name);
@@ -60,7 +76,7 @@ export class NotificationListeners {
         await this.notifications.notifyStaff('newTrial', 'admin.new_trial', {
           name: v.clientName,
           phone: v.phone,
-          details: `booked a trial: ${v.sessionTitle}, ${v.dateTime}`,
+          details: localized((l) => `${TRIAL_BOOKED[l]}: ${v.sessionTitle}, ${(v.dateTime as LocalizedText)[l]}`),
         }, 'trials.manage');
       }
     });
@@ -73,16 +89,12 @@ export class NotificationListeners {
       const v = await this.vars.booking(e.bookingId);
       if (!v) return;
       const booking = await this.prisma.booking.findUnique({ where: { id: e.bookingId }, select: { visitDeducted: true } });
-      const visitNote = e.visitReturned
-        ? 'Your visit was returned to your membership.'
-        : booking?.visitDeducted
-          ? 'The visit was not returned (late cancellation).'
-          : '';
+      const visitNote = e.visitReturned ? VISIT_RETURNED : booking?.visitDeducted ? VISIT_NOT_RETURNED : '';
       if (e.actor.source === 'CLIENT') {
         await this.notifications.notifyClient(e.clientId, { templateKey: 'booking.cancelled', vars: { ...v, visitNote } });
         await this.notifications.notifyStaff('cancellation', 'admin.cancellation', {
           ...v,
-          cancellationType: e.isLate ? 'Late cancellation' : 'Cancellation',
+          cancellationType: e.isLate ? LATE_CANCELLATION : CANCELLATION,
         }, 'bookings.view');
       } else if (e.notifyClient) {
         await this.notifications.notifyClient(e.clientId, { templateKey: 'booking.cancelled_by_club', vars: { ...v, visitNote } });
@@ -179,7 +191,7 @@ export class NotificationListeners {
       await this.notifications.notifyStaff('newTrial', 'admin.new_trial', {
         name: trial.name,
         phone: trial.phone,
-        details: `trial request${trial.level ? ` (${trial.level.name})` : ''}${trial.comment ? ` — ${trial.comment}` : ''}`,
+        details: localized((l) => `${TRIAL_REQUEST[l]}${trial.level ? ` (${trial.level.name})` : ''}${trial.comment ? ` — ${trial.comment}` : ''}`),
       }, 'trials.manage');
     });
   }

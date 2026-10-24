@@ -1,11 +1,19 @@
 import { Injectable } from '@nestjs/common';
 import { ClockService } from '../../common/clock/clock.service';
+import { formatNumber, INTL_LOCALE, localized, type LocalizedText, pluralRu } from '../../common/i18n/localized';
 import { fullName } from '../../common/utils/names';
 import { formatPhone } from '../../common/utils/phone';
 import { TemplateVars } from '../../common/utils/template';
 import { daysBetweenLocal, formatClock, formatLocalDate, formatSessionTime, zoned } from '../../common/utils/time';
 import { levelRangeLabel } from '../../domain/level-policy';
 import { PrismaService } from '../../prisma/prisma.service';
+
+const DAY_WORDS = { en: ['today', 'tomorrow'], ru: ['сегодня', 'завтра'], kk: ['бүгін', 'ертең'] } as const;
+
+const visitsLeft = (n: number) =>
+  localized((l) => (l === 'ru' ? `Осталось визитов: ${n}.` : l === 'kk' ? `Қалған келу саны: ${n}.` : `Visits left: ${n}.`));
+
+const amountText = (n: number) => localized((l) => formatNumber(n, l));
 
 /** Builds template variables (names, local times, "today"/"tomorrow", …) for notifications. */
 @Injectable()
@@ -15,17 +23,25 @@ export class NotificationVarsService {
     private readonly clock: ClockService,
   ) {}
 
-  dayWord(date: Date, tz: string): string {
+  /** "tomorrow" / "завтра" / "on Wednesday, 7 October" / "7 октября". */
+  dayWord(date: Date, tz: string): LocalizedText {
     const diff = daysBetweenLocal(this.clock.now(), date, tz);
-    if (diff === 0) return 'today';
-    if (diff === 1) return 'tomorrow';
-    return `on ${zoned(date, tz).setLocale('en-GB').toFormat('cccc, d LLLL')}`;
+    return localized((locale) => {
+      if (diff === 0 || diff === 1) return DAY_WORDS[locale][diff];
+      const local = zoned(date, tz).setLocale(INTL_LOCALE[locale]);
+      return locale === 'en' ? `on ${local.toFormat('cccc, d MMMM')}` : local.toFormat('d MMMM');
+    });
   }
 
-  daysText(days: number): string {
-    if (days <= 0) return 'today';
-    if (days === 1) return 'tomorrow';
-    return `in ${days} days`;
+  /** "in 3 days" / "через 3 дня" / "3 күннен кейін". */
+  daysText(days: number): LocalizedText {
+    return localized((locale) => {
+      if (days <= 0) return DAY_WORDS[locale][0];
+      if (days === 1) return DAY_WORDS[locale][1];
+      if (locale === 'ru') return `через ${days} ${pluralRu(days, 'день', 'дня', 'дней')}`;
+      if (locale === 'kk') return `${days} күннен кейін`;
+      return `in ${days} days`;
+    });
   }
 
   async session(sessionId: string): Promise<TemplateVars & { tz: string }> {
@@ -40,8 +56,8 @@ export class NotificationVarsService {
       sessionId: s.id,
       sessionTitle: s.title ?? s.groupType?.name ?? 'Speaking Club',
       teacherName: s.teacher ? fullName(s.teacher.firstName, s.teacher.lastName) : 'Talk Club',
-      dateTime: formatSessionTime(s.startsAt, tz),
-      date: formatLocalDate(s.startsAt, tz),
+      dateTime: localized((l) => formatSessionTime(s.startsAt, tz, l)),
+      date: localized((l) => formatLocalDate(s.startsAt, tz, l)),
       time: formatClock(s.startsAt, tz),
       dayWord: this.dayWord(s.startsAt, tz),
       levelLabel: levelRangeLabel(s.levelMin, s.levelMax),
@@ -72,8 +88,8 @@ export class NotificationVarsService {
       phone: formatPhone(b.client.phone),
       planName: b.membership?.planName ?? '',
       visitsRemaining: b.membership?.visitsRemaining ?? '',
-      visitsNote: b.membership ? `Visits left: ${b.membership.visitsRemaining}.` : '',
-      amount: b.trial?.price?.toLocaleString('en-US') ?? '',
+      visitsNote: b.membership ? visitsLeft(b.membership.visitsRemaining) : '',
+      amount: typeof b.trial?.price === 'number' ? amountText(b.trial.price) : '',
     };
   }
 
@@ -91,7 +107,7 @@ export class NotificationVarsService {
       provider: p.provider,
       productType: p.productType,
       paymentId: p.id,
-      amount: p.amount.toLocaleString('en-US'),
+      amount: amountText(p.amount),
       description: p.description ?? p.productType.toLowerCase(),
       method: p.method.name,
       instructions: p.method.instructions ?? '',
@@ -113,7 +129,7 @@ export class NotificationVarsService {
       planName: m.planName,
       visits: m.visitsTotal,
       visitsRemaining: m.visitsRemaining,
-      expiryDate: formatLocalDate(m.expiresAt, tz),
+      expiryDate: localized((l) => formatLocalDate(m.expiresAt, tz, l)),
       days,
       daysText: this.daysText(days),
       clientName: fullName(m.client.firstName, m.client.lastName),

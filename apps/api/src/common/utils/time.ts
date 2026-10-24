@@ -1,4 +1,6 @@
 import { DateTime } from 'luxon';
+import { INTL_LOCALE } from '../i18n/localized';
+import type { Locale } from './locale';
 
 /**
  * Club-local time helpers. The database stores UTC instants; every rule that
@@ -67,13 +69,14 @@ export function daysBetweenLocal(a: Date, b: Date, tz: string = DEFAULT_TIMEZONE
   return Math.round(end.diff(start, 'days').days);
 }
 
-/** Human label for notifications, e.g. "Wed, 7 Oct, 18:30". */
-export function formatSessionTime(date: Date, tz: string = DEFAULT_TIMEZONE): string {
-  return zoned(date, tz).setLocale('en-GB').toFormat('ccc, d LLL, HH:mm');
+/** Human label for notifications, e.g. "Wed, 7 Oct, 18:30" or "ср, 7 окт., 18:30". */
+export function formatSessionTime(date: Date, tz: string = DEFAULT_TIMEZONE, locale: Locale = 'en'): string {
+  return zoned(date, tz).setLocale(INTL_LOCALE[locale]).toFormat('ccc, d MMM, HH:mm');
 }
 
-export function formatLocalDate(date: Date, tz: string = DEFAULT_TIMEZONE): string {
-  return zoned(date, tz).setLocale('en-GB').toFormat('d LLLL yyyy');
+/** "7 October 2026", "7 октября 2026". */
+export function formatLocalDate(date: Date, tz: string = DEFAULT_TIMEZONE, locale: Locale = 'en'): string {
+  return zoned(date, tz).setLocale(INTL_LOCALE[locale]).toFormat('d MMMM yyyy');
 }
 
 export function formatClock(date: Date, tz: string = DEFAULT_TIMEZONE): string {
