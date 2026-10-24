@@ -1,0 +1,31 @@
+{
+  "name": "talk-club-platform",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Talk Club operating system: client PWA, admin panel, teacher panel, CRM and booking/membership engine.",
+  "workspaces": [
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=20.18"
+  },
+  "scripts": {
+    "db:start": "node scripts/dev-db.mjs",
+    "db:migrate": "npm run prisma:migrate -w apps/api",
+    "db:seed": "npm run prisma:seed -w apps/api",
+    "db:reset": "npm run prisma:reset -w apps/api",
+    "dev:api": "npm run start:dev -w apps/api",
+    "dev:web": "npm run dev -w apps/web",
+    "build": "npm run build -w apps/api && npm run build -w apps/web",
+    "test": "npm run test -w apps/api",
+    "test:unit": "npm run test:unit -w apps/api",
+    "test:integration": "npm run test:integration -w apps/api",
+    "api:openapi": "npm run openapi -w apps/api",
+    "api:types": "npm run api:types -w apps/web",
+    "lint": "npm run typecheck -w apps/api && npm run typecheck -w apps/web",
+    "db:reseed": "npm run prisma:reseed -w apps/api"
+  },
+  "devDependencies": {
+    "embedded-postgres": "17.10.0-beta.17"
+  }
+}

@@ -1,0 +1,13 @@
+**/node_modules
+**/.next
+**/dist
+**/coverage
+**/*.log
+**/.env
+**/.env.*
+!**/.env.example
+.git
+.data
+.claude
+apps/api/uploads
+apps/api/openapi.json.tmp
