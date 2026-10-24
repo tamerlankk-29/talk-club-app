@@ -8,16 +8,19 @@ import { ConnectionProblem, SplashScreen } from '@/components/client/require-aut
 import { LogoMark } from '@/components/icons';
 import { useAuth } from '@/lib/auth';
 import { cn } from '@/lib/utils';
+import { useT } from '@/lib/i18n';
+import { teacherMessages } from '@/lib/i18n/messages/teacher';
 
 const NAV = [
-  { href: '/teacher', label: 'Today', icon: CalendarDays, match: (p: string) => p === '/teacher' },
-  { href: '/teacher/sessions', label: 'Sessions', icon: CalendarRange, match: (p: string) => p.startsWith('/teacher/sessions') },
-  { href: '/teacher/scan', label: 'Check-in', icon: QrCode, match: (p: string) => p.startsWith('/teacher/scan') },
-  { href: '/teacher/profile', label: 'Profile', icon: UserRound, match: (p: string) => p.startsWith('/teacher/profile') },
-];
+  { href: '/teacher', key: 'today', icon: CalendarDays, match: (p: string) => p === '/teacher' },
+  { href: '/teacher/sessions', key: 'sessions', icon: CalendarRange, match: (p: string) => p.startsWith('/teacher/sessions') },
+  { href: '/teacher/scan', key: 'checkIn', icon: QrCode, match: (p: string) => p.startsWith('/teacher/scan') },
+  { href: '/teacher/profile', key: 'profile', icon: UserRound, match: (p: string) => p.startsWith('/teacher/profile') },
+] as const;
 
 /** Phone-first frame for teachers: their sessions, attendance, check-in and feedback. */
 export function TeacherShell({ children }: { children: ReactNode }) {
+  const t = useT(teacherMessages);
   const { status, user } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
@@ -30,11 +33,11 @@ export function TeacherShell({ children }: { children: ReactNode }) {
   if (!user.areas.teacher) {
     return (
       <div className="flex min-h-dvh flex-col items-center justify-center gap-3 p-6 text-center">
-        <p className="font-display text-xl font-semibold">This area is for Talk Club teachers</p>
-        <p className="text-sm text-muted">Your account isn&apos;t linked to a teacher profile.</p>
+        <p className="font-display text-xl font-semibold">{t.teachersOnly}</p>
+        <p className="text-sm text-muted">{t.notLinked}</p>
         <div className="flex gap-4 text-sm font-semibold text-brand-700">
-          {user.areas.admin && <Link href="/admin">Admin panel →</Link>}
-          <Link href="/">Client app →</Link>
+          {user.areas.admin && <Link href="/admin">{t.adminPanel}</Link>}
+          <Link href="/">{t.clientApp}</Link>
         </div>
       </div>
     );
@@ -45,12 +48,12 @@ export function TeacherShell({ children }: { children: ReactNode }) {
         <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-line/70 bg-white/90 px-4 py-3 pt-safe backdrop-blur-xl">
           <Link href="/teacher" className="flex items-center gap-2">
             <LogoMark className="h-8 w-8" />
-            <span className="font-display text-base font-semibold">Teacher</span>
+            <span className="font-display text-base font-semibold">{t.panel}</span>
           </Link>
           <span className="truncate text-sm font-medium text-muted">{user.teacher?.name ?? user.displayName}</span>
         </header>
         <main className="px-4 pb-28 pt-4">{children}</main>
-        <nav aria-label="Teacher" className="fixed inset-x-0 bottom-0 z-40 mx-auto w-full max-w-[640px] border-t border-line/80 bg-white/90 pb-safe backdrop-blur-xl">
+        <nav aria-label={t.panel} className="fixed inset-x-0 bottom-0 z-40 mx-auto w-full max-w-[640px] border-t border-line/80 bg-white/90 pb-safe backdrop-blur-xl">
           <ul className="grid grid-cols-4 px-2 pt-1.5">
             {NAV.map((item) => {
               const active = item.match(pathname);
@@ -65,7 +68,7 @@ export function TeacherShell({ children }: { children: ReactNode }) {
                     <span className={cn('flex h-8 w-12 items-center justify-center rounded-full', active && 'bg-brand-100')}>
                       <Icon className="h-[22px] w-[22px]" />
                     </span>
-                    {item.label}
+                    {t.nav[item.key]}
                   </Link>
                 </li>
               );

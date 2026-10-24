@@ -4,10 +4,13 @@ import { Badge, StatusBadge } from '@/components/ui/feedback';
 import type { S } from '@/lib/api/types';
 import { fmt } from '@/lib/format';
 import { cn } from '@/lib/utils';
+import { useT } from '@/lib/i18n';
+import { teacherMessages } from '@/lib/i18n/messages/teacher';
 
 type TeacherSession = S<'TeacherSessionDto'>;
 
 export function TeacherSessionCard({ s, showDate }: { s: TeacherSession; showDate?: boolean }) {
+  const t = useT(teacherMessages);
   const now = Date.now();
   const live = new Date(s.startsAt).getTime() <= now && new Date(s.endsAt).getTime() > now;
   return (
@@ -21,18 +24,18 @@ export function TeacherSessionCard({ s, showDate }: { s: TeacherSession; showDat
           {showDate && <p className="text-xs font-semibold uppercase text-brand-700">{fmt.weekdayDate(s.startsAt)}</p>}
           <div className="flex flex-wrap items-center gap-1.5">
             <p className="truncate font-semibold">{s.title}</p>
-            {live && <Badge tone="brand">Now</Badge>}
+            {live && <Badge tone="brand">{t.now}</Badge>}
             {s.status === 'CANCELLED' && <StatusBadge status="CANCELLED" />}
           </div>
           <p className="truncate text-sm text-muted">
-            {s.levelLabel} · {s.format === 'ONLINE' ? <Video className="inline h-3.5 w-3.5" /> : <MapPin className="inline h-3.5 w-3.5" />} {s.room?.name ?? (s.format === 'ONLINE' ? 'Online' : '—')}
+            {s.levelLabel} · {s.format === 'ONLINE' ? <Video className="inline h-3.5 w-3.5" /> : <MapPin className="inline h-3.5 w-3.5" />} {s.room?.name ?? (s.format === 'ONLINE' ? t.online : '—')}
           </p>
           <p className="mt-1 flex items-center gap-2 text-sm">
             <span className="inline-flex items-center gap-1 font-semibold">
               <Users className="h-4 w-4 text-brand-600" /> {s.booked}/{s.capacity}
             </span>
-            {s.unmarked > 0 && new Date(s.startsAt).getTime() <= now && <span className="text-xs font-semibold text-warning-700">{s.unmarked} to mark</span>}
-            {s.attendanceFinalized && <span className="text-xs text-muted">attendance closed</span>}
+            {s.unmarked > 0 && new Date(s.startsAt).getTime() <= now && <span className="text-xs font-semibold text-warning-700">{t.toMark(s.unmarked)}</span>}
+            {s.attendanceFinalized && <span className="text-xs text-muted">{t.attendanceClosed}</span>}
           </p>
         </div>
         <ChevronRight className="h-5 w-5 text-subtle" />

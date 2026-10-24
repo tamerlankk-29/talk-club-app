@@ -37,6 +37,8 @@ export const metaMessages = defineMessages({
     signIn: 'Sign in',
     join: 'Join Talk Club',
     offline: 'Offline',
+    teacher: 'Teacher',
+    admin: 'Admin',
   },
   ru: {
     siteTitle: 'Talk Club — разговорный клуб английского в Алматы',
@@ -45,6 +47,8 @@ export const metaMessages = defineMessages({
     signIn: 'Вход',
     join: 'Присоединиться к Talk Club',
     offline: 'Нет связи',
+    teacher: 'Преподаватель',
+    admin: 'Админка',
   },
   kk: {
     siteTitle: 'Talk Club — Алматыдағы ағылшын тілі сөйлесу клубы',
@@ -53,5 +57,7 @@ export const metaMessages = defineMessages({
     signIn: 'Кіру',
     join: 'Talk Club-қа қосылу',
     offline: 'Байланыс жоқ',
+    teacher: 'Мұғалім',
+    admin: 'Әкімші',
   },
 });
