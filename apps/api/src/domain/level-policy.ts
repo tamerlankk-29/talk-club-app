@@ -1,3 +1,5 @@
+import type { Locale } from '../common/utils/locale';
+
 /**
  * Level matching between a client and a session's level range.
  * Positions are ordinal indexes of levels sorted by rank within the program
@@ -39,9 +41,12 @@ export function levelPositions(levels: Array<{ id: string; rank: number }>): Map
 export function levelRangeLabel(
   min: { name: string; rank: number } | null,
   max: { name: string; rank: number } | null,
+  locale: Locale = 'en',
 ): string {
-  if (!min && !max) return 'All levels';
+  if (!min && !max) return ALL_LEVELS[locale];
   if (min && max) return min.rank === max.rank ? min.name : `${min.name} – ${max.name}`;
   if (min) return `${min.name}+`;
-  return `Up to ${max!.name}`;
+  return locale === 'ru' ? `До ${max!.name}` : locale === 'kk' ? `${max!.name} дейін` : `Up to ${max!.name}`;
 }
+
+const ALL_LEVELS: Record<Locale, string> = { en: 'All levels', ru: 'Все уровни', kk: 'Барлық деңгейлер' };

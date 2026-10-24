@@ -6,6 +6,7 @@ import { ClockService } from '../../common/clock/clock.service';
 import { DomainError, notFound } from '../../common/errors/domain-error';
 import { EventBus } from '../../common/events/event-bus.service';
 import { Events, SeatReleasedEvent, SessionUpdatedEvent } from '../../common/events/events';
+import { requestLocale } from '../../common/request-context';
 import { fullName } from '../../common/utils/names';
 import { localClock, localDate, localToUtc, localWeekday } from '../../common/utils/time';
 import { levelRangeLabel } from '../../domain/level-policy';
@@ -565,7 +566,7 @@ export class SessionsService {
       generatedUntil: t.generatedUntil ? isoDate(t.generatedUntil) : null,
       teacherName: t.teacher ? fullName(t.teacher.firstName, t.teacher.lastName) : null,
       roomName: t.room?.name ?? null,
-      levelLabel: levelRangeLabel(t.levelMin ?? null, t.levelMax ?? null),
+      levelLabel: levelRangeLabel(t.levelMin ?? null, t.levelMax ?? null, requestLocale()),
       groupTypeName: t.groupType?.name ?? null,
       upcomingCount,
     };

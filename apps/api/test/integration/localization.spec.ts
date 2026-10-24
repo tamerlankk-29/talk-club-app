@@ -87,6 +87,14 @@ describe('Localization', () => {
     expect(t.outbox.last({ channel: 'SMS', address: '+77074445566' })?.body).toMatch(/^Код Talk Club: \d{6}\. Действует 5 минут\./);
   });
 
+  it('labels levels in the requested language', async () => {
+    const { teacherId } = await f.teacher('Lena');
+    const ru = await t.http().get(`/api/public/teachers/${teacherId}`).set('Accept-Language', 'ru').expect(200);
+    expect(ru.body.levelsLabel).toBe('Все уровни');
+    const en = await t.http().get(`/api/public/teachers/${teacherId}`).expect(200);
+    expect(en.body.levelsLabel).toBe('All levels');
+  });
+
   it('keeps an admin-edited template as written', async () => {
     const notifications = t.get(NotificationsService);
     const c = await f.client();

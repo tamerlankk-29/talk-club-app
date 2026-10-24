@@ -5,6 +5,7 @@ import type { AuthUser } from '../../common/auth/auth-user';
 import { hasPermission } from '../../common/auth/auth-user';
 import { ClockService } from '../../common/clock/clock.service';
 import { DomainError, notFound } from '../../common/errors/domain-error';
+import { requestLocale } from '../../common/request-context';
 import { fullName } from '../../common/utils/names';
 import { levelRangeLabel } from '../../domain/level-policy';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -44,7 +45,7 @@ export function toTeacherPublic(t: TeacherRow): TeacherPublicDto {
     specialization: t.specialization,
     levelFrom: t.levelFrom,
     levelTo: t.levelTo,
-    levelsLabel: levelRangeLabel(t.levelFrom, t.levelTo),
+    levelsLabel: levelRangeLabel(t.levelFrom, t.levelTo, requestLocale()),
   };
 }
 

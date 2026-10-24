@@ -23,6 +23,11 @@ export const RequestContext = {
   },
 };
 
+/** Language of the current request; English outside a request (jobs, events). */
+export function requestLocale(): Locale {
+  return storage.getStore()?.locale ?? 'en';
+}
+
 export function requestContextMiddleware(req: Request, res: Response, next: NextFunction): void {
   const incoming = req.header('x-request-id');
   const requestId = incoming && /^[\w-]{8,64}$/.test(incoming) ? incoming : randomUUID();

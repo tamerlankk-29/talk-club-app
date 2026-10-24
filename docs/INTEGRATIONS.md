@@ -47,6 +47,18 @@ the delivery log. Rules:
 - **SMS is a fallback**: used only when the client has no push-enabled device (saves money).
 - Expired push subscriptions reported by the push service are removed automatically.
 
+### Languages
+
+Members pick English, Russian or Kazakh in the app; the choice is saved on their account.
+
+- Notifications are written in each recipient's language. Built-in templates carry Russian and
+  Kazakh texts (`apps/api/src/modules/notifications/template-translations.ts`), and dates, amounts
+  and "tomorrow"-style words follow the language too.
+- Once an admin edits a template's text in **Admin → Notifications**, the edited text goes to
+  everyone as written. Broadcasts are also sent as written.
+- API error messages follow the app's `Accept-Language` header; the sign-in SMS follows the
+  language of the screen it was requested from, and the bot follows the member's Telegram language.
+
 ### Web Push (included)
 
 1. Generate VAPID keys: `npx web-push generate-vapid-keys`.

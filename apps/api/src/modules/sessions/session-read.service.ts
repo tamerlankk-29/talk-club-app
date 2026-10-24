@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { ClockService } from '../../common/clock/clock.service';
+import { requestLocale } from '../../common/request-context';
 import { fullName } from '../../common/utils/names';
 import { localClock, localDate, localToUtc, localWeekday, zoned } from '../../common/utils/time';
 import { cancellationDeadline, CancellationPolicy } from '../../domain/cancellation-policy';
@@ -139,7 +140,7 @@ export class SessionReadService {
       groupType: row.groupType ? { id: row.groupType.id, name: row.groupType.name, color: row.groupType.color } : null,
       levelMin: row.levelMin,
       levelMax: row.levelMax,
-      levelLabel: levelRangeLabel(row.levelMin, row.levelMax),
+      levelLabel: levelRangeLabel(row.levelMin, row.levelMax, requestLocale()),
       trialsAllowed: row.trialsAllowed,
       cancellationDeadline: cancellationDeadline(row.startsAt, ctx.policy, tz),
       templateId: row.templateId,

@@ -60,7 +60,7 @@ export class NotificationVarsService {
       date: localized((l) => formatLocalDate(s.startsAt, tz, l)),
       time: formatClock(s.startsAt, tz),
       dayWord: this.dayWord(s.startsAt, tz),
-      levelLabel: levelRangeLabel(s.levelMin, s.levelMax),
+      levelLabel: localized((l) => levelRangeLabel(s.levelMin, s.levelMax, l)),
       room: s.room?.name ?? '',
       roomNote: s.room ? `, ${s.room.name}` : '',
       capacity: s.capacity,

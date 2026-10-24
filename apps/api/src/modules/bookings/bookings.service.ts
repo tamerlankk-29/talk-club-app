@@ -16,6 +16,8 @@ import {
   SessionFullEvent,
   TrialScheduledEvent,
 } from '../../common/events/events';
+import { localizeError } from '../../common/i18n/error-messages';
+import { requestLocale } from '../../common/request-context';
 import { fullName } from '../../common/utils/names';
 import { formatSessionTime } from '../../common/utils/time';
 import { APP_CONFIG, AppConfig } from '../../config/app-config';
@@ -31,6 +33,7 @@ import { PaymentsService } from '../payments/payments.service';
 import { SessionListQueryDto } from '../sessions/dto/session.dto';
 import { SessionReadService, SessionRow, SessionViewContext } from '../sessions/session-read.service';
 import { SettingsService } from '../settings/settings.service';
+import { BOOKING_TEXTS } from './booking-texts';
 import { bookingInclude, BookingRow, toBookingDto } from './booking.mapper';
 import {
   AddParticipantDto,
@@ -309,15 +312,15 @@ export class BookingsService {
       tz: row.location.timezone,
       visitDeducted: true,
     });
-    const levelIssue = result.levelWarning;
-    const levelWarning = levelIssue
-      ? `This session is for ${levelRangeLabel(row.levelMin, row.levelMax)}; your level is ${viewer.levelName ?? 'not set'}.`
+    const locale = requestLocale();
+    const levelWarning = result.levelWarning
+      ? BOOKING_TEXTS[locale].levelMismatch(levelRangeLabel(row.levelMin, row.levelMax, locale), viewer.levelName)
       : null;
     const chosen = result.ok ? result.membership : null;
     return {
       canBook: result.ok,
       reason: result.ok ? null : result.code,
-      message: result.ok ? null : ERROR_CATALOG[result.code as ErrorCode].message,
+      message: result.ok ? null : localizeError(ERROR_CATALOG[result.code as ErrorCode].message, locale),
       levelWarning,
       membershipId: chosen?.id ?? null,
       membershipName: chosen ? (viewer.memberships.find((m) => m.id === chosen.id)?.planName ?? null) : null,
@@ -615,9 +618,7 @@ export class BookingsService {
       visitsRemaining: created.visitsRemaining,
       freeCancellationUntil: dto.cancellation?.deadline ?? dto.session.cancellationDeadline,
       freeCancellationAvailable: dto.cancellation ? !dto.cancellation.isLate : false,
-      levelWarning: created.levelWarning
-        ? `This session is for ${dto.session.levelLabel}. It may feel ${created.levelWarning === 'TOO_LOW' ? 'challenging' : 'easy'} for your level.`
-        : null,
+      levelWarning: created.levelWarning ? BOOKING_TEXTS[requestLocale()].levelAfterBooking(dto.session.levelLabel, created.levelWarning === 'TOO_LOW') : null,
       trialPaymentId: created.trialPaymentId,
       trialPrice: created.trialPrice,
     };
@@ -641,14 +642,16 @@ export class BookingsService {
       visitDeducted: booking.visitDeducted,
     });
     const canCancel = booking.status === 'BOOKED' && !a.sessionStarted && booking.session.status === 'SCHEDULED';
+    const locale = requestLocale();
+    const text = BOOKING_TEXTS[locale];
     if (!canCancel) {
       return {
         canCancel: false,
         isLate: a.isLate,
         deadline: a.deadline,
         visitWillBeReturned: false,
-        title: 'Cannot cancel',
-        message: ERROR_CATALOG.BOOKING_NOT_CANCELLABLE.message,
+        title: text.cannotCancel,
+        message: localizeError(ERROR_CATALOG.BOOKING_NOT_CANCELLABLE.message, locale),
       };
     }
     if (a.isLate) {
@@ -657,10 +660,8 @@ export class BookingsService {
         isLate: true,
         deadline: a.deadline,
         visitWillBeReturned: false,
-        title: 'Late cancellation',
-        message: booking.visitDeducted
-          ? 'The cancellation deadline has passed. This visit will not be returned.'
-          : 'The cancellation deadline has passed.',
+        title: text.lateTitle,
+        message: booking.visitDeducted ? text.lateVisitLost : text.lateNoVisit,
       };
     }
     return {
@@ -668,8 +669,8 @@ export class BookingsService {
       isLate: false,
       deadline: a.deadline,
       visitWillBeReturned: a.visitReturned,
-      title: 'Cancel this session?',
-      message: a.visitReturned ? 'Your visit will be returned to your membership.' : 'Your booking will be cancelled.',
+      title: text.cancelTitle,
+      message: a.visitReturned ? text.visitReturned : text.bookingCancelled,
     };
   }
 
@@ -1158,16 +1159,17 @@ export class BookingsService {
     const s = booking.session;
     const club = await this.settings.get('club');
     const location = [club.name, s.location.address, s.location.addressDetails, 'Almaty'].filter(Boolean).join(', ');
+    const text = BOOKING_TEXTS[requestLocale()].calendar;
     const content = buildIcs(
       {
         uid: `booking-${booking.id}@talkclub`,
         start: s.startsAt,
         end: s.endsAt,
-        summary: `${club.name}: ${s.title}${s.teacher ? ` with ${s.teacher.name}` : ''}`,
-        description: [`Level: ${s.levelLabel}`, s.room ? `Room: ${s.room.name}` : null, booking.onlineUrl ? `Join: ${booking.onlineUrl}` : null]
+        summary: `${club.name}: ${s.title}${s.teacher ? text.with(s.teacher.name) : ''}`,
+        description: [`${text.level}: ${s.levelLabel}`, s.room ? `${text.room}: ${s.room.name}` : null, booking.onlineUrl ? `${text.join}: ${booking.onlineUrl}` : null]
           .filter(Boolean)
           .join('\n'),
-        location: s.format === 'ONLINE' ? (booking.onlineUrl ?? 'Online') : location,
+        location: s.format === 'ONLINE' ? (booking.onlineUrl ?? text.online) : location,
         url: `${this.config.appUrl}/bookings/${booking.id}`,
         alarmMinutes: 120,
       },
