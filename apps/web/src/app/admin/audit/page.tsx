@@ -12,6 +12,8 @@ import { api, call } from '@/lib/api/client';
 import type { S } from '@/lib/api/types';
 import { useUrlState } from '@/lib/admin-queries';
 import { CLUB_TZ, fmt } from '@/lib/format';
+import { useT } from '@/lib/i18n';
+import { reportsMessages } from '@/lib/i18n/messages/admin/reports';
 
 type Entry = S<'AuditLogDto'>;
 const PAGE_SIZE = 50;
@@ -19,6 +21,7 @@ const PAGE_SIZE = 50;
 const ENTITY_TYPES = ['Client', 'Booking', 'Membership', 'Payment', 'Session', 'SessionTemplate', 'MembershipPlan', 'Setting', 'User', 'Role', 'Teacher', 'Lead', 'Broadcast', 'AutomationRule', 'LegalDocument', 'DataRequest'];
 
 function AuditLog() {
+  const tr = useT(reportsMessages);
   const url = useUrlState();
   const page = Number(url.get('page', '1'));
   const [open, setOpen] = useState<Entry | null>(null);
@@ -37,19 +40,19 @@ function AuditLog() {
     placeholderData: (prev) => prev,
   });
   return (
-    <AdminPage title="Audit log" description="Every change to memberships, payments, bookings, settings and permissions — who, when, before and after.">
+    <AdminPage title={tr.auditLog} description={tr.everyChangeMembershipsPayments}>
       <Toolbar>
-        <FilterSelect label="Entity" value={url.get('entity')} onChange={(v) => url.set({ entity: v })}>
-          <option value="">All entities</option>
+        <FilterSelect label={tr.entity} value={url.get('entity')} onChange={(v) => url.set({ entity: v })}>
+          <option value="">{tr.allEntities}</option>
           {ENTITY_TYPES.map((t) => (
             <option key={t} value={t}>
               {t}
             </option>
           ))}
         </FilterSelect>
-        <Input className="h-10 w-56" placeholder="Action, e.g. membership.adjust" value={url.get('action')} onChange={(e) => url.set({ action: e.target.value })} aria-label="Action" />
-        <Input type="date" className="h-10 w-40" value={fromDay} onChange={(e) => url.set({ from: e.target.value })} aria-label="From" />
-        <Input type="date" className="h-10 w-40" value={toDay} onChange={(e) => url.set({ to: e.target.value })} aria-label="To" />
+        <Input className="h-10 w-56" placeholder={tr.actionEGMembership} value={url.get('action')} onChange={(e) => url.set({ action: e.target.value })} aria-label={tr.action} />
+        <Input type="date" className="h-10 w-40" value={fromDay} onChange={(e) => url.set({ from: e.target.value })} aria-label={tr.from} />
+        <Input type="date" className="h-10 w-40" value={toDay} onChange={(e) => url.set({ to: e.target.value })} aria-label={tr.to} />
       </Toolbar>
       {query.error ? (
         <ErrorState error={query.error} onRetry={() => query.refetch()} />
@@ -67,10 +70,10 @@ function AuditLog() {
                   {e.entityId ? ` · ${e.entityId.slice(0, 8)}` : ''}
                 </span>
                 {e.reason && <span className="truncate text-muted">“{e.reason}”</span>}
-                <span className="ml-auto text-xs font-medium">{e.actorLabel ?? 'System'}</span>
+                <span className="ml-auto text-xs font-medium">{e.actorLabel ?? tr.system}</span>
               </button>
             ))}
-            {!query.data?.items.length && <p className="px-5 py-6 text-center text-sm text-muted">No entries.</p>}
+            {!query.data?.items.length && <p className="px-5 py-6 text-center text-sm text-muted">{tr.noEntries}</p>}
           </Card>
           {query.data && <Pagination page={page} pageSize={PAGE_SIZE} total={query.data.meta.total} onChange={(p) => url.set({ page: p })} />}
         </>
@@ -79,17 +82,17 @@ function AuditLog() {
         {open && (
           <div className="space-y-4 text-sm">
             <p>
-              <span className="text-muted">By</span> <span className="font-semibold">{open.actorLabel ?? 'System'}</span>
+              <span className="text-muted">{tr.by}</span> <span className="font-semibold">{open.actorLabel ?? tr.system}</span>
               {open.ip ? <span className="text-muted"> · {open.ip}</span> : null}
             </p>
-            {open.reason && <p className="rounded-2xl bg-warning-50 p-3 text-warning-700">Reason: {open.reason}</p>}
+            {open.reason && <p className="rounded-2xl bg-warning-50 p-3 text-warning-700">{tr.reasonLabel} {open.reason}</p>}
             <div className="grid gap-3 lg:grid-cols-2">
               <div>
-                <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">Before</p>
+                <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">{tr.before}</p>
                 <pre className="max-h-[60vh] overflow-auto rounded-2xl bg-canvas p-3 text-xs">{JSON.stringify(open.oldValue, null, 2) ?? '—'}</pre>
               </div>
               <div>
-                <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">After</p>
+                <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">{tr.after}</p>
                 <pre className="max-h-[60vh] overflow-auto rounded-2xl bg-canvas p-3 text-xs">{JSON.stringify(open.newValue, null, 2) ?? '—'}</pre>
               </div>
             </div>

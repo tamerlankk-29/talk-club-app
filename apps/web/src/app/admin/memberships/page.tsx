@@ -17,32 +17,35 @@ import { adminKeys, useAdminGroupTypes, useAdminPlans, useUrlState } from '@/lib
 import { useCan } from '@/lib/auth';
 import { fmt } from '@/lib/format';
 import { CATEGORY_LABELS, cn } from '@/lib/utils';
+import { useT } from '@/lib/i18n';
+import { moneyMessages } from '@/lib/i18n/messages/admin/money';
 
 type Row = S<'AdminMembershipRowDto'>;
 type Plan = S<'MembershipPlanDto'>;
 const PAGE_SIZE = 50;
 
 function Memberships() {
+  const tr = useT(moneyMessages);
   const url = useUrlState();
   const canPlans = useCan('plans.manage');
   const canExport = useCan('data.export');
   const tab = url.get('tab', 'list');
   return (
     <AdminPage
-      title="Memberships"
-      description="Every visit is tracked in a ledger — balances can't drift."
+      title={tr.memberships}
+      description={tr.everyVisitTrackedLedger}
       actions={
         canExport && (
           <Button variant="outline" size="sm" leftIcon={<Download className="h-4 w-4" />} onClick={() => downloadFile('/api/admin/exports/memberships?format=xlsx', 'memberships.xlsx').catch(toastError)}>
-            Export
+            {tr.export}
           </Button>
         )
       }
     >
       <Tabs value={tab} onValueChange={(v) => url.set({ tab: v === 'list' ? null : v, status: null })}>
         <TabsList className="max-w-sm">
-          <TabsTrigger value="list">Memberships</TabsTrigger>
-          {canPlans && <TabsTrigger value="plans">Plans & prices</TabsTrigger>}
+          <TabsTrigger value="list">{tr.memberships}</TabsTrigger>
+          {canPlans && <TabsTrigger value="plans">{tr.plansPrices}</TabsTrigger>}
         </TabsList>
         <TabsContent value="list">
           <MembershipList />
@@ -58,6 +61,7 @@ function Memberships() {
 }
 
 function MembershipList() {
+  const tr = useT(moneyMessages);
   const url = useUrlState();
   const { data: plans } = useAdminPlans();
   const page = Number(url.get('page', '1'));
@@ -72,7 +76,7 @@ function MembershipList() {
   const columns: Column<Row>[] = [
     {
       key: 'client',
-      header: 'Client',
+      header: tr.client,
       cell: (m) => (
         <div>
           <p className="font-semibold">{m.clientName}</p>
@@ -80,14 +84,14 @@ function MembershipList() {
         </div>
       ),
     },
-    { key: 'plan', header: 'Plan', cell: (m) => <span className="font-medium">{m.planName}{m.isRenewal ? <span className="ml-1 text-xs text-muted">renewal</span> : null}</span> },
+    { key: 'plan', header: tr.plan, cell: (m) => <span className="font-medium">{m.planName}{m.isRenewal ? <span className="ml-1 text-xs text-muted">{tr.renewal}</span> : null}</span> },
     {
       key: 'visits',
-      header: 'Visits',
+      header: tr.visits,
       cell: (m) => (
         <div className="w-28">
           <p className={cn('text-sm font-semibold', m.visitsRemaining <= 1 && 'text-warning-700')}>
-            {m.visitsRemaining} / {m.visitsCredited} left
+            {tr.visitsOfLeft(m.visitsRemaining, m.visitsCredited)}
           </p>
           <div className="mt-1 h-1.5 rounded-full bg-brand-100">
             <div className="h-full rounded-full bg-brand-600" style={{ width: `${Math.min(100, (m.visitsUsed / Math.max(1, m.visitsCredited)) * 100)}%` }} />
@@ -97,35 +101,35 @@ function MembershipList() {
     },
     {
       key: 'expires',
-      header: 'Valid until',
+      header: tr.validUntil,
       cell: (m) => (
         <span className={cn('text-sm', m.daysLeft <= 7 && m.status === 'ACTIVE' && 'font-semibold text-warning-700')}>
           {fmt.date(m.expiresAt)}
-          {m.status === 'ACTIVE' && <span className="block text-xs text-muted">{m.daysLeft} days left</span>}
+          {m.status === 'ACTIVE' && <span className="block text-xs text-muted">{tr.daysLeftN(m.daysLeft)}</span>}
         </span>
       ),
     },
-    { key: 'status', header: 'Status', hideOnMobile: true, cell: (m) => <StatusBadge status={m.status} /> },
+    { key: 'status', header: tr.status, hideOnMobile: true, cell: (m) => <StatusBadge status={m.status} /> },
   ];
   return (
     <div className="space-y-4">
       <Toolbar>
-        <FilterSelect label="Status" value={status} onChange={(v) => url.set({ status: v === 'ACTIVE' ? null : v })}>
-          <option value="ACTIVE">Active</option>
-          <option value="EXPIRING">Expiring soon</option>
-          <option value="USED_UP">No visits left</option>
-          <option value="EXPIRED">Expired</option>
-          <option value="CANCELLED">Cancelled</option>
+        <FilterSelect label={tr.status} value={status} onChange={(v) => url.set({ status: v === 'ACTIVE' ? null : v })}>
+          <option value="ACTIVE">{tr.active}</option>
+          <option value="EXPIRING">{tr.expiringSoon}</option>
+          <option value="USED_UP">{tr.noVisitsLeft}</option>
+          <option value="EXPIRED">{tr.expired}</option>
+          <option value="CANCELLED">{tr.cancelled}</option>
         </FilterSelect>
-        <FilterSelect label="Plan" value={planId ?? ''} onChange={(v) => url.set({ plan: v })}>
-          <option value="">All plans</option>
+        <FilterSelect label={tr.plan} value={planId ?? ''} onChange={(v) => url.set({ plan: v })}>
+          <option value="">{tr.allPlans}</option>
           {plans?.map((p) => (
             <option key={p.id} value={p.id}>
               {p.name}
             </option>
           ))}
         </FilterSelect>
-        {query.data && <span className="text-sm text-muted">{query.data.total} memberships</span>}
+        {query.data && <span className="text-sm text-muted">{tr.membershipsCount(query.data.total)}</span>}
       </Toolbar>
       {query.error ? (
         <ErrorState error={query.error} onRetry={() => query.refetch()} />
@@ -141,15 +145,16 @@ function MembershipList() {
 }
 
 function Plans() {
+  const tr = useT(moneyMessages);
   const { data: plans, isLoading, error, refetch } = useAdminPlans();
   const [editing, setEditing] = useState<Plan | 'new' | null>(null);
   if (error) return <ErrorState error={error} onRetry={() => refetch()} />;
   return (
     <div className="space-y-4">
-      <InlineAlert tone="info">Price and visit changes apply to new purchases only — existing memberships keep their terms.</InlineAlert>
+      <InlineAlert tone="info">{tr.priceVisitChangesApply}</InlineAlert>
       <div className="flex justify-end">
         <Button size="sm" leftIcon={<Plus className="h-4 w-4" />} onClick={() => setEditing('new')}>
-          New plan
+          {tr.newPlan}
         </Button>
       </div>
       {isLoading ? (
@@ -167,14 +172,14 @@ function Plans() {
                       {p.name} {p.isFeatured && <Star className="inline h-4 w-4 text-warning-600" />}
                     </p>
                     <p className="text-sm text-muted">
-                      {p.visits} visits · {p.validityDays} days · code {p.code}
+                      {tr.planLine(p.visits, p.validityDays, p.code)}
                     </p>
                   </div>
                   <p className="font-display text-xl font-semibold">{fmt.money(p.price)}</p>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
-                  {!p.isActive && <Badge>inactive</Badge>}
-                  {!p.isPublic && <Badge tone="warning">staff only</Badge>}
+                  {!p.isActive && <Badge>{tr.inactive}</Badge>}
+                  {!p.isPublic && <Badge tone="warning">{tr.staffOnly}</Badge>}
                   {p.clientCategories.map((c) => (
                     <Badge key={c}>{CATEGORY_LABELS[c]}</Badge>
                   ))}
@@ -183,10 +188,10 @@ function Plans() {
                       {g.name}
                     </Badge>
                   ))}
-                  <Badge tone="neutral">{fmt.money(p.pricePerVisit)}/visit</Badge>
+                  <Badge tone="neutral">{tr.perVisit(fmt.money(p.pricePerVisit))}</Badge>
                 </div>
                 <Button size="xs" variant="secondary" leftIcon={<Pencil className="h-3.5 w-3.5" />} onClick={() => setEditing(p)}>
-                  Edit
+                  {tr.edit}
                 </Button>
               </Card>
             ))}
@@ -198,6 +203,7 @@ function Plans() {
 }
 
 function PlanDrawer({ plan, open, onOpenChange }: { plan?: Plan; open: boolean; onOpenChange: (o: boolean) => void }) {
+  const tr = useT(moneyMessages);
   const qc = useQueryClient();
   const { data: groupTypes } = useAdminGroupTypes();
   const init = () => ({
@@ -242,7 +248,7 @@ function PlanDrawer({ plan, open, onOpenChange }: { plan?: Plan; open: boolean; 
     },
     onSuccess: async () => {
       await Promise.all([qc.invalidateQueries({ queryKey: adminKeys.plans }), qc.invalidateQueries({ queryKey: ['plans'] }), qc.invalidateQueries({ queryKey: ['public', 'club'] })]);
-      toast.success('Plan saved.');
+      toast.success(tr.planSaved);
       onOpenChange(false);
     },
   });
@@ -251,52 +257,52 @@ function PlanDrawer({ plan, open, onOpenChange }: { plan?: Plan; open: boolean; 
     <Drawer
       open={open}
       onOpenChange={onOpenChange}
-      title={plan ? `Edit ${plan.name}` : 'New plan'}
+      title={plan ? tr.editName(plan.name) : tr.newPlan}
       footer={
         <>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
-            Cancel
+            {tr.cancel}
           </Button>
           <Button loading={save.isPending} disabled={!f.code.trim() || !f.name.trim() || !f.price} onClick={() => save.mutate()}>
-            Save plan
+            {tr.savePlan}
           </Button>
         </>
       }
     >
       <div className="space-y-4">
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Name" required htmlFor="pl-name" error={errors.name}>
+          <Field label={tr.name} required htmlFor="pl-name" error={errors.name}>
             <Input id="pl-name" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} />
           </Field>
-          <Field label="Code" required htmlFor="pl-code" error={errors.code} hint="e.g. STANDARD">
+          <Field label={tr.code} required htmlFor="pl-code" error={errors.code} hint={tr.eGStandard}>
             <Input id="pl-code" value={f.code} onChange={(e) => setF({ ...f, code: e.target.value })} />
           </Field>
-          <Field label="Visits" htmlFor="pl-visits" error={errors.visits}>
+          <Field label={tr.visits} htmlFor="pl-visits" error={errors.visits}>
             <Input id="pl-visits" type="number" min={1} value={f.visits} onChange={(e) => setF({ ...f, visits: e.target.value })} />
           </Field>
-          <Field label="Price, ₸" htmlFor="pl-price" error={errors.price}>
+          <Field label={tr.price} htmlFor="pl-price" error={errors.price}>
             <Input id="pl-price" type="number" min={0} value={f.price} onChange={(e) => setF({ ...f, price: e.target.value })} />
           </Field>
-          <Field label="Valid for, days" htmlFor="pl-days" error={errors.validityDays}>
+          <Field label={tr.validDays} htmlFor="pl-days" error={errors.validityDays}>
             <Input id="pl-days" type="number" min={1} value={f.validityDays} onChange={(e) => setF({ ...f, validityDays: e.target.value })} />
           </Field>
-          <Field label="Sort order" htmlFor="pl-sort">
+          <Field label={tr.sortOrder} htmlFor="pl-sort">
             <Input id="pl-sort" type="number" value={f.sortOrder} onChange={(e) => setF({ ...f, sortOrder: e.target.value })} />
           </Field>
         </div>
-        <Field label="Description" htmlFor="pl-desc">
+        <Field label={tr.description} htmlFor="pl-desc">
           <Textarea id="pl-desc" rows={2} value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} />
         </Field>
-        <Field label="Only for categories" hint="Empty = everyone">
+        <Field label={tr.onlyCategories} hint={tr.emptyEveryone}>
           <ChipGroup size="sm" multiple options={Object.entries(CATEGORY_LABELS).map(([value, label]) => ({ value: value as S<'ClientCategory'>, label }))} value={f.clientCategories} onChange={(v) => setF({ ...f, clientCategories: v as S<'ClientCategory'>[] })} />
         </Field>
-        <Field label="Valid for group types" hint="Empty = all sessions">
+        <Field label={tr.validGroupTypes} hint={tr.emptyAllSessions}>
           <ChipGroup size="sm" multiple options={(groupTypes ?? []).map((g) => ({ value: g.id, label: g.name }))} value={f.groupTypeIds} onChange={(v) => setF({ ...f, groupTypeIds: v as string[] })} />
         </Field>
         <div className="space-y-2">
-          <Checkbox checked={f.isActive} onChange={(v) => setF({ ...f, isActive: v })} label="Active" />
-          <Checkbox checked={f.isPublic} onChange={(v) => setF({ ...f, isPublic: v })} label="Clients can buy it in the app" />
-          <Checkbox checked={f.isFeatured} onChange={(v) => setF({ ...f, isFeatured: v })} label="Highlight as “Most popular”" />
+          <Checkbox checked={f.isActive} onChange={(v) => setF({ ...f, isActive: v })} label={tr.active} />
+          <Checkbox checked={f.isPublic} onChange={(v) => setF({ ...f, isPublic: v })} label={tr.clientsCanBuyApp} />
+          <Checkbox checked={f.isFeatured} onChange={(v) => setF({ ...f, isFeatured: v })} label={tr.highlightMostPopular} />
         </div>
         {save.error && !Object.keys(errors).length && <InlineAlert tone="danger">{errorMessage(save.error)}</InlineAlert>}
       </div>

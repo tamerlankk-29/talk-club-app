@@ -15,7 +15,10 @@ import { api, call, downloadFile } from '@/lib/api/client';
 import { useUrlState } from '@/lib/admin-queries';
 import { useCan } from '@/lib/auth';
 import { clubNow, CLUB_TZ, fmt } from '@/lib/format';
-import { WEEKDAYS_SHORT } from '@/lib/utils';
+import { CATEGORY_LABELS, WEEKDAYS_SHORT } from '@/lib/utils';
+import { useT } from '@/lib/i18n';
+import { reportsMessages } from '@/lib/i18n/messages/admin/reports';
+import { crmMessages } from '@/lib/i18n/messages/admin/crm';
 
 const pct = (v: number) => `${Math.round(v * 10) / 10}%`;
 
@@ -38,6 +41,7 @@ function useRange() {
 }
 
 function Reports() {
+  const tr = useT(reportsMessages);
   const { url, preset, from, to, fromDay, toDay } = useRange();
   const canFinance = useCan('finance.view');
   const canAnalytics = useCan('analytics.view');
@@ -46,50 +50,50 @@ function Reports() {
   const exportFile = (dataset: string) => downloadFile(`/api/admin/exports/${dataset}?format=xlsx&from=${from}&to=${to}`, `${dataset}-${fromDay}-${toDay}.xlsx`).catch(toastError);
   return (
     <AdminPage
-      title="Reports"
+      title={tr.reports}
       description={`${fmt.date(from)} – ${fmt.date(to)}`}
       actions={
         canExport && (
           <div className="flex flex-wrap gap-2">
             {canFinance && (
               <Button variant="outline" size="sm" leftIcon={<Download className="h-4 w-4" />} onClick={() => exportFile('revenue')}>
-                Revenue
+                {tr.revenue}
               </Button>
             )}
             <Button variant="outline" size="sm" leftIcon={<Download className="h-4 w-4" />} onClick={() => exportFile('attendance')}>
-              Attendance
+              {tr.attendance}
             </Button>
             <Button variant="outline" size="sm" leftIcon={<Download className="h-4 w-4" />} onClick={() => exportFile('leads')}>
-              Leads
+              {tr.leads}
             </Button>
           </div>
         )
       }
     >
       <Toolbar>
-        <FilterSelect label="Period" value={preset} onChange={(v) => url.set({ range: v === '30d' ? null : v })}>
-          <option value="30d">Last 30 days</option>
-          <option value="month">This month</option>
-          <option value="last-month">Last month</option>
-          <option value="90d">Last 90 days</option>
-          <option value="custom">Custom</option>
+        <FilterSelect label={tr.period} value={preset} onChange={(v) => url.set({ range: v === '30d' ? null : v })}>
+          <option value="30d">{tr.last30Days}</option>
+          <option value="month">{tr.month}</option>
+          <option value="last-month">{tr.lastMonth}</option>
+          <option value="90d">{tr.last90Days}</option>
+          <option value="custom">{tr.custom}</option>
         </FilterSelect>
         {preset === 'custom' && (
           <>
-            <Input type="date" className="h-10 w-40" value={fromDay} onChange={(e) => url.set({ from: e.target.value, range: 'custom' })} aria-label="From" />
-            <Input type="date" className="h-10 w-40" value={toDay} onChange={(e) => url.set({ to: e.target.value, range: 'custom' })} aria-label="To" />
+            <Input type="date" className="h-10 w-40" value={fromDay} onChange={(e) => url.set({ from: e.target.value, range: 'custom' })} aria-label={tr.from} />
+            <Input type="date" className="h-10 w-40" value={toDay} onChange={(e) => url.set({ to: e.target.value, range: 'custom' })} aria-label={tr.to} />
           </>
         )}
       </Toolbar>
       <Tabs value={tab} onValueChange={(v) => url.set({ tab: v })}>
         <TabsList className="max-w-full">
-          {canAnalytics && <TabsTrigger value="overview">Overview</TabsTrigger>}
-          {canFinance && <TabsTrigger value="revenue">Revenue</TabsTrigger>}
-          {canAnalytics && <TabsTrigger value="clients">Clients</TabsTrigger>}
-          {canAnalytics && <TabsTrigger value="memberships">Memberships</TabsTrigger>}
-          {canAnalytics && <TabsTrigger value="sessions">Sessions</TabsTrigger>}
-          {canAnalytics && <TabsTrigger value="teachers">Teachers</TabsTrigger>}
-          {canAnalytics && <TabsTrigger value="funnel">Funnel</TabsTrigger>}
+          {canAnalytics && <TabsTrigger value="overview">{tr.overview}</TabsTrigger>}
+          {canFinance && <TabsTrigger value="revenue">{tr.revenue}</TabsTrigger>}
+          {canAnalytics && <TabsTrigger value="clients">{tr.clients}</TabsTrigger>}
+          {canAnalytics && <TabsTrigger value="memberships">{tr.memberships}</TabsTrigger>}
+          {canAnalytics && <TabsTrigger value="sessions">{tr.sessions}</TabsTrigger>}
+          {canAnalytics && <TabsTrigger value="teachers">{tr.teachers}</TabsTrigger>}
+          {canAnalytics && <TabsTrigger value="funnel">{tr.funnel}</TabsTrigger>}
         </TabsList>
         <TabsContent value="overview">{tab === 'overview' && <Overview from={from} to={to} />}</TabsContent>
         <TabsContent value="revenue">{tab === 'revenue' && <Revenue from={from} to={to} />}</TabsContent>
@@ -112,6 +116,7 @@ function ChartCard({ title, children, className = 'h-72' }: { title: string; chi
 }
 
 function Overview({ from, to }: { from: string; to: string }) {
+  const tr = useT(reportsMessages);
   const canFinance = useCan('finance.view');
   const { data, error } = useQuery({ queryKey: ['admin', 'reports', 'kpis', from, to], queryFn: () => call(api.GET('/api/admin/analytics/kpis', { params: { query: { from, to } } })) });
   if (error) return <ErrorState error={error} />;
@@ -119,24 +124,24 @@ function Overview({ from, to }: { from: string; to: string }) {
   return (
     <div className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Active members" loading={!k} value={k?.activeMembers ?? 0} />
-        <StatCard label="New registrations" loading={!k} value={k?.newRegistrations ?? 0} />
-        <StatCard label="Trial → membership" loading={!k} value={k ? pct(k.trialConversion) : 0} />
-        <StatCard label="Renewal rate" loading={!k} value={k ? pct(k.renewalRate) : 0} />
-        <StatCard label="Session occupancy" loading={!k} value={k ? pct(k.sessionOccupancy) : 0} />
-        <StatCard label="No-show rate" loading={!k} value={k ? pct(k.noShowRate) : 0} />
-        <StatCard label="Cancellation rate" loading={!k} value={k ? pct(k.cancellationRate) : 0} />
-        <StatCard label="Client retention" loading={!k} value={k ? pct(k.clientRetention) : 0} />
-        <StatCard label="Visits per client" loading={!k} value={k ? Math.round(k.averageVisitsPerClient * 10) / 10 : 0} />
-        <StatCard label="Lead → membership" loading={!k} value={k ? pct(k.membershipConversion) : 0} />
-        {canFinance && <StatCard label="Revenue" loading={!k} value={fmt.money(k?.revenue ?? 0)} tone="success" />}
-        {canFinance && <StatCard label="Revenue per client" loading={!k} value={fmt.money(k?.averageRevenuePerClient ?? 0)} />}
-        {canFinance && <StatCard label="Revenue per session" loading={!k} value={fmt.money(k?.revenuePerSession ?? 0)} />}
+        <StatCard label={tr.activeMembers} loading={!k} value={k?.activeMembers ?? 0} />
+        <StatCard label={tr.newRegistrations} loading={!k} value={k?.newRegistrations ?? 0} />
+        <StatCard label={tr.trialMembership} loading={!k} value={k ? pct(k.trialConversion) : 0} />
+        <StatCard label={tr.renewalRate} loading={!k} value={k ? pct(k.renewalRate) : 0} />
+        <StatCard label={tr.sessionOccupancy} loading={!k} value={k ? pct(k.sessionOccupancy) : 0} />
+        <StatCard label={tr.noShowRate} loading={!k} value={k ? pct(k.noShowRate) : 0} />
+        <StatCard label={tr.cancellationRate} loading={!k} value={k ? pct(k.cancellationRate) : 0} />
+        <StatCard label={tr.clientRetention} loading={!k} value={k ? pct(k.clientRetention) : 0} />
+        <StatCard label={tr.visitsPerClient} loading={!k} value={k ? Math.round(k.averageVisitsPerClient * 10) / 10 : 0} />
+        <StatCard label={tr.leadMembership} loading={!k} value={k ? pct(k.membershipConversion) : 0} />
+        {canFinance && <StatCard label={tr.revenue} loading={!k} value={fmt.money(k?.revenue ?? 0)} tone="success" />}
+        {canFinance && <StatCard label={tr.revenuePerClient} loading={!k} value={fmt.money(k?.averageRevenuePerClient ?? 0)} />}
+        {canFinance && <StatCard label={tr.revenuePerSession} loading={!k} value={fmt.money(k?.revenuePerSession ?? 0)} />}
       </div>
       {canFinance && k && k.revenueByMembership.length > 0 && (
-        <ChartCard title="Revenue by membership">
+        <ChartCard title={tr.revenueMembership}>
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={k.revenueByMembership}>
+            <BarChart data={k.revenueByMembership.map((x) => ({ ...x, label: tr.serverLabels[x.label] ?? x.label }))}>
               <CartesianGrid vertical={false} stroke="#ebe7f3" />
               <XAxis dataKey="label" tickLine={false} axisLine={false} fontSize={12} />
               <YAxis tickLine={false} axisLine={false} fontSize={12} width={70} tickFormatter={(v: number) => `${Math.round(v / 1000)}k`} />
@@ -151,6 +156,7 @@ function Overview({ from, to }: { from: string; to: string }) {
 }
 
 function Revenue({ from, to }: { from: string; to: string }) {
+  const tr = useT(reportsMessages);
   const url = useUrlState();
   const interval = (url.get('interval', 'day') as 'day' | 'week' | 'month') || 'day';
   const { data, error } = useQuery({
@@ -162,35 +168,35 @@ function Revenue({ from, to }: { from: string; to: string }) {
   return (
     <div className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Revenue" value={fmt.money(data.totals.revenue)} hint={`${data.totals.count} payments`} tone="success" />
-        <StatCard label="Refunds" value={fmt.money(data.totals.refunds)} />
-        <StatCard label="Net" value={fmt.money(data.totals.net)} tone="brand" />
-        <StatCard label="Pending now" value={fmt.money(data.totals.pending)} hint={`${data.totals.pendingCount} requests`} tone="warning" />
+        <StatCard label={tr.revenue} value={fmt.money(data.totals.revenue)} hint={`${data.totals.count} payments`} tone="success" />
+        <StatCard label={tr.refunds} value={fmt.money(data.totals.refunds)} />
+        <StatCard label={tr.net} value={fmt.money(data.totals.net)} tone="brand" />
+        <StatCard label={tr.pendingNow} value={fmt.money(data.totals.pending)} hint={`${data.totals.pendingCount} requests`} tone="warning" />
       </div>
       <div className="flex justify-end">
-        <FilterSelect label="Interval" value={interval} onChange={(v) => url.set({ interval: v === 'day' ? null : v })}>
-          <option value="day">Daily</option>
-          <option value="week">Weekly</option>
-          <option value="month">Monthly</option>
+        <FilterSelect label={tr.interval} value={interval} onChange={(v) => url.set({ interval: v === 'day' ? null : v })}>
+          <option value="day">{tr.daily}</option>
+          <option value="week">{tr.weekly}</option>
+          <option value="month">{tr.monthly}</option>
         </FilterSelect>
       </div>
-      <ChartCard title="Revenue over time">
+      <ChartCard title={tr.revenueOverTime}>
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data.series.map((p) => ({ ...p, label: fmt.dateShort(`${p.period}T12:00:00Z`) }))}>
             <CartesianGrid vertical={false} stroke="#ebe7f3" />
             <XAxis dataKey="label" tickLine={false} axisLine={false} fontSize={12} minTickGap={16} />
             <YAxis tickLine={false} axisLine={false} fontSize={12} width={70} tickFormatter={(v: number) => `${Math.round(v / 1000)}k`} />
-            <Tooltip formatter={(v, name) => [fmt.money(Number(v)), name === 'net' ? 'Net' : name === 'refunds' ? 'Refunds' : 'Revenue']} />
+            <Tooltip formatter={(v, name) => [fmt.money(Number(v)), name === 'net' ? tr.net : name === 'refunds' ? tr.refunds : tr.revenue]} />
             <Bar dataKey="net" stackId="a" fill="#6d28d9" radius={[6, 6, 0, 0]} />
             <Bar dataKey="refunds" stackId="b" fill="#f59e0b" radius={[6, 6, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </ChartCard>
       <div className="grid gap-6 lg:grid-cols-2">
-        <ChartCard title="By product">
+        <ChartCard title={tr.product}>
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
-              <Pie data={data.byProduct} dataKey="amount" nameKey="label" innerRadius={60} outerRadius={100} paddingAngle={2}>
+              <Pie data={data.byProduct.map((x) => ({ ...x, label: tr.serverLabels[x.label] ?? x.label }))} dataKey="amount" nameKey="label" innerRadius={60} outerRadius={100} paddingAngle={2}>
                 {data.byProduct.map((_, i) => (
                   <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
                 ))}
@@ -200,10 +206,10 @@ function Revenue({ from, to }: { from: string; to: string }) {
             </PieChart>
           </ResponsiveContainer>
         </ChartCard>
-        <ChartCard title="By payment method">
+        <ChartCard title={tr.paymentMethod}>
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
-              <Pie data={data.byMethod} dataKey="amount" nameKey="label" innerRadius={60} outerRadius={100} paddingAngle={2}>
+              <Pie data={data.byMethod.map((x) => ({ ...x, label: tr.serverLabels[x.label] ?? x.label }))} dataKey="amount" nameKey="label" innerRadius={60} outerRadius={100} paddingAngle={2}>
                 {data.byMethod.map((_, i) => (
                   <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
                 ))}
@@ -233,19 +239,20 @@ function LabelBars({ data, color = '#6d28d9' }: { data: Array<{ label: string; c
 }
 
 function Clients({ from, to }: { from: string; to: string }) {
+  const tr = useT(reportsMessages);
   const { data, error } = useQuery({ queryKey: ['admin', 'reports', 'clients', from, to], queryFn: () => call(api.GET('/api/admin/reports/clients', { params: { query: { from, to } } })) });
   if (error) return <ErrorState error={error} />;
   if (!data) return <Skeleton className="h-96 w-full rounded-3xl" />;
   return (
     <div className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        <StatCard label="New clients" value={data.newClients} tone="brand" />
-        <StatCard label="Active" value={data.activeClients} />
-        <StatCard label="Returning" value={data.returningClients} />
-        <StatCard label="Inactive" value={data.inactiveClients} />
-        <StatCard label="Total" value={data.totalClients} />
+        <StatCard label={tr.newClients} value={data.newClients} tone="brand" />
+        <StatCard label={tr.active} value={data.activeClients} />
+        <StatCard label={tr.returning} value={data.returningClients} />
+        <StatCard label={tr.inactive} value={data.inactiveClients} />
+        <StatCard label={tr.total} value={data.totalClients} />
       </div>
-      <ChartCard title="New clients per week">
+      <ChartCard title={tr.newClientsPerWeek}>
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data.newByWeek.map((p) => ({ ...p, label: fmt.dateShort(`${p.period}T12:00:00Z`) }))}>
             <CartesianGrid vertical={false} stroke="#ebe7f3" />
@@ -257,14 +264,14 @@ function Clients({ from, to }: { from: string; to: string }) {
         </ResponsiveContainer>
       </ChartCard>
       <div className="grid gap-6 lg:grid-cols-3">
-        <ChartCard title="Lead sources">
-          <LabelBars data={data.bySource} />
+        <ChartCard title={tr.leadSources}>
+          <LabelBars data={data.bySource.map((x) => ({ ...x, label: tr.serverLabels[x.label] ?? x.label }))} />
         </ChartCard>
-        <ChartCard title="Levels">
-          <LabelBars data={data.byLevel} color="#a78bfa" />
+        <ChartCard title={tr.levels}>
+          <LabelBars data={data.byLevel.map((x) => ({ ...x, label: tr.serverLabels[x.label] ?? x.label }))} color="#a78bfa" />
         </ChartCard>
-        <ChartCard title="Client types">
-          <LabelBars data={data.byCategory} color="#0ea5e9" />
+        <ChartCard title={tr.clientTypes}>
+          <LabelBars data={data.byCategory.map((x) => ({ ...x, label: CATEGORY_LABELS[x.label] ?? x.label }))} color="#0ea5e9" />
         </ChartCard>
       </div>
     </div>
@@ -272,6 +279,7 @@ function Clients({ from, to }: { from: string; to: string }) {
 }
 
 function Memberships({ from, to }: { from: string; to: string }) {
+  const tr = useT(reportsMessages);
   const canFinance = useCan('finance.view');
   const { data, error } = useQuery({ queryKey: ['admin', 'reports', 'memberships', from, to], queryFn: () => call(api.GET('/api/admin/reports/memberships', { params: { query: { from, to } } })) });
   if (error) return <ErrorState error={error} />;
@@ -279,19 +287,19 @@ function Memberships({ from, to }: { from: string; to: string }) {
   return (
     <div className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        <StatCard label="Sold" value={data.sold} tone="brand" />
-        <StatCard label="Active now" value={data.active} />
-        <StatCard label="Expired" value={data.expired} />
-        <StatCard label="Renewed" value={data.renewed} />
-        <StatCard label="Renewal rate" value={pct(data.renewalRate)} tone="success" />
+        <StatCard label={tr.sold} value={data.sold} tone="brand" />
+        <StatCard label={tr.activeNow} value={data.active} />
+        <StatCard label={tr.expired} value={data.expired} />
+        <StatCard label={tr.renewed} value={data.renewed} />
+        <StatCard label={tr.renewalRate} value={pct(data.renewalRate)} tone="success" />
       </div>
-      <Section title="Sales by plan">
+      <Section title={tr.salesPlan}>
         <Card padded={false} className="divide-y divide-line/70">
           {data.byPlan.map((p) => (
             <div key={p.label} className="flex items-center justify-between px-5 py-3 text-sm">
               <span className="font-semibold">{p.label}</span>
               <span>
-                {p.count} sold{canFinance ? ` · ${fmt.money(p.revenue)}` : ''}
+                {tr.soldCount(p.count)}{canFinance ? ` · ${fmt.money(p.revenue)}` : ''}
               </span>
             </div>
           ))}
@@ -302,38 +310,39 @@ function Memberships({ from, to }: { from: string; to: string }) {
 }
 
 function Sessions({ from, to }: { from: string; to: string }) {
+  const tr = useT(reportsMessages);
   const { data, error } = useQuery({ queryKey: ['admin', 'reports', 'sessions', from, to], queryFn: () => call(api.GET('/api/admin/reports/sessions', { params: { query: { from, to } } })) });
   if (error) return <ErrorState error={error} />;
   if (!data) return <Skeleton className="h-96 w-full rounded-3xl" />;
   return (
     <div className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Sessions held" value={data.sessionsHeld} hint={`${data.sessionsCancelled} cancelled`} tone="brand" />
-        <StatCard label="Avg attendance" value={Math.round(data.averageAttendance * 10) / 10} hint="people per session" />
-        <StatCard label="Capacity used" value={pct(data.capacityUtilization)} />
-        <StatCard label="No-show rate" value={pct(data.noShowRate)} hint={`late cancels ${pct(data.lateCancellationRate)}`} tone="warning" />
+        <StatCard label={tr.sessionsHeld} value={data.sessionsHeld} hint={`${data.sessionsCancelled} cancelled`} tone="brand" />
+        <StatCard label={tr.avgAttendance} value={Math.round(data.averageAttendance * 10) / 10} hint={tr.peoplePerSession} />
+        <StatCard label={tr.capacityUsed} value={pct(data.capacityUtilization)} />
+        <StatCard label={tr.noShowRate} value={pct(data.noShowRate)} hint={tr.lateCancels(pct(data.lateCancellationRate))} tone="warning" />
       </div>
       <div className="grid gap-6 lg:grid-cols-2">
-        <ChartCard title="By weekday">
+        <ChartCard title={tr.weekday}>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={data.byWeekday.map((w) => ({ ...w, label: WEEKDAYS_SHORT[w.weekday] }))}>
               <CartesianGrid vertical={false} stroke="#ebe7f3" />
               <XAxis dataKey="label" tickLine={false} axisLine={false} fontSize={12} />
               <YAxis allowDecimals={false} tickLine={false} axisLine={false} fontSize={12} width={30} />
               <Tooltip />
-              <Bar dataKey="attended" name="Attended" fill="#6d28d9" radius={[8, 8, 0, 0]} />
-              <Bar dataKey="sessions" name="Sessions" fill="#c6f432" radius={[8, 8, 0, 0]} />
+              <Bar dataKey="attended" name={tr.attended} fill="#6d28d9" radius={[8, 8, 0, 0]} />
+              <Bar dataKey="sessions" name={tr.sessionsChart} fill="#c6f432" radius={[8, 8, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
-        <ChartCard title="By start time">
+        <ChartCard title={tr.startTime}>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={data.byTime}>
               <CartesianGrid vertical={false} stroke="#ebe7f3" />
               <XAxis dataKey="time" tickLine={false} axisLine={false} fontSize={12} />
               <YAxis allowDecimals={false} tickLine={false} axisLine={false} fontSize={12} width={30} />
               <Tooltip />
-              <Bar dataKey="attended" name="Attended" fill="#6d28d9" radius={[8, 8, 0, 0]} />
+              <Bar dataKey="attended" name={tr.attended} fill="#6d28d9" radius={[8, 8, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
@@ -341,19 +350,19 @@ function Sessions({ from, to }: { from: string; to: string }) {
       <Card className="grid grid-cols-2 gap-4 text-center sm:grid-cols-4">
         <div>
           <p className="font-display text-xl font-semibold">{data.totals.attended}</p>
-          <p className="text-xs text-muted">attended</p>
+          <p className="text-xs text-muted">{tr.attended2}</p>
         </div>
         <div>
           <p className="font-display text-xl font-semibold">{data.totals.noShows}</p>
-          <p className="text-xs text-muted">no-shows</p>
+          <p className="text-xs text-muted">{tr.noShowsLower}</p>
         </div>
         <div>
           <p className="font-display text-xl font-semibold">{data.totals.cancelled}</p>
-          <p className="text-xs text-muted">cancelled in time</p>
+          <p className="text-xs text-muted">{tr.cancelledTime}</p>
         </div>
         <div>
           <p className="font-display text-xl font-semibold">{data.totals.lateCancelled}</p>
-          <p className="text-xs text-muted">late cancellations</p>
+          <p className="text-xs text-muted">{tr.lateCancellations}</p>
         </div>
       </Card>
     </div>
@@ -361,6 +370,7 @@ function Sessions({ from, to }: { from: string; to: string }) {
 }
 
 function Teachers({ from, to }: { from: string; to: string }) {
+  const tr = useT(reportsMessages);
   const canRates = useCan('teachers.view_rates');
   const { data, error } = useQuery({ queryKey: ['admin', 'reports', 'teachers', from, to], queryFn: () => call(api.GET('/api/admin/reports/teachers', { params: { query: { from, to } } })) });
   if (error) return <ErrorState error={error} />;
@@ -370,14 +380,14 @@ function Teachers({ from, to }: { from: string; to: string }) {
       <table className="w-full min-w-[720px] text-left text-sm">
         <thead className="border-b border-line bg-canvas/70 text-xs uppercase tracking-wide text-muted">
           <tr>
-            <th className="px-4 py-3">Teacher</th>
-            <th className="px-4 py-3">Sessions</th>
-            <th className="px-4 py-3">Attended</th>
-            <th className="px-4 py-3">Avg / session</th>
-            <th className="px-4 py-3">Capacity used</th>
-            <th className="px-4 py-3">No-shows</th>
-            <th className="px-4 py-3">Feedback</th>
-            {canRates && <th className="px-4 py-3">Payout</th>}
+            <th className="px-4 py-3">{tr.teacher}</th>
+            <th className="px-4 py-3">{tr.sessions}</th>
+            <th className="px-4 py-3">{tr.attended}</th>
+            <th className="px-4 py-3">{tr.avgSession}</th>
+            <th className="px-4 py-3">{tr.capacityUsed}</th>
+            <th className="px-4 py-3">{tr.noShows}</th>
+            <th className="px-4 py-3">{tr.feedback}</th>
+            {canRates && <th className="px-4 py-3">{tr.payout}</th>}
           </tr>
         </thead>
         <tbody>
@@ -400,21 +410,23 @@ function Teachers({ from, to }: { from: string; to: string }) {
 }
 
 function Funnel({ from, to }: { from: string; to: string }) {
+  const tr = useT(reportsMessages);
+  const crm = useT(crmMessages);
   const { data, error } = useQuery({ queryKey: ['admin', 'reports', 'funnel', from, to], queryFn: () => call(api.GET('/api/admin/reports/funnel', { params: { query: { from, to } } })) });
   if (error) return <ErrorState error={error} />;
   if (!data) return <Skeleton className="h-64 w-full rounded-3xl" />;
   const max = Math.max(1, ...data.steps.map((s) => s.count));
   return (
     <div className="grid gap-6 lg:grid-cols-2">
-      <Section title="Conversion funnel" description={`${data.trialsRequested} trial requests in the period`}>
+      <Section title={tr.conversionFunnel} description={tr.trialRequestsInPeriod(data.trialsRequested)}>
         <Card className="space-y-3">
           {data.steps.map((s) => (
             <div key={s.key}>
               <div className="mb-1 flex justify-between text-sm">
-                <span className="font-medium">{s.label}</span>
+                <span className="font-medium">{tr.funnelSteps[s.key] ?? s.label}</span>
                 <span className="font-semibold">
                   {s.count}
-                  {s.conversionFromPrevious !== null && <span className="ml-2 text-xs font-normal text-muted">{pct(s.conversionFromPrevious)} from previous</span>}
+                  {s.conversionFromPrevious !== null && <span className="ml-2 text-xs font-normal text-muted">{tr.fromPrevious(pct(s.conversionFromPrevious))}</span>}
                 </span>
               </div>
               <div className="h-3 rounded-full bg-brand-50">
@@ -424,8 +436,8 @@ function Funnel({ from, to }: { from: string; to: string }) {
           ))}
         </Card>
       </Section>
-      <ChartCard title="Pipeline right now" className="h-96">
-        <LabelBars data={data.pipeline.map((p) => ({ label: p.label, count: p.count }))} />
+      <ChartCard title={tr.pipelineRightNow} className="h-96">
+        <LabelBars data={data.pipeline.map((p) => ({ label: crm.stages[p.stage] ?? p.label, count: p.count }))} />
       </ChartCard>
     </div>
   );

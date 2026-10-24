@@ -54,6 +54,11 @@ describe('Club operations', () => {
       expect(await t.prisma.membership.count({ where: { clientId: c.clientId } })).toBe(0);
     });
 
+    it('the admin membership list accepts paging from the query string', async () => {
+      const res = await t.http().get('/api/admin/memberships?status=ACTIVE&page=1&pageSize=50').set(f.admin.auth()).expect(200);
+      expect(Array.isArray(res.body.items)).toBe(true);
+    });
+
     it('Kaspi invoice workflow: request → confirm with reference → partial refund within limits', async () => {
       const c = await f.client();
       const request = await t

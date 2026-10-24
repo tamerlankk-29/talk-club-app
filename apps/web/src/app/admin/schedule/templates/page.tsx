@@ -17,18 +17,20 @@ import { useCan } from '@/lib/auth';
 import { clubNow, fmt } from '@/lib/format';
 import { useClub } from '@/lib/queries';
 import { WEEKDAYS_SHORT } from '@/lib/utils';
+import { messagesFor, useT } from '@/lib/i18n';
+import { scheduleMessages } from '@/lib/i18n/messages/admin/schedule';
 
 type Template = S<'SessionTemplateDto'>;
 type Result = S<'TemplateGenerationResultDto'>;
 const KEY = ['admin', 'session-templates'];
 
 function summary(r: Result): string {
-  const parts = [`${r.created} created`, `${r.updated} updated`, `${r.removed} removed`];
-  if (r.skipped.length) parts.push(`${r.skipped.length} skipped (${r.skipped.slice(0, 3).map((s) => `${s.date}: ${s.reason}`).join('; ')}${r.skipped.length > 3 ? '…' : ''})`);
-  return parts.join(', ');
+  const details = `${r.skipped.slice(0, 3).map((s) => `${s.date}: ${s.reason}`).join('; ')}${r.skipped.length > 3 ? '…' : ''}`;
+  return messagesFor(scheduleMessages).summary(r.created, r.updated, r.removed, r.skipped.length, details);
 }
 
 export default function TemplatesPage() {
+  const tr = useT(scheduleMessages);
   const qc = useQueryClient();
   const canManage = useCan('schedule.manage');
   const query = useQuery({ queryKey: KEY, queryFn: () => call(api.GET('/api/admin/session-templates')) });
@@ -41,7 +43,7 @@ export default function TemplatesPage() {
     mutationFn: (id: string) => call(api.POST('/api/admin/session-templates/{id}/generate', { params: { path: { id } } })),
     onSuccess: async (r) => {
       await refresh();
-      toast.success(`Schedule updated: ${summary(r)}.`);
+      toast.success(tr.scheduleUpdated(summary(r)));
     },
     onError: toastError,
   });
@@ -50,20 +52,20 @@ export default function TemplatesPage() {
     onSuccess: async (r) => {
       await refresh();
       setDeleting(null);
-      toast.success(`Template removed. ${r.removed} future sessions without bookings removed.`);
+      toast.success(tr.templateRemoved(r.removed));
     },
     onError: toastError,
   });
 
   return (
     <AdminPage
-      title="Weekly templates"
+      title={tr.weeklyTemplates}
       back="/admin/schedule"
-      description="Recurring slots generate the schedule ahead automatically. Sessions with bookings are never deleted by a template change."
+      description={tr.recurringSlotsGenerateSchedule}
       actions={
         canManage && (
           <Button size="sm" leftIcon={<Plus className="h-4 w-4" />} onClick={() => setEditing('new')}>
-            New template
+            {tr.newTemplate}
           </Button>
         )
       }
@@ -73,7 +75,7 @@ export default function TemplatesPage() {
       ) : query.error ? (
         <ErrorState error={query.error} onRetry={() => query.refetch()} />
       ) : !query.data?.length ? (
-        <EmptyState title="No templates yet" description="Create weekly slots like “Mon/Wed/Fri 18:30, Office 314, Intermediate”." />
+        <EmptyState title={tr.noTemplatesYet} description={tr.createWeeklySlotsLike} />
       ) : (
         <div className="grid gap-3 lg:grid-cols-2">
           {query.data.map((t) => (
@@ -84,28 +86,32 @@ export default function TemplatesPage() {
                     {t.daysOfWeek.map((d) => WEEKDAYS_SHORT[d]).join(' · ')} {t.startTime}
                   </p>
                   <p className="text-sm text-muted">
-                    {t.title ?? t.groupTypeName ?? 'Session'} · {t.levelLabel} · {t.durationMinutes} min · {t.capacity} seats
+                    {t.title ?? t.groupTypeName ?? tr.sessionFallback} · {t.levelLabel} · {tr.templateLine(t.durationMinutes, t.capacity)}
                   </p>
                 </div>
-                {t.isActive ? <Badge tone="success">Active</Badge> : <Badge>Paused</Badge>}
+                {t.isActive ? <Badge tone="success">{tr.active}</Badge> : <Badge>{tr.paused}</Badge>}
               </div>
               <p className="text-sm">
-                {t.teacherName ?? 'No teacher'} · {t.format === 'ONLINE' ? 'Online' : (t.roomName ?? 'No room')}
+                {t.teacherName ?? tr.noTeacher} · {t.format === 'ONLINE' ? tr.online : (t.roomName ?? tr.noRoom)}
               </p>
               <p className="text-xs text-muted">
-                From {fmt.dateShort(`${t.validFrom}T12:00:00Z`)}
-                {t.validUntil ? ` until ${fmt.dateShort(`${t.validUntil}T12:00:00Z`)}` : ''} · generated until {t.generatedUntil ? fmt.dateShort(`${t.generatedUntil}T12:00:00Z`) : '—'} · {t.upcomingCount} upcoming
+                {tr.templateDates(
+                  fmt.dateShort(`${t.validFrom}T12:00:00Z`),
+                  t.validUntil ? fmt.dateShort(`${t.validUntil}T12:00:00Z`) : null,
+                  t.generatedUntil ? fmt.dateShort(`${t.generatedUntil}T12:00:00Z`) : '—',
+                  t.upcomingCount,
+                )}
               </p>
               {canManage && (
                 <div className="flex flex-wrap gap-2">
                   <Button size="xs" variant="secondary" leftIcon={<Pencil className="h-3.5 w-3.5" />} onClick={() => setEditing(t)}>
-                    Edit
+                    {tr.edit}
                   </Button>
                   <Button size="xs" variant="secondary" leftIcon={<RefreshCw className="h-3.5 w-3.5" />} loading={generate.isPending && generate.variables === t.id} onClick={() => generate.mutate(t.id)}>
-                    Generate now
+                    {tr.generateNow}
                   </Button>
                   <Button size="xs" variant="ghost" className="text-danger-700" leftIcon={<Trash2 className="h-3.5 w-3.5" />} onClick={() => setDeleting(t)}>
-                    Delete
+                    {tr.delete}
                   </Button>
                 </div>
               )}
@@ -117,20 +123,21 @@ export default function TemplatesPage() {
       <ConfirmDialog
         open={!!deleting}
         onOpenChange={(o) => !o && setDeleting(null)}
-        title="Delete this template?"
-        description="Past sessions stay. Future sessions that already have bookings are kept either way."
-        confirmLabel="Delete template"
+        title={tr.deleteTemplate}
+        description={tr.pastSessionsStayFuture}
+        confirmLabel={tr.deleteTemplate2}
         tone="danger"
         loading={remove.isPending}
         onConfirm={() => deleting && remove.mutate(deleting)}
       >
-        <Checkbox checked={removeFuture} onChange={setRemoveFuture} label="Also remove future sessions without bookings" />
+        <Checkbox checked={removeFuture} onChange={setRemoveFuture} label={tr.alsoRemoveFutureSessions} />
       </ConfirmDialog>
     </AdminPage>
   );
 }
 
 function TemplateDrawer({ template, open, onOpenChange, onSaved }: { template?: Template; open: boolean; onOpenChange: (o: boolean) => void; onSaved: () => Promise<unknown> }) {
+  const tr = useT(scheduleMessages);
   const { data: club } = useClub();
   const { data: rooms } = useAdminRooms();
   const { data: teachers } = useAdminTeachers();
@@ -186,7 +193,7 @@ function TemplateDrawer({ template, open, onOpenChange, onSaved }: { template?: 
     },
     onSuccess: async (r) => {
       await onSaved();
-      toast.success(`Template saved. ${summary(r)}.`);
+      toast.success(tr.templateSaved(summary(r)));
       onOpenChange(false);
     },
   });
@@ -195,46 +202,46 @@ function TemplateDrawer({ template, open, onOpenChange, onSaved }: { template?: 
     <Drawer
       open={open}
       onOpenChange={onOpenChange}
-      title={template ? 'Edit template' : 'New weekly template'}
-      description="Changes apply to future sessions without manual edits."
+      title={template ? tr.editTemplate : tr.newWeeklyTemplate}
+      description={tr.changesApplyFutureSessions}
       width="lg"
       footer={
         <>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
-            Cancel
+            {tr.cancel}
           </Button>
           <Button loading={save.isPending} disabled={!f.daysOfWeek.length} onClick={() => save.mutate()}>
-            Save & generate
+            {tr.saveGenerate}
           </Button>
         </>
       }
     >
       <div className="space-y-4">
-        <Field label="Days" error={errors.daysOfWeek}>
+        <Field label={tr.days} error={errors.daysOfWeek}>
           <ChipGroup size="sm" multiple options={[1, 2, 3, 4, 5, 6, 7].map((d) => ({ value: d, label: WEEKDAYS_SHORT[d] }))} value={f.daysOfWeek} onChange={(v) => setF({ ...f, daysOfWeek: v as number[] })} />
         </Field>
         <div className="grid gap-3 sm:grid-cols-3">
-          <Field label="Start" htmlFor="tp-time" error={errors.startTime}>
+          <Field label={tr.start} htmlFor="tp-time" error={errors.startTime}>
             <Input id="tp-time" type="time" step={300} value={f.startTime} onChange={(e) => setF({ ...f, startTime: e.target.value })} />
           </Field>
-          <Field label="Minutes" htmlFor="tp-dur">
+          <Field label={tr.minutes} htmlFor="tp-dur">
             <Input id="tp-dur" type="number" min={15} max={480} value={f.durationMinutes} onChange={(e) => setF({ ...f, durationMinutes: e.target.value })} />
           </Field>
-          <Field label="Capacity" htmlFor="tp-cap">
+          <Field label={tr.capacity} htmlFor="tp-cap">
             <Input id="tp-cap" type="number" min={1} max={50} value={f.capacity} onChange={(e) => setF({ ...f, capacity: e.target.value })} />
           </Field>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Format" htmlFor="tp-format">
+          <Field label={tr.format} htmlFor="tp-format">
             <Select id="tp-format" value={f.format} onChange={(e) => setF({ ...f, format: e.target.value as S<'SessionFormat'> })}>
-              <option value="OFFLINE">At the club</option>
-              <option value="ONLINE">Online</option>
+              <option value="OFFLINE">{tr.club}</option>
+              <option value="ONLINE">{tr.online}</option>
             </Select>
           </Field>
           {f.format === 'OFFLINE' ? (
-            <Field label="Room" htmlFor="tp-room">
+            <Field label={tr.room} htmlFor="tp-room">
               <Select id="tp-room" value={f.roomId} onChange={(e) => setF({ ...f, roomId: e.target.value })}>
-                <option value="">No room</option>
+                <option value="">{tr.noRoom}</option>
                 {rooms?.map((r) => (
                   <option key={r.id} value={r.id}>
                     {r.name}
@@ -243,13 +250,13 @@ function TemplateDrawer({ template, open, onOpenChange, onSaved }: { template?: 
               </Select>
             </Field>
           ) : (
-            <Field label="Online link" htmlFor="tp-url">
+            <Field label={tr.onlineLink} htmlFor="tp-url">
               <Input id="tp-url" type="url" value={f.onlineUrl} onChange={(e) => setF({ ...f, onlineUrl: e.target.value })} />
             </Field>
           )}
-          <Field label="Teacher" htmlFor="tp-teacher">
+          <Field label={tr.teacher} htmlFor="tp-teacher">
             <Select id="tp-teacher" value={f.teacherId} onChange={(e) => setF({ ...f, teacherId: e.target.value })}>
-              <option value="">Not assigned</option>
+              <option value="">{tr.notAssigned}</option>
               {teachers?.map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.name}
@@ -257,7 +264,7 @@ function TemplateDrawer({ template, open, onOpenChange, onSaved }: { template?: 
               ))}
             </Select>
           </Field>
-          <Field label="Group type" htmlFor="tp-gt">
+          <Field label={tr.groupType} htmlFor="tp-gt">
             <Select id="tp-gt" value={f.groupTypeId} onChange={(e) => setF({ ...f, groupTypeId: e.target.value })}>
               <option value="">—</option>
               {groupTypes?.map((g) => (
@@ -267,9 +274,9 @@ function TemplateDrawer({ template, open, onOpenChange, onSaved }: { template?: 
               ))}
             </Select>
           </Field>
-          <Field label="Level from" htmlFor="tp-lmin">
+          <Field label={tr.level} htmlFor="tp-lmin">
             <Select id="tp-lmin" value={f.levelMinId} onChange={(e) => setF({ ...f, levelMinId: e.target.value })}>
-              <option value="">Any</option>
+              <option value="">{tr.any}</option>
               {levels?.map((l) => (
                 <option key={l.id} value={l.id}>
                   {l.name}
@@ -277,9 +284,9 @@ function TemplateDrawer({ template, open, onOpenChange, onSaved }: { template?: 
               ))}
             </Select>
           </Field>
-          <Field label="Level to" htmlFor="tp-lmax">
+          <Field label={tr.level2} htmlFor="tp-lmax">
             <Select id="tp-lmax" value={f.levelMaxId} onChange={(e) => setF({ ...f, levelMaxId: e.target.value })}>
-              <option value="">Any</option>
+              <option value="">{tr.any}</option>
               {levels?.map((l) => (
                 <option key={l.id} value={l.id}>
                   {l.name}
@@ -287,20 +294,20 @@ function TemplateDrawer({ template, open, onOpenChange, onSaved }: { template?: 
               ))}
             </Select>
           </Field>
-          <Field label="Valid from" htmlFor="tp-from">
+          <Field label={tr.valid} htmlFor="tp-from">
             <Input id="tp-from" type="date" value={f.validFrom} onChange={(e) => setF({ ...f, validFrom: e.target.value })} />
           </Field>
-          <Field label="Valid until" htmlFor="tp-until" hint="Empty = no end date">
+          <Field label={tr.validUntil} htmlFor="tp-until" hint={tr.emptyNoEndDate}>
             <Input id="tp-until" type="date" value={f.validUntil} onChange={(e) => setF({ ...f, validUntil: e.target.value })} />
           </Field>
         </div>
-        <Field label="Title" htmlFor="tp-title" hint="Defaults to the group type">
+        <Field label={tr.title} htmlFor="tp-title" hint={tr.defaultsGroupType}>
           <Input id="tp-title" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} />
         </Field>
-        <Field label="Description" htmlFor="tp-desc">
+        <Field label={tr.description} htmlFor="tp-desc">
           <Textarea id="tp-desc" rows={2} value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} />
         </Field>
-        <Checkbox checked={f.isActive} onChange={(v) => setF({ ...f, isActive: v })} label="Active" description="Paused templates stop generating new sessions." />
+        <Checkbox checked={f.isActive} onChange={(v) => setF({ ...f, isActive: v })} label={tr.active} description={tr.pausedTemplatesStopGenerating} />
         {save.error && !Object.keys(errors).length && <InlineAlert tone="danger">{errorMessage(save.error)}</InlineAlert>}
       </div>
     </Drawer>

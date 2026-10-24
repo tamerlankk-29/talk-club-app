@@ -5,7 +5,7 @@ import { KeyRound, Lock, Plus, ShieldCheck, UserPlus } from 'lucide-react';
 import { Suspense, useState } from 'react';
 import { AdminPage } from '@/components/admin/page';
 import { Button } from '@/components/ui/button';
-import { Avatar, Badge, ErrorState, InlineAlert, SkeletonList } from '@/components/ui/feedback';
+import { Avatar, Badge, ErrorState, InlineAlert, SkeletonList, statusLabel } from '@/components/ui/feedback';
 import { Checkbox, ChipGroup, Field, Input, PhoneInput, Select } from '@/components/ui/inputs';
 import { Card, Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/layout';
 import { Drawer, Modal } from '@/components/ui/overlay';
@@ -16,6 +16,8 @@ import { adminKeys, useAdminStaff, useUrlState } from '@/lib/admin-queries';
 import { useAuth, useCan } from '@/lib/auth';
 import { fmt, phoneDigitsComplete } from '@/lib/format';
 import { cn } from '@/lib/utils';
+import { useT } from '@/lib/i18n';
+import { teamMessages } from '@/lib/i18n/messages/admin/team';
 
 type Staff = S<'StaffUserDto'>;
 type Role = S<'RoleDto'>;
@@ -25,16 +27,17 @@ function useRoles(enabled = true) {
 }
 
 function StaffAndRoles() {
+  const tr = useT(teamMessages);
   const url = useUrlState();
   const canStaff = useCan('staff.manage');
   const canRoles = useCan('roles.manage');
   const tab = url.get('tab', canStaff ? 'staff' : 'roles');
   return (
-    <AdminPage title="Staff & roles" description="Who can do what. Permissions are checked by the server on every request.">
+    <AdminPage title={tr.staffRoles} description={tr.whoCanDoWhat}>
       <Tabs value={tab} onValueChange={(v) => url.set({ tab: v })}>
         <TabsList className="max-w-xs">
-          {canStaff && <TabsTrigger value="staff">Staff</TabsTrigger>}
-          {canRoles && <TabsTrigger value="roles">Roles & permissions</TabsTrigger>}
+          {canStaff && <TabsTrigger value="staff">{tr.staff}</TabsTrigger>}
+          {canRoles && <TabsTrigger value="roles">{tr.rolesPermissions}</TabsTrigger>}
         </TabsList>
         {canStaff && (
           <TabsContent value="staff">
@@ -52,6 +55,7 @@ function StaffAndRoles() {
 }
 
 function StaffList() {
+  const tr = useT(teamMessages);
   const { data, isLoading, error, refetch } = useAdminStaff();
   const { data: roles } = useRoles();
   const [editing, setEditing] = useState<Staff | 'new' | null>(null);
@@ -61,7 +65,7 @@ function StaffList() {
     <div className="space-y-3">
       <div className="flex justify-end">
         <Button size="sm" leftIcon={<UserPlus className="h-4 w-4" />} onClick={() => setEditing('new')}>
-          Add staff member
+          {tr.addStaffMember}
         </Button>
       </div>
       {isLoading ? (
@@ -84,9 +88,9 @@ function StaffList() {
                     {roleName(r)}
                   </Badge>
                 ))}
-                {s.status !== 'ACTIVE' && <Badge tone="danger">{s.status.toLowerCase()}</Badge>}
+                {s.status !== 'ACTIVE' && <Badge tone="danger">{statusLabel(s.status)}</Badge>}
               </div>
-              <span className="w-36 text-right text-xs text-muted">{s.lastLoginAt ? `seen ${fmt.relative(s.lastLoginAt)}` : 'never signed in'}</span>
+              <span className="w-36 text-right text-xs text-muted">{s.lastLoginAt ? tr.seenAgo(fmt.relative(s.lastLoginAt)) : tr.neverSignedIn}</span>
             </button>
           ))}
         </Card>
@@ -97,6 +101,7 @@ function StaffList() {
 }
 
 function StaffDrawer({ staff, open, onOpenChange }: { staff?: Staff; open: boolean; onOpenChange: (o: boolean) => void }) {
+  const tr = useT(teamMessages);
   const qc = useQueryClient();
   const { user } = useAuth();
   const { data: roles } = useRoles(open);
@@ -122,7 +127,7 @@ function StaffDrawer({ staff, open, onOpenChange }: { staff?: Staff; open: boole
       const temp = (r as S<'StaffCreatedDto'>).temporaryPassword;
       if (temp) setSecret(temp);
       else {
-        toast.success('Saved.');
+        toast.success(tr.saved);
         onOpenChange(false);
       }
     },
@@ -138,22 +143,22 @@ function StaffDrawer({ staff, open, onOpenChange }: { staff?: Staff; open: boole
     <Drawer
       open={open}
       onOpenChange={onOpenChange}
-      title={staff ? (staff.displayName ?? staff.email ?? 'Staff member') : 'New staff member'}
+      title={staff ? (staff.displayName ?? staff.email ?? tr.staffMember) : tr.newStaffMember}
       footer={
         secret ? (
-          <Button onClick={() => onOpenChange(false)}>Done</Button>
+          <Button onClick={() => onOpenChange(false)}>{tr.done}</Button>
         ) : (
           <>
             {staff && (
               <Button variant="outline" className="mr-auto" leftIcon={<KeyRound className="h-4 w-4" />} loading={reset.isPending} onClick={() => reset.mutate()}>
-                Reset password
+                {tr.resetPassword}
               </Button>
             )}
             <Button variant="ghost" onClick={() => onOpenChange(false)}>
-              Cancel
+              {tr.cancel}
             </Button>
             <Button loading={save.isPending} disabled={!f.displayName.trim() || (!staff && !f.email.includes('@')) || !f.roles.length} onClick={() => save.mutate()}>
-              {staff ? 'Save' : 'Create account'}
+              {staff ? tr.save : tr.createAccount}
             </Button>
           </>
         )
@@ -161,32 +166,32 @@ function StaffDrawer({ staff, open, onOpenChange }: { staff?: Staff; open: boole
     >
       {secret ? (
         <div className="space-y-3 text-sm">
-          <InlineAlert tone="success" title="Temporary password">
-            Shown only once. Share it securely — the person should change it after signing in.
+          <InlineAlert tone="success" title={tr.temporaryPassword}>
+            {tr.shownOnlyOnceShare}
           </InlineAlert>
           <p className="select-all rounded-2xl bg-canvas p-4 font-mono text-lg font-semibold">{secret}</p>
         </div>
       ) : (
         <div className="space-y-4">
-          <Field label="Name" required htmlFor="st-name" error={errors.displayName}>
+          <Field label={tr.name} required htmlFor="st-name" error={errors.displayName}>
             <Input id="st-name" value={f.displayName} onChange={(e) => setF({ ...f, displayName: e.target.value })} />
           </Field>
-          <Field label="Email (login)" required htmlFor="st-email" error={errors.email}>
+          <Field label={tr.emailLogin} required htmlFor="st-email" error={errors.email}>
             <Input id="st-email" type="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} disabled={!!staff} />
           </Field>
           {!staff && (
-            <Field label="Phone" htmlFor="st-phone" error={errors.phone}>
+            <Field label={tr.phone} htmlFor="st-phone" error={errors.phone}>
               <PhoneInput id="st-phone" value={f.phone} onChange={(phone) => setF({ ...f, phone })} />
             </Field>
           )}
-          <Field label="Roles" hint={self ? 'You cannot remove your own super-admin access.' : undefined}>
+          <Field label={tr.roles} hint={self ? tr.cannotRemoveOwnSuperAdmin : undefined}>
             <ChipGroup size="sm" multiple options={staffRoles.map((r) => ({ value: r.key, label: r.name }))} value={f.roles} onChange={(v) => setF({ ...f, roles: v as string[] })} />
           </Field>
           {staff && !self && (
-            <Field label="Status" htmlFor="st-status">
+            <Field label={tr.status} htmlFor="st-status">
               <Select id="st-status" value={f.status} onChange={(e) => setF({ ...f, status: e.target.value as 'ACTIVE' | 'BLOCKED' })}>
-                <option value="ACTIVE">Active</option>
-                <option value="BLOCKED">Blocked (cannot sign in)</option>
+                <option value="ACTIVE">{tr.active}</option>
+                <option value="BLOCKED">{tr.blockedCannotSign}</option>
               </Select>
             </Field>
           )}
@@ -198,6 +203,7 @@ function StaffDrawer({ staff, open, onOpenChange }: { staff?: Staff; open: boole
 }
 
 function RolesEditor() {
+  const tr = useT(teamMessages);
   const qc = useQueryClient();
   const roles = useRoles();
   const permissions = useQuery({ queryKey: adminKeys.permissions, queryFn: () => call(api.GET('/api/admin/permissions')), staleTime: Infinity });
@@ -213,7 +219,7 @@ function RolesEditor() {
     onSuccess: (list) => {
       qc.setQueryData(adminKeys.roles, list);
       setDraft(null);
-      toast.success('Permissions saved. They apply on the next request.');
+      toast.success(tr.permissionsSavedTheyApply);
     },
     onError: toastError,
   });
@@ -237,13 +243,13 @@ function RolesEditor() {
                 {r.isSystem && <Lock className="h-3 w-3 opacity-70" />} {r.name}
               </span>
               <span className={cn('text-xs', role?.id === r.id ? 'text-white/75' : 'text-muted')}>
-                {r.permissions.length} permissions · {r.userCount} people
+                {tr.permissionsPeople(r.permissions.length, r.userCount)}
               </span>
             </span>
           </button>
         ))}
         <Button size="sm" variant="outline" block leftIcon={<Plus className="h-4 w-4" />} onClick={() => setCreating(true)}>
-          New role
+          {tr.newRole}
         </Button>
       </div>
       {role && (
@@ -257,11 +263,11 @@ function RolesEditor() {
             </div>
             {!locked && (
               <Button loading={save.isPending} disabled={!draft} onClick={() => save.mutate()}>
-                Save permissions
+                {tr.savePermissions}
               </Button>
             )}
           </div>
-          {locked && <InlineAlert tone="info">The super-admin role always has every permission.</InlineAlert>}
+          {locked && <InlineAlert tone="info">{tr.superAdminRoleAlways}</InlineAlert>}
           <div className="grid gap-5 md:grid-cols-2">
             {[...groups.entries()].map(([group, perms]) => (
               <div key={group}>
@@ -289,6 +295,7 @@ function RolesEditor() {
 }
 
 function NewRoleDialog({ onClose, onCreated }: { onClose: () => void; onCreated: (id: string) => void }) {
+  const tr = useT(teamMessages);
   const qc = useQueryClient();
   const [name, setName] = useState('');
   const [key, setKey] = useState('');
@@ -306,27 +313,27 @@ function NewRoleDialog({ onClose, onCreated }: { onClose: () => void; onCreated:
     <Modal
       open
       onOpenChange={(o) => !o && onClose()}
-      title="New role"
+      title={tr.newRole}
       size="sm"
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>
-            Cancel
+            {tr.cancel}
           </Button>
           <Button loading={create.isPending} disabled={!name.trim()} onClick={() => create.mutate()}>
-            Create
+            {tr.create}
           </Button>
         </>
       }
     >
       <div className="space-y-3">
-        <Field label="Name" htmlFor="nr-name">
-          <Input id="nr-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Reception" autoFocus />
+        <Field label={tr.name} htmlFor="nr-name">
+          <Input id="nr-name" value={name} onChange={(e) => setName(e.target.value)} placeholder={tr.eGReception} autoFocus />
         </Field>
-        <Field label="Key" htmlFor="nr-key" hint="Auto-generated from the name if empty">
-          <Input id="nr-key" value={key} onChange={(e) => setKey(e.target.value)} placeholder="RECEPTION" />
+        <Field label={tr.key} htmlFor="nr-key" hint={tr.autoGeneratedNameIf}>
+          <Input id="nr-key" value={key} onChange={(e) => setKey(e.target.value)} placeholder={tr.reception} />
         </Field>
-        <Field label="Description" htmlFor="nr-desc">
+        <Field label={tr.description} htmlFor="nr-desc">
           <Input id="nr-desc" value={description} onChange={(e) => setDescription(e.target.value)} />
         </Field>
         {create.error && <InlineAlert tone="danger">{errorMessage(create.error)}</InlineAlert>}

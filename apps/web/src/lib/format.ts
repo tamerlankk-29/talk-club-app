@@ -23,9 +23,9 @@ const KK_WEEKDAYS_SHORT = ['дс', 'сс', 'ср', 'бс', 'жм', 'сб', 'жс
 /** Luxon toFormat that also works for Kazakh month and weekday names (MMMM, MMM, cccc, ccc). */
 export function formatDate(dt: DateTime, pattern: string): string {
   if (activeLocale() !== 'kk') return dt.setLocale(intlLocale()).toFormat(pattern);
-  const quoted = pattern.replace(/MMMM|MMM|cccc|ccc/g, (token) => {
+  const quoted = pattern.replace(/LLLL|MMMM|MMM|cccc|ccc/g, (token) => {
     const name =
-      token === 'MMMM' ? KK_MONTHS[dt.month - 1] : token === 'MMM' ? KK_MONTHS_SHORT[dt.month - 1] : token === 'cccc' ? KK_WEEKDAYS[dt.weekday - 1] : KK_WEEKDAYS_SHORT[dt.weekday - 1];
+      token === 'MMMM' || token === 'LLLL' ? KK_MONTHS[dt.month - 1] : token === 'MMM' ? KK_MONTHS_SHORT[dt.month - 1] : token === 'cccc' ? KK_WEEKDAYS[dt.weekday - 1] : KK_WEEKDAYS_SHORT[dt.weekday - 1];
     return `'${name}'`;
   });
   return dt.setLocale('en-GB').toFormat(quoted);

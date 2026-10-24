@@ -12,6 +12,8 @@ import type { S } from '@/lib/api/types';
 import { useAdminLevels, useAdminSources } from '@/lib/admin-queries';
 import { fmt, phoneDigitsComplete } from '@/lib/format';
 import { CATEGORY_LABELS, FORMAT_LABELS, TIME_OF_DAY_LABELS, WEEKDAYS_SHORT } from '@/lib/utils';
+import { useT } from '@/lib/i18n';
+import { clientsMessages } from '@/lib/i18n/messages/admin/clients';
 
 type ClientDetail = S<'ClientDetailDto'>;
 type Category = S<'ClientCategory'>;
@@ -67,6 +69,7 @@ export function ClientFormDrawer({
   client?: ClientDetail;
   onSaved?: (client: ClientDetail) => void;
 }) {
+  const tr = useT(clientsMessages);
   const qc = useQueryClient();
   const { data: levels } = useAdminLevels();
   const { data: sources } = useAdminSources();
@@ -109,7 +112,7 @@ export function ClientFormDrawer({
     onSuccess: async (saved) => {
       await qc.invalidateQueries({ queryKey: ['admin', 'clients'] });
       qc.setQueryData(['admin', 'client', saved.profile.id], saved);
-      toast.success(client ? 'Client updated.' : 'Client created.');
+      toast.success(client ? tr.clientUpdated : tr.clientCreated);
       onOpenChange(false);
       onSaved?.(saved);
     },
@@ -120,37 +123,37 @@ export function ClientFormDrawer({
     <Drawer
       open={open}
       onOpenChange={onOpenChange}
-      title={client ? `Edit ${client.profile.fullName}` : 'New client'}
+      title={client ? tr.editName(client.profile.fullName) : tr.newClient}
       width="lg"
       footer={
         <>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
-            Cancel
+            {tr.cancel}
           </Button>
           <Button loading={save.isPending} disabled={!form.firstName.trim() || phonePartial} onClick={() => save.mutate()}>
-            {client ? 'Save changes' : 'Create client'}
+            {client ? tr.saveChanges : tr.createClient}
           </Button>
         </>
       }
     >
       <div className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="First name" required htmlFor="cf-first" error={errors.firstName}>
+          <Field label={tr.firstName} required htmlFor="cf-first" error={errors.firstName}>
             <Input id="cf-first" value={form.firstName} onChange={(e) => set('firstName', e.target.value)} maxLength={60} />
           </Field>
-          <Field label="Last name" htmlFor="cf-last" error={errors.lastName}>
+          <Field label={tr.lastName} htmlFor="cf-last" error={errors.lastName}>
             <Input id="cf-last" value={form.lastName} onChange={(e) => set('lastName', e.target.value)} maxLength={60} />
           </Field>
-          <Field label="Phone" htmlFor="cf-phone" error={errors.phone ?? (phonePartial ? 'Enter the full number' : null)} hint="The client can sign in with this number">
+          <Field label={tr.phone} htmlFor="cf-phone" error={errors.phone ?? (phonePartial ? tr.enterFullNumber : null)} hint={tr.clientCanSignNumber}>
             <PhoneInput id="cf-phone" value={form.phone} onChange={(v) => set('phone', v)} />
           </Field>
-          <Field label="Email" htmlFor="cf-email" error={errors.email}>
+          <Field label={tr.email} htmlFor="cf-email" error={errors.email}>
             <Input id="cf-email" type="email" value={form.email} onChange={(e) => set('email', e.target.value)} />
           </Field>
-          <Field label="Date of birth" htmlFor="cf-birth" error={errors.birthDate}>
+          <Field label={tr.dateBirth} htmlFor="cf-birth" error={errors.birthDate}>
             <Input id="cf-birth" type="date" value={form.birthDate} onChange={(e) => set('birthDate', e.target.value)} />
           </Field>
-          <Field label="Category" htmlFor="cf-cat">
+          <Field label={tr.category} htmlFor="cf-cat">
             <Select id="cf-cat" value={form.category} onChange={(e) => set('category', e.target.value as Category)}>
               {Object.entries(CATEGORY_LABELS).map(([value, label]) => (
                 <option key={value} value={value}>
@@ -159,9 +162,9 @@ export function ClientFormDrawer({
               ))}
             </Select>
           </Field>
-          <Field label="Level" htmlFor="cf-level">
+          <Field label={tr.level} htmlFor="cf-level">
             <Select id="cf-level" value={form.levelId} onChange={(e) => set('levelId', e.target.value)}>
-              <option value="">Not set</option>
+              <option value="">{tr.notSet}</option>
               {levels?.map((l) => (
                 <option key={l.id} value={l.id}>
                   {l.name}
@@ -171,14 +174,14 @@ export function ClientFormDrawer({
           </Field>
           {client ? (
             levelChanged && (
-              <Field label="Reason for level change" htmlFor="cf-lr" hint="Shown in the client's level history">
-                <Input id="cf-lr" value={form.levelReason} onChange={(e) => set('levelReason', e.target.value)} placeholder="e.g. Placement after first session" />
+              <Field label={tr.reasonLevelChange} htmlFor="cf-lr" hint={tr.shownClientsLevelHistory}>
+                <Input id="cf-lr" value={form.levelReason} onChange={(e) => set('levelReason', e.target.value)} placeholder={tr.eGPlacementAfter} />
               </Field>
             )
           ) : (
-            <Field label="Lead source" htmlFor="cf-src">
+            <Field label={tr.leadSource} htmlFor="cf-src">
               <Select id="cf-src" value={form.sourceId} onChange={(e) => set('sourceId', e.target.value)}>
-                <option value="">Unknown</option>
+                <option value="">{tr.unknown}</option>
                 {sources?.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name}
@@ -188,10 +191,10 @@ export function ClientFormDrawer({
             </Field>
           )}
         </div>
-        <Field label="Preferred days">
+        <Field label={tr.preferredDays}>
           <ChipGroup size="sm" multiple options={[1, 2, 3, 4, 5, 6, 7].map((d) => ({ value: d, label: WEEKDAYS_SHORT[d] }))} value={form.preferredDays} onChange={(v) => set('preferredDays', v as number[])} />
         </Field>
-        <Field label="Preferred time">
+        <Field label={tr.preferredTime}>
           <ChipGroup
             size="sm"
             multiple
@@ -200,13 +203,13 @@ export function ClientFormDrawer({
             onChange={(v) => set('preferredTimes', v as TimeOfDay[])}
           />
         </Field>
-        <Field label="Format">
+        <Field label={tr.format}>
           <ChipGroup size="sm" options={(['OFFLINE', 'ONLINE', 'ANY'] as const).map((f) => ({ value: f, label: FORMAT_LABELS[f] }))} value={form.formatPreference} onChange={(v) => set('formatPreference', v as Format)} />
         </Field>
-        <Field label="Internal notes" htmlFor="cf-notes" hint="Visible to staff only">
+        <Field label={tr.internalNotes} htmlFor="cf-notes" hint={tr.visibleStaffOnly}>
           <Textarea id="cf-notes" rows={3} value={form.notes} onChange={(e) => set('notes', e.target.value)} maxLength={2000} />
         </Field>
-        <Checkbox checked={form.marketingConsent} onChange={(v) => set('marketingConsent', v)} label="Agreed to receive marketing messages" description="Only tick this if the client actually gave consent." />
+        <Checkbox checked={form.marketingConsent} onChange={(v) => set('marketingConsent', v)} label={tr.agreedReceiveMarketingMessages} description={tr.onlyTickIfClient} />
         {save.error && !Object.keys(errors).length && <InlineAlert tone="danger">{errorMessage(save.error)}</InlineAlert>}
       </div>
     </Drawer>

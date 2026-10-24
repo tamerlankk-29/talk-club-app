@@ -16,24 +16,18 @@ import { useAdminTeam } from '@/lib/admin-queries';
 import { useAuth, useCan } from '@/lib/auth';
 import { clubNow, fmt, fromClubInput } from '@/lib/format';
 import { cn } from '@/lib/utils';
+import { useT } from '@/lib/i18n';
+import { crmMessages } from '@/lib/i18n/messages/admin/crm';
 
 type Channel = S<'CommunicationChannel'>;
 type Task = S<'TaskDto'>;
 type Priority = S<'TaskPriority'>;
 
-const CHANNELS: Array<{ value: Channel; label: string }> = [
-  { value: 'WHATSAPP', label: 'WhatsApp' },
-  { value: 'PHONE', label: 'Phone call' },
-  { value: 'TELEGRAM', label: 'Telegram' },
-  { value: 'INSTAGRAM', label: 'Instagram' },
-  { value: 'SMS', label: 'SMS' },
-  { value: 'EMAIL', label: 'Email' },
-  { value: 'IN_PERSON', label: 'In person' },
-  { value: 'OTHER', label: 'Other' },
-];
+const CHANNELS: Channel[] = ['WHATSAPP', 'PHONE', 'TELEGRAM', 'INSTAGRAM', 'SMS', 'EMAIL', 'IN_PERSON', 'OTHER'];
 
 /** Quick internal note on a client's timeline. */
 export function NoteComposer({ clientId }: { clientId: string }) {
+  const tr = useT(crmMessages);
   const qc = useQueryClient();
   const canManage = useCan('clients.manage');
   const [text, setText] = useState('');
@@ -42,16 +36,16 @@ export function NoteComposer({ clientId }: { clientId: string }) {
     onSuccess: async () => {
       setText('');
       await qc.invalidateQueries({ queryKey: ['admin', 'client', clientId, 'timeline'] });
-      toast.success('Note added.');
+      toast.success(tr.noteAdded);
     },
     onError: toastError,
   });
   if (!canManage) return null;
   return (
     <div className="flex items-end gap-2">
-      <Textarea rows={2} placeholder="Add a note for the team…" value={text} onChange={(e) => setText(e.target.value)} maxLength={2000} aria-label="New note" />
+      <Textarea rows={2} placeholder={tr.addNoteTeam} value={text} onChange={(e) => setText(e.target.value)} maxLength={2000} aria-label={tr.newNote} />
       <Button size="sm" loading={add.isPending} disabled={!text.trim()} onClick={() => add.mutate()}>
-        Add
+        {tr.add}
       </Button>
     </div>
   );
@@ -59,6 +53,7 @@ export function NoteComposer({ clientId }: { clientId: string }) {
 
 /** Calls, messages and meetings logged by staff (WhatsApp, phone, Instagram…). */
 export function CommunicationLog({ clientId }: { clientId: string }) {
+  const tr = useT(crmMessages);
   const qc = useQueryClient();
   const canManage = useCan('crm.manage');
   const key = ['admin', 'communications', clientId];
@@ -83,22 +78,22 @@ export function CommunicationLog({ clientId }: { clientId: string }) {
       {canManage && (
         <Card className="space-y-3 p-4">
           <div className="flex gap-2">
-            <Select value={channel} onChange={(e) => setChannel(e.target.value as Channel)} className="h-10" aria-label="Channel">
+            <Select value={channel} onChange={(e) => setChannel(e.target.value as Channel)} className="h-10" aria-label={tr.channel}>
               {CHANNELS.map((c) => (
-                <option key={c.value} value={c.value}>
-                  {c.label}
+                <option key={c} value={c}>
+                  {tr.channels[c]}
                 </option>
               ))}
             </Select>
-            <Select value={direction} onChange={(e) => setDirection(e.target.value as 'OUTBOUND' | 'INBOUND')} className="h-10" aria-label="Direction">
-              <option value="OUTBOUND">We contacted</option>
-              <option value="INBOUND">Client contacted</option>
+            <Select value={direction} onChange={(e) => setDirection(e.target.value as 'OUTBOUND' | 'INBOUND')} className="h-10" aria-label={tr.direction}>
+              <option value="OUTBOUND">{tr.weContacted}</option>
+              <option value="INBOUND">{tr.clientContacted}</option>
             </Select>
           </div>
-          <Textarea rows={2} placeholder="What was discussed?" value={content} onChange={(e) => setContent(e.target.value)} maxLength={2000} aria-label="Summary" />
+          <Textarea rows={2} placeholder={tr.whatWasDiscussed} value={content} onChange={(e) => setContent(e.target.value)} maxLength={2000} aria-label={tr.summary} />
           <div className="flex justify-end">
             <Button size="sm" loading={log.isPending} disabled={!content.trim()} onClick={() => log.mutate()}>
-              Log communication
+              {tr.logCommunication}
             </Button>
           </div>
         </Card>
@@ -115,14 +110,14 @@ export function CommunicationLog({ clientId }: { clientId: string }) {
               <div className="min-w-0 flex-1">
                 <p className="whitespace-pre-line">{m.content}</p>
                 <p className="text-xs text-muted">
-                  {CHANNELS.find((c) => c.value === m.channel)?.label ?? m.channel} · {fmt.dateTime(m.occurredAt)}
+                  {tr.channels[m.channel] ?? m.channel} · {fmt.dateTime(m.occurredAt)}
                   {m.createdBy ? ` · ${m.createdBy.name}` : ''}
                 </p>
               </div>
             </div>
           ))
         ) : (
-          <p className="px-5 py-4 text-sm text-muted">No communications logged.</p>
+          <p className="px-5 py-4 text-sm text-muted">{tr.noCommunicationsLogged}</p>
         )}
       </Card>
     </div>
@@ -132,6 +127,7 @@ export function CommunicationLog({ clientId }: { clientId: string }) {
 const PRIORITY_TONE: Record<Priority, 'neutral' | 'info' | 'warning' | 'danger'> = { LOW: 'neutral', MEDIUM: 'info', HIGH: 'warning', URGENT: 'danger' };
 
 export function TaskRow({ task, showClient = true }: { task: Task; showClient?: boolean }) {
+  const tr = useT(crmMessages);
   const qc = useQueryClient();
   const canManage = useCan('crm.manage');
   const done = task.status === 'DONE';
@@ -142,14 +138,14 @@ export function TaskRow({ task, showClient = true }: { task: Task; showClient?: 
   });
   return (
     <div className="flex items-start gap-3 px-5 py-3.5">
-      <button type="button" disabled={!canManage || toggle.isPending} onClick={() => toggle.mutate()} className="mt-0.5 text-brand-700 disabled:opacity-50" aria-label={done ? 'Mark as open' : 'Mark as done'}>
+      <button type="button" disabled={!canManage || toggle.isPending} onClick={() => toggle.mutate()} className="mt-0.5 text-brand-700 disabled:opacity-50" aria-label={done ? tr.markOpen : tr.markDone}>
         {done ? <CheckCircle2 className="h-5 w-5" /> : <Circle className="h-5 w-5" />}
       </button>
       <div className="min-w-0 flex-1 text-sm">
         <div className="flex flex-wrap items-center gap-2">
           <p className={cn('font-semibold', done && 'text-muted line-through')}>{task.title}</p>
           {task.priority !== 'MEDIUM' && <Badge tone={PRIORITY_TONE[task.priority]}>{task.priority.toLowerCase()}</Badge>}
-          {task.fromAutomation && <Badge>auto</Badge>}
+          {task.fromAutomation && <Badge>{tr.auto}</Badge>}
         </div>
         {task.description && <p className="mt-0.5 whitespace-pre-line text-muted">{task.description}</p>}
         <p className="mt-1 text-xs text-muted">
@@ -162,8 +158,8 @@ export function TaskRow({ task, showClient = true }: { task: Task; showClient?: 
               ·{' '}
             </>
           )}
-          {showClient && task.lead && <>Lead: {task.lead.name} · </>}
-          {task.assignedTo ? task.assignedTo.name : 'Unassigned'}
+          {showClient && task.lead && <>{tr.leadLabel} {task.lead.name} · </>}
+          {task.assignedTo ? task.assignedTo.name : tr.unassigned}
         </p>
       </div>
     </div>
@@ -171,6 +167,7 @@ export function TaskRow({ task, showClient = true }: { task: Task; showClient?: 
 }
 
 export function NewTaskDialog({ open, onOpenChange, clientId, leadId }: { open: boolean; onOpenChange: (o: boolean) => void; clientId?: string; leadId?: string }) {
+  const tr = useT(crmMessages);
   const qc = useQueryClient();
   const { user } = useAuth();
   const { data: staff } = useAdminTeam(open);
@@ -199,49 +196,49 @@ export function NewTaskDialog({ open, onOpenChange, clientId, leadId }: { open: 
       setTitle('');
       setDescription('');
       onOpenChange(false);
-      toast.success('Task created.');
+      toast.success(tr.taskCreated);
     },
   });
   return (
     <Modal
       open={open}
       onOpenChange={onOpenChange}
-      title="New task"
+      title={tr.newTask}
       size="sm"
       footer={
         <>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
-            Cancel
+            {tr.cancel}
           </Button>
           <Button loading={create.isPending} disabled={!title.trim()} onClick={() => create.mutate()}>
-            Create
+            {tr.create}
           </Button>
         </>
       }
     >
       <div className="space-y-4">
-        <Field label="Task" required htmlFor="t-title">
-          <Input id="t-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Call about renewal" autoFocus maxLength={200} />
+        <Field label={tr.task} required htmlFor="t-title">
+          <Input id="t-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder={tr.eGCallAbout} autoFocus maxLength={200} />
         </Field>
-        <Field label="Details" htmlFor="t-desc">
+        <Field label={tr.details} htmlFor="t-desc">
           <Textarea id="t-desc" rows={2} value={description} onChange={(e) => setDescription(e.target.value)} />
         </Field>
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Due" htmlFor="t-due">
+          <Field label={tr.due} htmlFor="t-due">
             <Input id="t-due" type="datetime-local" value={due} onChange={(e) => setDue(e.target.value)} />
           </Field>
-          <Field label="Priority" htmlFor="t-prio">
+          <Field label={tr.priority} htmlFor="t-prio">
             <Select id="t-prio" value={priority} onChange={(e) => setPriority(e.target.value as Priority)}>
-              <option value="LOW">Low</option>
-              <option value="MEDIUM">Medium</option>
-              <option value="HIGH">High</option>
-              <option value="URGENT">Urgent</option>
+              <option value="LOW">{tr.low}</option>
+              <option value="MEDIUM">{tr.medium}</option>
+              <option value="HIGH">{tr.high}</option>
+              <option value="URGENT">{tr.urgent}</option>
             </Select>
           </Field>
         </div>
-        <Field label="Assignee" htmlFor="t-assignee">
+        <Field label={tr.assignee} htmlFor="t-assignee">
           <Select id="t-assignee" value={assignee} onChange={(e) => setAssignee(e.target.value)}>
-            <option value="">Unassigned</option>
+            <option value="">{tr.unassigned}</option>
             {staff?.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.displayName}
@@ -257,6 +254,7 @@ export function NewTaskDialog({ open, onOpenChange, clientId, leadId }: { open: 
 
 /** Tasks linked to one client. */
 export function ClientTasks({ clientId }: { clientId: string }) {
+  const tr = useT(crmMessages);
   const canManage = useCan('crm.manage');
   const [creating, setCreating] = useState(false);
   const { data, isLoading } = useQuery({
@@ -268,7 +266,7 @@ export function ClientTasks({ clientId }: { clientId: string }) {
       {canManage && (
         <div className="flex justify-end">
           <Button size="sm" variant="outline" leftIcon={<Plus className="h-4 w-4" />} onClick={() => setCreating(true)}>
-            New task
+            {tr.newTask}
           </Button>
         </div>
       )}
@@ -281,7 +279,7 @@ export function ClientTasks({ clientId }: { clientId: string }) {
           ))}
         </Card>
       ) : (
-        <EmptyState title="No tasks" description="Create follow-ups like calls or renewal reminders." />
+        <EmptyState title={tr.noTasks} description={tr.createFollowUpsLike} />
       )}
       <NewTaskDialog open={creating} onOpenChange={setCreating} clientId={clientId} />
     </div>

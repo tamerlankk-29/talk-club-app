@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { Suspense, useState } from 'react';
 import { AdminPage } from '@/components/admin/page';
 import { Button } from '@/components/ui/button';
-import { Badge, EmptyState, ErrorState, InlineAlert, SkeletonList, StatusBadge } from '@/components/ui/feedback';
+import { Badge, EmptyState, ErrorState, InlineAlert, SkeletonList, StatusBadge, statusLabel } from '@/components/ui/feedback';
 import { Checkbox, Field, Select, Textarea } from '@/components/ui/inputs';
 import { Card, Tabs, TabsList, TabsTrigger } from '@/components/ui/layout';
 import { Modal } from '@/components/ui/overlay';
@@ -16,11 +16,14 @@ import type { S } from '@/lib/api/types';
 import { useUrlState } from '@/lib/admin-queries';
 import { clubNow, fmt } from '@/lib/format';
 import { TIME_OF_DAY_LABELS, WEEKDAYS_SHORT } from '@/lib/utils';
+import { useT } from '@/lib/i18n';
+import { crmMessages } from '@/lib/i18n/messages/admin/crm';
 
 type Trial = S<'TrialDto'>;
 type TrialStatus = S<'TrialStatus'>;
 
 function Trials() {
+  const tr = useT(crmMessages);
   const url = useUrlState();
   const status = (url.get('status') || 'REQUESTED') as TrialStatus;
   const query = useQuery({
@@ -32,14 +35,14 @@ function Trials() {
   const [cancelling, setCancelling] = useState<Trial | null>(null);
 
   return (
-    <AdminPage title="Trial sessions" description="Requests from the website and app. Schedule them into a session, then record attendance and the outcome.">
+    <AdminPage title={tr.trialSessions} description={tr.requestsWebsiteAppSchedule}>
       <Tabs value={status} onValueChange={(v) => url.set({ status: v === 'REQUESTED' ? null : v })}>
         <TabsList className="max-w-2xl">
-          <TabsTrigger value="REQUESTED">Requested</TabsTrigger>
-          <TabsTrigger value="SCHEDULED">Scheduled</TabsTrigger>
-          <TabsTrigger value="ATTENDED">Attended</TabsTrigger>
-          <TabsTrigger value="NO_SHOW">No-show</TabsTrigger>
-          <TabsTrigger value="CANCELLED">Cancelled</TabsTrigger>
+          <TabsTrigger value="REQUESTED">{tr.requested}</TabsTrigger>
+          <TabsTrigger value="SCHEDULED">{tr.scheduled}</TabsTrigger>
+          <TabsTrigger value="ATTENDED">{tr.attended}</TabsTrigger>
+          <TabsTrigger value="NO_SHOW">{tr.noShow}</TabsTrigger>
+          <TabsTrigger value="CANCELLED">{tr.cancelled}</TabsTrigger>
         </TabsList>
       </Tabs>
       {query.isLoading ? (
@@ -47,7 +50,7 @@ function Trials() {
       ) : query.error ? (
         <ErrorState error={query.error} onRetry={() => query.refetch()} />
       ) : !query.data?.length ? (
-        <EmptyState icon={<CalendarCheck2 className="h-7 w-7" />} title="Nothing here" />
+        <EmptyState icon={<CalendarCheck2 className="h-7 w-7" />} title={tr.nothingHere} />
       ) : (
         <div className="grid gap-3 lg:grid-cols-2">
           {query.data.map((t) => (
@@ -63,12 +66,13 @@ function Trials() {
 }
 
 function TrialCard({ trial: t, onSchedule, onOutcome, onCancel }: { trial: Trial; onSchedule: () => void; onOutcome: () => void; onCancel: () => void }) {
+  const tr = useT(crmMessages);
   const qc = useQueryClient();
   const attendance = useMutation({
     mutationFn: (attended: boolean) => call(api.POST('/api/admin/trials/{id}/attendance', { params: { path: { id: t.id } }, body: { attended } })),
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ['admin', 'trials'] });
-      toast.success('Attendance saved.');
+      toast.success(tr.attendanceSaved);
     },
     onError: toastError,
   });
@@ -92,11 +96,11 @@ function TrialCard({ trial: t, onSchedule, onOutcome, onCancel }: { trial: Trial
         </div>
         <div className="flex flex-wrap justify-end gap-1.5">
           <StatusBadge status={t.status} />
-          {t.outcome !== 'PENDING' && <Badge tone={t.outcome === 'PURCHASED' ? 'success' : t.outcome === 'NOT_INTERESTED' ? 'danger' : 'info'}>{t.outcome.toLowerCase().replace('_', ' ')}</Badge>}
+          {t.outcome !== 'PENDING' && <Badge tone={t.outcome === 'PURCHASED' ? 'success' : t.outcome === 'NOT_INTERESTED' ? 'danger' : 'info'}>{tr.outcomes[t.outcome] ?? t.outcome}</Badge>}
         </div>
       </div>
       <p className="text-sm text-muted">
-        {t.level?.name ?? 'Level unknown'} · {t.preferredDays.map((d) => WEEKDAYS_SHORT[d]).join(', ') || 'any day'} · {t.preferredTimes.map((x) => TIME_OF_DAY_LABELS[x]).join(', ') || 'any time'} · via {t.source.toLowerCase()}
+        {t.level?.name ?? tr.levelUnknown} · {t.preferredDays.map((d) => WEEKDAYS_SHORT[d]).join(', ') || tr.anyDay} · {t.preferredTimes.map((x) => TIME_OF_DAY_LABELS[x]).join(', ') || tr.anyTime} · {tr.via(t.source.toLowerCase())}
       </p>
       {t.comment && <p className="rounded-2xl bg-canvas p-3 text-sm">“{t.comment}”</p>}
       {t.session && (
@@ -106,27 +110,27 @@ function TrialCard({ trial: t, onSchedule, onOutcome, onCancel }: { trial: Trial
         </Link>
       )}
       <p className="text-xs text-muted">
-        Requested {fmt.relative(t.createdAt)} · {fmt.money(t.price)}
-        {t.payment ? ` · payment ${t.payment.status.toLowerCase()}` : ''}
+        {tr.requestedAgo(fmt.relative(t.createdAt))} · {fmt.money(t.price)}
+        {t.payment ? tr.paymentStatus(statusLabel(t.payment.status).toLowerCase()) : ''}
       </p>
       <div className="flex flex-wrap gap-2">
         {t.status === 'REQUESTED' && (
           <Button size="xs" onClick={onSchedule}>
-            Schedule
+            {tr.schedule}
           </Button>
         )}
         {t.status === 'SCHEDULED' && (
           <>
             <Button size="xs" variant="secondary" onClick={onSchedule}>
-              Reschedule
+              {tr.reschedule}
             </Button>
             {past && (
               <>
                 <Button size="xs" loading={attendance.isPending && attendance.variables} onClick={() => attendance.mutate(true)}>
-                  Attended
+                  {tr.attended}
                 </Button>
                 <Button size="xs" variant="outline" loading={attendance.isPending && !attendance.variables} onClick={() => attendance.mutate(false)}>
-                  No-show
+                  {tr.noShow}
                 </Button>
               </>
             )}
@@ -134,12 +138,12 @@ function TrialCard({ trial: t, onSchedule, onOutcome, onCancel }: { trial: Trial
         )}
         {(t.status === 'ATTENDED' || t.status === 'NO_SHOW') && (
           <Button size="xs" variant="secondary" onClick={onOutcome}>
-            Record outcome
+            {tr.recordOutcome}
           </Button>
         )}
         {(t.status === 'REQUESTED' || t.status === 'SCHEDULED') && (
           <Button size="xs" variant="ghost" className="text-danger-700" onClick={onCancel}>
-            Cancel
+            {tr.cancel}
           </Button>
         )}
       </div>
@@ -148,6 +152,7 @@ function TrialCard({ trial: t, onSchedule, onOutcome, onCancel }: { trial: Trial
 }
 
 function ScheduleDialog({ trial, onClose }: { trial: Trial; onClose: () => void }) {
+  const tr = useT(crmMessages);
   const qc = useQueryClient();
   const [sessionId, setSessionId] = useState('');
   const [override, setOverride] = useState(false);
@@ -162,7 +167,7 @@ function ScheduleDialog({ trial, onClose }: { trial: Trial; onClose: () => void 
     mutationFn: () => call(api.POST('/api/admin/trials/{id}/schedule', { params: { path: { id: trial.id } }, body: { sessionId, overrideCapacity: override } })),
     onSuccess: async () => {
       await Promise.all([qc.invalidateQueries({ queryKey: ['admin', 'trials'] }), qc.invalidateQueries({ queryKey: ['admin', 'sessions'] })]);
-      toast.success('Trial scheduled. The client was notified.');
+      toast.success(tr.trialScheduledClientWas);
       onClose();
     },
   });
@@ -170,31 +175,31 @@ function ScheduleDialog({ trial, onClose }: { trial: Trial; onClose: () => void 
     <Modal
       open
       onOpenChange={(o) => !o && onClose()}
-      title={`Schedule ${trial.name}'s trial`}
-      description={`Prefers ${trial.preferredDays.map((d) => WEEKDAYS_SHORT[d]).join(', ') || 'any day'}, ${trial.preferredTimes.map((x) => TIME_OF_DAY_LABELS[x]).join(', ') || 'any time'} · ${trial.level?.name ?? 'level unknown'}`}
+      title={tr.scheduleTrialOf(trial.name)}
+      description={tr.prefers(trial.preferredDays.map((d) => WEEKDAYS_SHORT[d]).join(', ') || tr.anyDay, trial.preferredTimes.map((x) => TIME_OF_DAY_LABELS[x]).join(', ') || tr.anyTime, trial.level?.name ?? tr.levelUnknownLower)}
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>
-            Cancel
+            {tr.cancel}
           </Button>
           <Button loading={run.isPending} disabled={!sessionId} onClick={() => run.mutate()}>
-            Schedule
+            {tr.schedule}
           </Button>
         </>
       }
     >
       <div className="space-y-4">
-        <Field label="Session" htmlFor="tr-session">
+        <Field label={tr.session} htmlFor="tr-session">
           <Select id="tr-session" value={sessionId} onChange={(e) => setSessionId(e.target.value)}>
-            <option value="">Choose…</option>
+            <option value="">{tr.choose}</option>
             {options.map((s) => (
               <option key={s.id} value={s.id} disabled={s.available <= 0 && !override}>
-                {s.localDate} {s.startTime} · {s.title} · {s.levelLabel} · {s.teacher?.name ?? '—'} · {s.available} free
+                {s.localDate} {s.startTime} · {s.title} · {s.levelLabel} · {s.teacher?.name ?? '—'} · {tr.freeSeats(s.available)}
               </option>
             ))}
           </Select>
         </Field>
-        <Checkbox checked={override} onChange={setOverride} label="Allow full sessions (over capacity)" />
+        <Checkbox checked={override} onChange={setOverride} label={tr.allowFullSessionsOver} />
         {run.error && <InlineAlert tone="danger">{errorMessage(run.error)}</InlineAlert>}
       </div>
     </Modal>
@@ -202,6 +207,7 @@ function ScheduleDialog({ trial, onClose }: { trial: Trial; onClose: () => void 
 }
 
 function OutcomeDialog({ trial, onClose }: { trial: Trial; onClose: () => void }) {
+  const tr = useT(crmMessages);
   const qc = useQueryClient();
   const [outcome, setOutcome] = useState<S<'TrialOutcome'>>(trial.outcome === 'PENDING' ? 'INTERESTED' : trial.outcome);
   const [notes, setNotes] = useState(trial.notes ?? '');
@@ -209,7 +215,7 @@ function OutcomeDialog({ trial, onClose }: { trial: Trial; onClose: () => void }
     mutationFn: () => call(api.POST('/api/admin/trials/{id}/outcome', { params: { path: { id: trial.id } }, body: { outcome, notes: notes.trim() || undefined } })),
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ['admin', 'trials'] });
-      toast.success('Outcome saved.');
+      toast.success(tr.outcomeSaved);
       onClose();
     },
     onError: toastError,
@@ -218,29 +224,29 @@ function OutcomeDialog({ trial, onClose }: { trial: Trial; onClose: () => void }
     <Modal
       open
       onOpenChange={(o) => !o && onClose()}
-      title="Trial outcome"
+      title={tr.trialOutcome}
       size="sm"
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>
-            Cancel
+            {tr.cancel}
           </Button>
           <Button loading={run.isPending} onClick={() => run.mutate()}>
-            Save
+            {tr.save}
           </Button>
         </>
       }
     >
       <div className="space-y-4">
-        <Field label="Outcome" htmlFor="to-outcome">
+        <Field label={tr.outcome} htmlFor="to-outcome">
           <Select id="to-outcome" value={outcome} onChange={(e) => setOutcome(e.target.value as S<'TrialOutcome'>)}>
-            <option value="INTERESTED">Interested — follow up</option>
-            <option value="PURCHASED">Bought a membership</option>
-            <option value="NOT_INTERESTED">Not interested</option>
-            <option value="PENDING">Undecided</option>
+            <option value="INTERESTED">{tr.interestedFollowUp}</option>
+            <option value="PURCHASED">{tr.boughtMembership}</option>
+            <option value="NOT_INTERESTED">{tr.notInterested}</option>
+            <option value="PENDING">{tr.undecided}</option>
           </Select>
         </Field>
-        <Field label="Notes" htmlFor="to-notes">
+        <Field label={tr.notes} htmlFor="to-notes">
           <Textarea id="to-notes" rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
         </Field>
       </div>
@@ -249,6 +255,7 @@ function OutcomeDialog({ trial, onClose }: { trial: Trial; onClose: () => void }
 }
 
 function CancelDialog({ trial, onClose }: { trial: Trial; onClose: () => void }) {
+  const tr = useT(crmMessages);
   const qc = useQueryClient();
   const [reason, setReason] = useState('');
   const run = useMutation({
@@ -263,20 +270,20 @@ function CancelDialog({ trial, onClose }: { trial: Trial; onClose: () => void })
     <Modal
       open
       onOpenChange={(o) => !o && onClose()}
-      title="Cancel trial?"
+      title={tr.cancelTrial}
       size="sm"
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>
-            Back
+            {tr.back}
           </Button>
           <Button variant="danger" loading={run.isPending} disabled={reason.trim().length < 3} onClick={() => run.mutate()}>
-            Cancel trial
+            {tr.cancelTrial2}
           </Button>
         </>
       }
     >
-      <Textarea rows={2} placeholder="Reason" value={reason} onChange={(e) => setReason(e.target.value)} autoFocus />
+      <Textarea rows={2} placeholder={tr.reason} value={reason} onChange={(e) => setReason(e.target.value)} autoFocus />
     </Modal>
   );
 }

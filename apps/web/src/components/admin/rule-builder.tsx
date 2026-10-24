@@ -8,6 +8,9 @@ import { api, call } from '@/lib/api/client';
 import type { S } from '@/lib/api/types';
 import { adminKeys, useAdminLevels, useAdminSources, useAdminTags, useAdminTeachers } from '@/lib/admin-queries';
 import { CATEGORY_LABELS, FORMAT_LABELS } from '@/lib/utils';
+import { messagesFor, useT } from '@/lib/i18n';
+import { crmMessages } from '@/lib/i18n/messages/admin/crm';
+import { marketingMessages } from '@/lib/i18n/messages/admin/marketing';
 
 type Field = S<'SegmentFieldDto'>;
 export interface Rule {
@@ -21,23 +24,10 @@ export interface Definition {
   rules: Rule[];
 }
 
-const OP_LABELS: Record<string, string> = { eq: 'is', lte: 'at most', gte: 'at least', in: 'is one of' };
-
-const STAGE_LABELS: Record<string, string> = {
-  NEW_LEAD: 'New lead',
-  CONTACTED: 'Contacted',
-  INTERESTED: 'Interested',
-  TRIAL_BOOKED: 'Trial booked',
-  TRIAL_ATTENDED: 'Trial attended',
-  MEMBERSHIP_PURCHASED: 'Membership purchased',
-  ACTIVE_CLIENT: 'Active client',
-  MEMBERSHIP_EXPIRING: 'Membership expiring',
-  RENEWED: 'Renewed',
-  INACTIVE: 'Inactive',
-  LOST: 'Lost',
-};
-
-const ENUM_LABELS: Record<string, string> = { ...CATEGORY_LABELS, ...FORMAT_LABELS, ...STAGE_LABELS, ACTIVE: 'Active', NONE: 'Never had one', EXPIRED: 'Expired' };
+/** Labels for enum values, read in the current language. */
+function enumLabels(): Record<string, string> {
+  return { ...CATEGORY_LABELS, ...FORMAT_LABELS, ...messagesFor(crmMessages).stages, ...messagesFor(marketingMessages).membershipStates };
+}
 
 export function useSegmentFields() {
   return useQuery({ queryKey: adminKeys.segmentFields, queryFn: () => call(api.GET('/api/admin/segments/fields')), staleTime: Infinity });
@@ -51,6 +41,7 @@ function defaultValue(f: Field): unknown {
 }
 
 function ValueInput({ field, value, onChange }: { field: Field; value: unknown; onChange: (v: unknown) => void }) {
+  const tr = useT(marketingMessages);
   const { data: levels } = useAdminLevels();
   const { data: teachers } = useAdminTeachers();
   const { data: tags } = useAdminTags();
@@ -58,24 +49,24 @@ function ValueInput({ field, value, onChange }: { field: Field; value: unknown; 
   const t = field.valueType;
   if (t === 'boolean') {
     return (
-      <Select value={value ? 'true' : 'false'} onChange={(e) => onChange(e.target.value === 'true')} className="h-10" aria-label="Value">
-        <option value="true">Yes</option>
-        <option value="false">No</option>
+      <Select value={value ? 'true' : 'false'} onChange={(e) => onChange(e.target.value === 'true')} className="h-10" aria-label={tr.value}>
+        <option value="true">{tr.yes}</option>
+        <option value="false">{tr.no}</option>
       </Select>
     );
   }
   if (t === 'number') {
-    return <Input type="number" min={0} value={String(value ?? '')} onChange={(e) => onChange(Number(e.target.value))} className="h-10 w-28" aria-label="Value" />;
+    return <Input type="number" min={0} value={String(value ?? '')} onChange={(e) => onChange(Number(e.target.value))} className="h-10 w-28" aria-label={tr.value} />;
   }
   if (t.startsWith('enum:')) {
     return (
-      <Select value={String(value)} onChange={(e) => onChange(e.target.value)} className="h-10" aria-label="Value">
+      <Select value={String(value)} onChange={(e) => onChange(e.target.value)} className="h-10" aria-label={tr.value}>
         {t
           .slice(5)
           .split(',')
           .map((v) => (
             <option key={v} value={v}>
-              {ENUM_LABELS[v] ?? v}
+              {enumLabels()[v] ?? v}
             </option>
           ))}
       </Select>
@@ -85,7 +76,7 @@ function ValueInput({ field, value, onChange }: { field: Field; value: unknown; 
     ? t
         .slice(7)
         .split(',')
-        .map((v) => ({ value: v, label: ENUM_LABELS[v] ?? v }))
+        .map((v) => ({ value: v, label: enumLabels()[v] ?? v }))
     : t === 'level[]'
       ? (levels ?? []).map((l) => ({ value: l.id, label: l.name }))
       : t === 'teacher[]'
@@ -95,13 +86,14 @@ function ValueInput({ field, value, onChange }: { field: Field; value: unknown; 
           : t === 'source[]'
             ? (sources ?? []).map((x) => ({ value: x.id, label: x.name }))
             : t === 'stage[]'
-              ? Object.entries(STAGE_LABELS).map(([value, label]) => ({ value, label }))
+              ? Object.entries(messagesFor(crmMessages).stages).map(([value, label]) => ({ value, label }))
               : [];
   return <ChipGroup size="sm" multiple options={options} value={(value as string[]) ?? []} onChange={(v) => onChange(v)} />;
 }
 
 /** Visual editor for { match, rules } client filters. */
 export function RuleBuilder({ value, onChange, allowMatch = true }: { value: Definition; onChange: (d: Definition) => void; allowMatch?: boolean }) {
+  const tr = useT(marketingMessages);
   const { data: fields } = useSegmentFields();
   const byField = new Map((fields ?? []).map((f) => [f.field, f]));
   const update = (i: number, patch: Partial<Rule>) => onChange({ ...value, rules: value.rules.map((r, j) => (j === i ? { ...r, ...patch } : r)) });
@@ -109,12 +101,12 @@ export function RuleBuilder({ value, onChange, allowMatch = true }: { value: Def
     <div className="space-y-3">
       {allowMatch && value.rules.length > 1 && (
         <div className="flex items-center gap-2 text-sm">
-          Clients matching
-          <Select value={value.match} onChange={(e) => onChange({ ...value, match: e.target.value as 'all' | 'any' })} className="h-9 w-28" aria-label="Match">
-            <option value="all">all</option>
-            <option value="any">any</option>
+          {tr.clientsMatching}
+          <Select value={value.match} onChange={(e) => onChange({ ...value, match: e.target.value as 'all' | 'any' })} className="h-9 w-28" aria-label={tr.match}>
+            <option value="all">{tr.all}</option>
+            <option value="any">{tr.any}</option>
           </Select>
-          of these rules
+          {tr.theseRules}
         </div>
       )}
       {value.rules.map((r, i) => {
@@ -128,27 +120,27 @@ export function RuleBuilder({ value, onChange, allowMatch = true }: { value: Def
                 update(i, { field: nf.field, op: nf.ops[0], value: defaultValue(nf) });
               }}
               className="h-10 w-64"
-              aria-label="Field"
+              aria-label={tr.field}
             >
               {(fields ?? []).map((x) => (
                 <option key={x.field} value={x.field}>
-                  {x.label}
+                  {tr.fieldLabels[x.field] ?? x.label}
                 </option>
               ))}
             </Select>
             {f && f.ops.length > 1 ? (
-              <Select value={r.op} onChange={(e) => update(i, { op: e.target.value })} className="h-10 w-32" aria-label="Operator">
+              <Select value={r.op} onChange={(e) => update(i, { op: e.target.value })} className="h-10 w-32" aria-label={tr.operator}>
                 {f.ops.map((o) => (
                   <option key={o} value={o}>
-                    {OP_LABELS[o] ?? o}
+                    {tr.ops[o] ?? o}
                   </option>
                 ))}
               </Select>
             ) : (
-              <span className="flex h-10 items-center px-1 text-sm text-muted">{OP_LABELS[r.op] ?? r.op}</span>
+              <span className="flex h-10 items-center px-1 text-sm text-muted">{tr.ops[r.op] ?? r.op}</span>
             )}
             <div className="min-w-0 flex-1">{f && <ValueInput field={f} value={r.value} onChange={(v) => update(i, { value: v })} />}</div>
-            <button type="button" className="rounded-xl p-2 text-muted hover:bg-white" aria-label="Remove rule" onClick={() => onChange({ ...value, rules: value.rules.filter((_, j) => j !== i) })}>
+            <button type="button" className="rounded-xl p-2 text-muted hover:bg-white" aria-label={tr.removeRule} onClick={() => onChange({ ...value, rules: value.rules.filter((_, j) => j !== i) })}>
               <X className="h-4 w-4" />
             </button>
           </div>
@@ -164,9 +156,9 @@ export function RuleBuilder({ value, onChange, allowMatch = true }: { value: Def
           onChange({ ...value, rules: [...value.rules, { field: f.field, op: f.ops[0], value: defaultValue(f) }] });
         }}
       >
-        Add rule
+        {tr.addRule}
       </Button>
-      {value.rules.length === 0 && <p className="text-xs text-muted">No rules — applies to all clients.</p>}
+      {value.rules.length === 0 && <p className="text-xs text-muted">{tr.noRulesAppliesAll}</p>}
     </div>
   );
 }

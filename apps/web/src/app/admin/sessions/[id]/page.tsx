@@ -21,15 +21,17 @@ import { adminKeys } from '@/lib/admin-queries';
 import { useCan } from '@/lib/auth';
 import { clubNow, fmt } from '@/lib/format';
 import { cn } from '@/lib/utils';
+import { useT } from '@/lib/i18n';
+import { scheduleMessages } from '@/lib/i18n/messages/admin/schedule';
 
 type Detail = S<'AdminSessionDetailDto'>;
 type Participant = S<'ParticipantDto'>;
 type AttendanceStatus = S<'AttendanceStatus'>;
 
-const ATTENDANCE: Array<{ value: AttendanceStatus; label: string; active: string }> = [
-  { value: 'PRESENT', label: 'Present', active: 'bg-success-600 text-white border-success-600' },
-  { value: 'LATE', label: 'Late', active: 'bg-warning-600 text-white border-warning-600' },
-  { value: 'ABSENT', label: 'No-show', active: 'bg-danger-600 text-white border-danger-600' },
+const ATTENDANCE: Array<{ value: AttendanceStatus; active: string }> = [
+  { value: 'PRESENT', active: 'bg-success-600 text-white border-success-600' },
+  { value: 'LATE', active: 'bg-warning-600 text-white border-warning-600' },
+  { value: 'ABSENT', active: 'bg-danger-600 text-white border-danger-600' },
 ];
 
 export default function SessionDetailPage() {
@@ -52,6 +54,7 @@ function useInvalidateSession(id: string) {
 }
 
 function SessionView({ detail }: { detail: Detail }) {
+  const tr = useT(scheduleMessages);
   const s = detail.session;
   const canSchedule = useCan('schedule.manage');
   const canBook = useCan('bookings.manage');
@@ -76,7 +79,7 @@ function SessionView({ detail }: { detail: Detail }) {
       ),
     onSuccess: async (r) => {
       await invalidate();
-      toast.success(`Marked ${r.length} present.`);
+      toast.success(tr.markedPresent(r.length));
     },
     onError: toastError,
   });
@@ -94,59 +97,59 @@ function SessionView({ detail }: { detail: Detail }) {
             <div className="mt-1 flex flex-wrap items-center gap-2">
               <h1 className="font-display text-2xl font-semibold">{s.title}</h1>
               <StatusBadge status={s.status} />
-              {detail.isDetached && <Badge>edited from template</Badge>}
+              {detail.isDetached && <Badge>{tr.editedTemplate}</Badge>}
             </div>
-            {s.topic && <p className="mt-1 text-sm text-muted">Topic: {s.topic}</p>}
+            {s.topic && <p className="mt-1 text-sm text-muted">{tr.topicLabel} {s.topic}</p>}
           </div>
           {canSchedule && !cancelled && (
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" size="sm" leftIcon={<Pencil className="h-4 w-4" />} onClick={() => setEditing(true)}>
-                Edit
+                {tr.edit}
               </Button>
               <Button variant="outline" size="sm" leftIcon={<Copy className="h-4 w-4" />} onClick={() => setDuplicating(true)}>
-                Repeat
+                {tr.repeat}
               </Button>
               {!started && (
                 <Button variant="ghost" size="sm" className="text-danger-700" leftIcon={<Ban className="h-4 w-4" />} onClick={() => setCancelling(true)}>
-                  Cancel session
+                  {tr.cancelSession2}
                 </Button>
               )}
             </div>
           )}
         </div>
         <div className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
-          <Info icon={<CalendarClock className="h-4 w-4" />} label="Time" value={`${s.startTime}–${s.endTime} (${s.durationMinutes} min)`} />
-          <Info icon={<Users className="h-4 w-4" />} label="Teacher" value={s.teacher?.name ?? 'Not assigned'} />
+          <Info icon={<CalendarClock className="h-4 w-4" />} label={tr.time} value={`${s.startTime}–${s.endTime} (${tr.minutesShort(s.durationMinutes)})`} />
+          <Info icon={<Users className="h-4 w-4" />} label={tr.teacher} value={s.teacher?.name ?? tr.notAssigned} />
           <Info
             icon={s.format === 'ONLINE' ? <Video className="h-4 w-4" /> : <MapPin className="h-4 w-4" />}
-            label={s.format === 'ONLINE' ? 'Online' : 'Room'}
-            value={s.format === 'ONLINE' ? (detail.onlineUrl ? <a className="text-brand-700 underline" href={detail.onlineUrl} target="_blank" rel="noreferrer">Meeting link</a> : 'No link yet') : (s.room?.name ?? 'No room')}
+            label={s.format === 'ONLINE' ? tr.online : tr.room}
+            value={s.format === 'ONLINE' ? (detail.onlineUrl ? <a className="text-brand-700 underline" href={detail.onlineUrl} target="_blank" rel="noreferrer">{tr.meetingLink}</a> : tr.noLinkYet) : (s.room?.name ?? tr.noRoom)}
           />
-          <Info icon={<Users className="h-4 w-4" />} label="Seats" value={`${s.booked}/${s.capacity} booked · ${s.levelLabel}`} />
+          <Info icon={<Users className="h-4 w-4" />} label={tr.seats} value={`${tr.bookedOf(s.booked, s.capacity)} · ${s.levelLabel}`} />
         </div>
-        {cancelled && detail.cancelReason && <InlineAlert tone="warning" title="Cancelled">{detail.cancelReason}</InlineAlert>}
-        {s.bookingClosed && !cancelled && <InlineAlert tone="info">Online booking is closed for this session.</InlineAlert>}
+        {cancelled && detail.cancelReason && <InlineAlert tone="warning" title={tr.cancelled}>{detail.cancelReason}</InlineAlert>}
+        {s.bookingClosed && !cancelled && <InlineAlert tone="info">{tr.onlineBookingClosedSession}</InlineAlert>}
       </Card>
 
       <Section
-        title={`Participants (${active.length}/${s.capacity})`}
+        title={tr.participantsCount(active.length, s.capacity)}
         action={
           <div className="flex gap-2">
             {canAttend && started && unmarked > 0 && !cancelled && (
               <Button size="sm" variant="secondary" leftIcon={<CheckCheck className="h-4 w-4" />} loading={allPresent.isPending} onClick={() => allPresent.mutate()}>
-                Mark {unmarked} present
+                {tr.markNPresent(unmarked)}
               </Button>
             )}
             {canBook && !cancelled && (
               <Button size="sm" leftIcon={<UserPlus className="h-4 w-4" />} onClick={() => setAdding(true)}>
-                Add participant
+                {tr.addParticipant}
               </Button>
             )}
           </div>
         }
       >
         {active.length === 0 ? (
-          <EmptyState icon={<Users className="h-7 w-7" />} title="No participants yet" />
+          <EmptyState icon={<Users className="h-7 w-7" />} title={tr.noParticipantsYet} />
         ) : (
           <Card padded={false} className="divide-y divide-line/70">
             {active.map((p) => (
@@ -157,7 +160,7 @@ function SessionView({ detail }: { detail: Detail }) {
       </Section>
 
       {detail.waitlist.length > 0 && (
-        <Section title={`Waitlist (${detail.waitlist.length})`}>
+        <Section title={tr.waitlistCount(detail.waitlist.length)}>
           <Card padded={false} className="divide-y divide-line/70">
             {detail.waitlist.map((w) => (
               <WaitlistRow key={w.entryId} entry={w} sessionId={s.id} />
@@ -167,7 +170,7 @@ function SessionView({ detail }: { detail: Detail }) {
       )}
 
       {detail.cancelled.length > 0 && (
-        <Section title="Cancelled bookings">
+        <Section title={tr.cancelledBookings}>
           <Card padded={false} className="divide-y divide-line/70">
             {detail.cancelled.map((p) => (
               <div key={p.bookingId} className="flex flex-wrap items-center gap-3 px-5 py-3 text-sm">
@@ -176,7 +179,7 @@ function SessionView({ detail }: { detail: Detail }) {
                 </Link>
                 <StatusBadge status={p.status} />
                 <span className="text-muted">
-                  {p.cancelledAt ? fmt.dateTime(p.cancelledAt) : ''} · {p.visitReturned ? 'visit returned' : 'visit used'}
+                  {p.cancelledAt ? fmt.dateTime(p.cancelledAt) : ''} · {p.visitReturned ? tr.visitReturned : tr.visitUsed}
                   {p.cancelReason ? ` · ${p.cancelReason}` : ''}
                 </span>
               </div>
@@ -206,6 +209,7 @@ function Info({ icon, label, value }: { icon: React.ReactNode; label: string; va
 }
 
 function ParticipantRow({ p, sessionId, started, cancelled }: { p: Participant; sessionId: string; started: boolean; cancelled: boolean }) {
+  const tr = useT(scheduleMessages);
   const canAttend = useCan('attendance.manage');
   const canBook = useCan('bookings.manage');
   const canFeedback = useCan('feedback.write');
@@ -224,20 +228,20 @@ function ParticipantRow({ p, sessionId, started, cancelled }: { p: Participant; 
           <Link href={`/admin/clients/${p.client.id}`} className="font-semibold hover:text-brand-700">
             {p.client.name}
           </Link>
-          {p.kind === 'TRIAL' && <Badge tone="zest">Trial</Badge>}
-          {p.isFirstVisit && <Badge tone="brand">First visit</Badge>}
-          {p.capacityOverride && <Badge tone="warning">Over capacity</Badge>}
-          {p.hasFeedback && <Badge tone="success">Feedback</Badge>}
+          {p.kind === 'TRIAL' && <Badge tone="zest">{tr.trial}</Badge>}
+          {p.isFirstVisit && <Badge tone="brand">{tr.firstVisit}</Badge>}
+          {p.capacityOverride && <Badge tone="warning">{tr.overCapacity}</Badge>}
+          {p.hasFeedback && <Badge tone="success">{tr.feedback}</Badge>}
         </div>
         <p className="text-xs text-muted">
-          {fmt.phone(p.client.phone)} · {p.client.levelName ?? 'level not set'} ·{' '}
-          {p.membershipName ? `${p.membershipName}, ${p.membershipVisitsRemaining} left` : p.kind === 'TRIAL' ? 'trial' : 'no membership'} · booked {fmt.dateShort(p.bookedAt)} via{' '}
-          {p.source.toLowerCase()}
+          {fmt.phone(p.client.phone)} · {p.client.levelName ?? tr.levelNotSet} ·{' '}
+          {p.membershipName ? tr.membershipLeft(p.membershipName, p.membershipVisitsRemaining ?? 0) : p.kind === 'TRIAL' ? tr.trial2 : tr.noMembership} ·{' '}
+          {tr.bookedVia(fmt.dateShort(p.bookedAt), tr.bookingSources[p.source] ?? p.source.toLowerCase())}
         </p>
         {p.notes && <p className="text-xs text-warning-700">{p.notes}</p>}
       </div>
       {started && !cancelled ? (
-        <div className="flex gap-1" role="group" aria-label={`Attendance for ${p.client.name}`}>
+        <div className="flex gap-1" role="group" aria-label={tr.attendanceFor(p.client.name)}>
           {ATTENDANCE.map((a) => (
             <button
               key={a.value}
@@ -250,7 +254,7 @@ function ParticipantRow({ p, sessionId, started, cancelled }: { p: Participant; 
                 p.attendance?.status === a.value ? a.active : 'border-line bg-white text-ink hover:border-brand-300',
               )}
             >
-              {a.label}
+              {tr.attendanceStatus[a.value]}
             </button>
           ))}
         </div>
@@ -259,7 +263,7 @@ function ParticipantRow({ p, sessionId, started, cancelled }: { p: Participant; 
       )}
       {(canBook || canFeedback) && !cancelled && (
         <DropdownMenu.Root>
-          <DropdownMenu.Trigger className="rounded-xl p-2 text-muted hover:bg-brand-50" aria-label="More actions">
+          <DropdownMenu.Trigger className="rounded-xl p-2 text-muted hover:bg-brand-50" aria-label={tr.moreActions}>
             <MoreHorizontal className="h-4 w-4" />
           </DropdownMenu.Trigger>
           <DropdownMenu.Portal>
@@ -291,6 +295,7 @@ function ParticipantRow({ p, sessionId, started, cancelled }: { p: Participant; 
 }
 
 function CancelBookingDialog({ p, sessionId, onClose }: { p: Participant; sessionId: string; onClose: () => void }) {
+  const tr = useT(scheduleMessages);
   const canOverride = useCan('bookings.override');
   const invalidate = useInvalidateSession(sessionId);
   const [reason, setReason] = useState('');
@@ -300,7 +305,7 @@ function CancelBookingDialog({ p, sessionId, onClose }: { p: Participant; sessio
     mutationFn: () => call(api.POST('/api/admin/bookings/{id}/cancel', { params: { path: { id: p.bookingId } }, body: { reason, waivePenalty: waive, notifyClient: notify } })),
     onSuccess: async (r) => {
       await invalidate();
-      toast.success(r.visitReturned ? 'Booking cancelled — visit returned.' : 'Booking cancelled — late cancellation, visit used.');
+      toast.success(r.visitReturned ? tr.bookingCancelledVisitReturned : tr.bookingCancelledLateCancellation);
       onClose();
     },
   });
@@ -308,26 +313,26 @@ function CancelBookingDialog({ p, sessionId, onClose }: { p: Participant; sessio
     <Modal
       open
       onOpenChange={(o) => !o && onClose()}
-      title={`Cancel ${p.client.firstName}'s booking?`}
-      description="Before the free-cancellation deadline the visit is returned automatically. After it, the visit is used unless you waive the penalty."
+      title={tr.cancelBookingOf(p.client.firstName)}
+      description={tr.beforeFreeCancellationDeadline}
       size="sm"
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>
-            Back
+            {tr.back}
           </Button>
           <Button variant="danger" loading={run.isPending} disabled={reason.trim().length < 3} onClick={() => run.mutate()}>
-            Cancel booking
+            {tr.cancelBooking}
           </Button>
         </>
       }
     >
       <div className="space-y-4">
-        <Field label="Reason" required htmlFor="cb-reason">
-          <Textarea id="cb-reason" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Client called — feeling unwell" autoFocus />
+        <Field label={tr.reason} required htmlFor="cb-reason">
+          <Textarea id="cb-reason" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} placeholder={tr.eGClientCalled} autoFocus />
         </Field>
-        {canOverride && <Checkbox checked={waive} onChange={setWaive} label="Return the visit even if it's a late cancellation" />}
-        <Checkbox checked={notify} onChange={setNotify} label="Notify the client" />
+        {canOverride && <Checkbox checked={waive} onChange={setWaive} label={tr.returnVisitEvenIf} />}
+        <Checkbox checked={notify} onChange={setNotify} label={tr.notifyClient} />
         {run.error && <InlineAlert tone="danger">{errorMessage(run.error)}</InlineAlert>}
       </div>
     </Modal>
@@ -335,6 +340,7 @@ function CancelBookingDialog({ p, sessionId, onClose }: { p: Participant; sessio
 }
 
 function MoveBookingDialog({ p, sessionId, onClose }: { p: Participant; sessionId: string; onClose: () => void }) {
+  const tr = useT(scheduleMessages);
   const canOverride = useCan('bookings.override');
   const invalidate = useInvalidateSession(sessionId);
   const [target, setTarget] = useState('');
@@ -349,7 +355,7 @@ function MoveBookingDialog({ p, sessionId, onClose }: { p: Participant; sessionI
     mutationFn: () => call(api.POST('/api/admin/bookings/{id}/move', { params: { path: { id: p.bookingId } }, body: { targetSessionId: target, overrideCapacity: override, overrideRules: override } })),
     onSuccess: async () => {
       await invalidate();
-      toast.success('Booking moved. The client was notified.');
+      toast.success(tr.bookingMovedClientWas);
       onClose();
     },
   });
@@ -357,23 +363,23 @@ function MoveBookingDialog({ p, sessionId, onClose }: { p: Participant; sessionI
     <Modal
       open
       onOpenChange={(o) => !o && onClose()}
-      title={`Move ${p.client.firstName} to another session`}
+      title={tr.moveClientTitle(p.client.firstName)}
       size="md"
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>
-            Back
+            {tr.back}
           </Button>
           <Button loading={run.isPending} disabled={!target} onClick={() => run.mutate()}>
-            Move booking
+            {tr.moveBooking}
           </Button>
         </>
       }
     >
       <div className="space-y-4">
-        <Field label="New session" htmlFor="mv-target">
+        <Field label={tr.newSession} htmlFor="mv-target">
           <Select id="mv-target" value={target} onChange={(e) => setTarget(e.target.value)}>
-            <option value="">Choose…</option>
+            <option value="">{tr.choose}</option>
             {sessions
               ?.filter((x) => x.id !== sessionId && x.status !== 'CANCELLED')
               .map((x) => (
@@ -383,7 +389,7 @@ function MoveBookingDialog({ p, sessionId, onClose }: { p: Participant; sessionI
               ))}
           </Select>
         </Field>
-        {canOverride && <Checkbox checked={override} onChange={setOverride} label="Override capacity and booking rules" />}
+        {canOverride && <Checkbox checked={override} onChange={setOverride} label={tr.overrideCapacityBookingRules} />}
         {run.error && <InlineAlert tone="danger">{errorMessage(run.error)}</InlineAlert>}
       </div>
     </Modal>
@@ -391,6 +397,7 @@ function MoveBookingDialog({ p, sessionId, onClose }: { p: Participant; sessionI
 }
 
 function WaitlistRow({ entry, sessionId }: { entry: Detail['waitlist'][number]; sessionId: string }) {
+  const tr = useT(scheduleMessages);
   const canBook = useCan('bookings.manage');
   const invalidate = useInvalidateSession(sessionId);
   const remove = useMutation({
@@ -405,11 +412,11 @@ function WaitlistRow({ entry, sessionId }: { entry: Detail['waitlist'][number]; 
         {entry.client.name}
       </Link>
       <StatusBadge status={entry.status} />
-      {entry.offerExpiresAt && <span className="text-muted">offer until {fmt.time(entry.offerExpiresAt)}</span>}
-      <span className="ml-auto text-xs text-muted">joined {fmt.relative(entry.createdAt)}</span>
+      {entry.offerExpiresAt && <span className="text-muted">{tr.offerUntil(fmt.time(entry.offerExpiresAt))}</span>}
+      <span className="ml-auto text-xs text-muted">{tr.joinedAgo(fmt.relative(entry.createdAt))}</span>
       {canBook && (
         <Button size="xs" variant="ghost" loading={remove.isPending} onClick={() => remove.mutate()}>
-          Remove
+          {tr.remove}
         </Button>
       )}
     </div>
@@ -417,6 +424,7 @@ function WaitlistRow({ entry, sessionId }: { entry: Detail['waitlist'][number]; 
 }
 
 function AddParticipantDialog({ open, onOpenChange, sessionId, full }: { open: boolean; onOpenChange: (o: boolean) => void; sessionId: string; full: boolean }) {
+  const tr = useT(scheduleMessages);
   const canOverride = useCan('bookings.override');
   const invalidate = useInvalidateSession(sessionId);
   const [client, setClient] = useState<PickedClient | null>(null);
@@ -434,7 +442,7 @@ function AddParticipantDialog({ open, onOpenChange, sessionId, full }: { open: b
       ),
     onSuccess: async (r) => {
       await invalidate();
-      toast.success(r.visitsRemaining !== null ? `Booked. ${r.visitsRemaining} visits left.` : 'Booked.');
+      toast.success(r.visitsRemaining !== null ? tr.bookedVisitsLeft(r.visitsRemaining) : tr.booked2);
       setClient(null);
       setNotes('');
       onOpenChange(false);
@@ -444,36 +452,36 @@ function AddParticipantDialog({ open, onOpenChange, sessionId, full }: { open: b
     <Modal
       open={open}
       onOpenChange={onOpenChange}
-      title="Add participant"
+      title={tr.addParticipant}
       size="md"
       footer={
         <>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
-            Cancel
+            {tr.cancel}
           </Button>
           <Button loading={add.isPending} disabled={!client} onClick={() => add.mutate()}>
-            Book
+            {tr.book}
           </Button>
         </>
       }
     >
       <div className="space-y-4">
         <ClientPicker value={client} onChange={setClient} autoFocus />
-        <Field label="Booking type" htmlFor="ap-kind">
+        <Field label={tr.bookingType} htmlFor="ap-kind">
           <Select id="ap-kind" value={kind} onChange={(e) => setKind(e.target.value as typeof kind)}>
-            <option value="MEMBERSHIP">Uses a membership visit</option>
-            <option value="TRIAL">Trial session</option>
-            <option value="COMPLIMENTARY">Complimentary (no visit used)</option>
+            <option value="MEMBERSHIP">{tr.usesMembershipVisit}</option>
+            <option value="TRIAL">{tr.trialSession}</option>
+            <option value="COMPLIMENTARY">{tr.complimentaryNoVisitUsed}</option>
           </Select>
         </Field>
-        {full && <InlineAlert tone="warning">The session is full.</InlineAlert>}
+        {full && <InlineAlert tone="warning">{tr.sessionFull}</InlineAlert>}
         {canOverride && (
           <div className="space-y-2">
-            <Checkbox checked={overrideCapacity} onChange={setOverrideCapacity} label="Allow over capacity" />
-            <Checkbox checked={overrideRules} onChange={setOverrideRules} label="Skip level, category and booking-window rules" />
+            <Checkbox checked={overrideCapacity} onChange={setOverrideCapacity} label={tr.allowOverCapacity} />
+            <Checkbox checked={overrideRules} onChange={setOverrideRules} label={tr.skipLevelCategoryBooking} />
           </div>
         )}
-        <Field label="Note" htmlFor="ap-notes">
+        <Field label={tr.note} htmlFor="ap-notes">
           <Input id="ap-notes" value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={500} />
         </Field>
         {add.error && <InlineAlert tone="danger">{errorMessage(add.error)}</InlineAlert>}
@@ -483,6 +491,7 @@ function AddParticipantDialog({ open, onOpenChange, sessionId, full }: { open: b
 }
 
 function DuplicateDialog({ open, onOpenChange, sessionId, startTime, weekday }: { open: boolean; onOpenChange: (o: boolean) => void; sessionId: string; startTime: string; weekday: number }) {
+  const tr = useT(scheduleMessages);
   const invalidate = useInvalidateSession(sessionId);
   const [weeks, setWeeks] = useState('4');
   const [time, setTime] = useState(startTime);
@@ -495,7 +504,7 @@ function DuplicateDialog({ open, onOpenChange, sessionId, startTime, weekday }: 
     mutationFn: () => call(api.POST('/api/admin/sessions/{id}/duplicate', { params: { path: { id: sessionId } }, body: { dates, startTime: time } })),
     onSuccess: async (r) => {
       await invalidate();
-      toast.success(`${r.created.length} sessions created${r.skipped.length ? `, ${r.skipped.length} skipped (${r.skipped.map((x) => `${x.date}: ${x.reason}`).join('; ')})` : ''}.`);
+      toast.success(tr.repeatResult(r.created.length, r.skipped.length, r.skipped.map((x) => `${x.date}: ${x.reason}`).join('; ')));
       onOpenChange(false);
     },
   });
@@ -503,26 +512,26 @@ function DuplicateDialog({ open, onOpenChange, sessionId, startTime, weekday }: 
     <Modal
       open={open}
       onOpenChange={onOpenChange}
-      title="Repeat this session"
-      description="Creates copies on the same weekday. For a permanent weekly slot, use a template."
+      title={tr.repeatSession}
+      description={tr.createsCopiesSameWeekday}
       size="sm"
       footer={
         <>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
-            Cancel
+            {tr.cancel}
           </Button>
           <Button loading={run.isPending} disabled={!dates.length} onClick={() => run.mutate()}>
-            Create {dates.length}
+            {tr.createN(dates.length)}
           </Button>
         </>
       }
     >
       <div className="space-y-4">
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Next weeks" htmlFor="dp-weeks">
+          <Field label={tr.nextWeeks} htmlFor="dp-weeks">
             <Input id="dp-weeks" type="number" min={1} max={26} value={weeks} onChange={(e) => setWeeks(e.target.value)} />
           </Field>
-          <Field label="Start time" htmlFor="dp-time">
+          <Field label={tr.startTime} htmlFor="dp-time">
             <Input id="dp-time" type="time" value={time} onChange={(e) => setTime(e.target.value)} />
           </Field>
         </div>
@@ -534,6 +543,7 @@ function DuplicateDialog({ open, onOpenChange, sessionId, startTime, weekday }: 
 }
 
 function CancelSessionDialog({ open, onOpenChange, sessionId, booked, waitlist }: { open: boolean; onOpenChange: (o: boolean) => void; sessionId: string; booked: number; waitlist: number }) {
+  const tr = useT(scheduleMessages);
   const invalidate = useInvalidateSession(sessionId);
   const [reason, setReason] = useState('');
   const [notify, setNotify] = useState(true);
@@ -541,7 +551,7 @@ function CancelSessionDialog({ open, onOpenChange, sessionId, booked, waitlist }
     mutationFn: () => call(api.POST('/api/admin/sessions/{id}/cancel', { params: { path: { id: sessionId } }, body: { reason, notifyClients: notify } })),
     onSuccess: async (r) => {
       await invalidate();
-      toast.success(`Session cancelled. ${r.cancelledBookings} bookings cancelled, ${r.visitsReturned} visits returned.`);
+      toast.success(tr.sessionCancelledResult(r.cancelledBookings, r.visitsReturned));
       onOpenChange(false);
     },
     onError: toastError,
@@ -550,18 +560,18 @@ function CancelSessionDialog({ open, onOpenChange, sessionId, booked, waitlist }
     <ConfirmDialog
       open={open}
       onOpenChange={onOpenChange}
-      title="Cancel this session?"
-      description={`${booked} booked client${booked === 1 ? '' : 's'} get their visits back${waitlist ? ` and ${waitlist} waitlisted` : ''}. This cannot be undone.`}
-      confirmLabel="Cancel session"
-      cancelLabel="Keep it"
+      title={tr.cancelSession}
+      description={tr.cancelSessionWarning(booked, waitlist)}
+      confirmLabel={tr.cancelSession2}
+      cancelLabel={tr.keep}
       tone="danger"
       loading={run.isPending}
       disabled={reason.trim().length < 3}
       onConfirm={() => run.mutate()}
     >
       <div className="space-y-3">
-        <Textarea rows={2} placeholder="Reason (shown to clients), e.g. Teacher is ill" value={reason} onChange={(e) => setReason(e.target.value)} />
-        <Checkbox checked={notify} onChange={setNotify} label="Notify booked and waitlisted clients" />
+        <Textarea rows={2} placeholder={tr.reasonShownClientsE} value={reason} onChange={(e) => setReason(e.target.value)} />
+        <Checkbox checked={notify} onChange={setNotify} label={tr.notifyBookedWaitlistedClients} />
       </div>
     </ConfirmDialog>
   );

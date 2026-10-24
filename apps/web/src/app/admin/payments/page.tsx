@@ -19,11 +19,14 @@ import type { S } from '@/lib/api/types';
 import { useAdminMethods, useUrlState } from '@/lib/admin-queries';
 import { useCan } from '@/lib/auth';
 import { CLUB_TZ, fmt } from '@/lib/format';
+import { useT } from '@/lib/i18n';
+import { moneyMessages } from '@/lib/i18n/messages/admin/money';
 
 type Payment = S<'AdminPaymentDto'>;
 const PAGE_SIZE = 50;
 
 function Payments() {
+  const tr = useT(moneyMessages);
   const url = useUrlState();
   const canManage = useCan('payments.manage');
   const canExportData = useCan('data.export');
@@ -59,7 +62,7 @@ function Payments() {
   const columns: Column<Payment>[] = [
     {
       key: 'client',
-      header: 'Client',
+      header: tr.client,
       cell: (p) => (
         <div>
           <p className="font-semibold">{p.client.name}</p>
@@ -67,16 +70,16 @@ function Payments() {
         </div>
       ),
     },
-    { key: 'amount', header: 'Amount', cell: (p) => <span className="font-display font-semibold">{fmt.money(p.amount)}</span> },
-    { key: 'method', header: 'Method', hideOnMobile: true, cell: (p) => <span className="text-sm">{p.method.name}{p.reference ? <span className="block text-xs text-muted">#{p.reference}</span> : null}</span> },
-    { key: 'status', header: 'Status', cell: (p) => <StatusBadge status={p.status} /> },
-    { key: 'date', header: 'Date', hideOnMobile: true, cell: (p) => <span className="text-sm text-muted">{fmt.dateTime(p.paidAt ?? p.createdAt)}</span> },
+    { key: 'amount', header: tr.amount2, cell: (p) => <span className="font-display font-semibold">{fmt.money(p.amount)}</span> },
+    { key: 'method', header: tr.method, hideOnMobile: true, cell: (p) => <span className="text-sm">{p.method.name}{p.reference ? <span className="block text-xs text-muted">#{p.reference}</span> : null}</span> },
+    { key: 'status', header: tr.status, cell: (p) => <StatusBadge status={p.status} /> },
+    { key: 'date', header: tr.date, hideOnMobile: true, cell: (p) => <span className="text-sm text-muted">{fmt.dateTime(p.paidAt ?? p.createdAt)}</span> },
   ];
 
   return (
     <AdminPage
-      title="Payments"
-      description="Kaspi invoices, cash and card payments. Confirming a pending payment activates the membership."
+      title={tr.payments}
+      description={tr.kaspiInvoicesCashCard}
       actions={
         <>
           {canExport && (
@@ -86,51 +89,51 @@ function Payments() {
               leftIcon={<Download className="h-4 w-4" />}
               onClick={() => downloadFile(`/api/admin/exports/payments?format=xlsx${filters.from ? `&from=${filters.from}` : ''}${filters.to ? `&to=${filters.to}` : ''}`, 'payments.xlsx').catch(toastError)}
             >
-              Export
+              {tr.export}
             </Button>
           )}
           {canManage && (
             <Button size="sm" leftIcon={<Plus className="h-4 w-4" />} onClick={() => setPicking(true)}>
-              Payment request
+              {tr.paymentRequest2}
             </Button>
           )}
         </>
       }
     >
       <div className="grid gap-4 sm:grid-cols-3">
-        <StatCard label="Paid (filtered)" loading={!query.data} value={fmt.money(query.data?.totalPaid ?? 0)} tone="success" icon={<CircleCheck className="h-5 w-5" />} />
-        <StatCard label="Awaiting payment" loading={!query.data} value={fmt.money(query.data?.totalPending ?? 0)} tone="warning" hint="Pending requests" />
-        <StatCard label="Payments" loading={!query.data} value={query.data?.total ?? 0} />
+        <StatCard label={tr.paidFiltered} loading={!query.data} value={fmt.money(query.data?.totalPaid ?? 0)} tone="success" icon={<CircleCheck className="h-5 w-5" />} />
+        <StatCard label={tr.awaitingPayment} loading={!query.data} value={fmt.money(query.data?.totalPending ?? 0)} tone="warning" hint={tr.pendingRequests} />
+        <StatCard label={tr.payments} loading={!query.data} value={query.data?.total ?? 0} />
       </div>
       <Toolbar>
         <div className="w-full sm:w-72">
-          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Client, phone or reference" leftIcon={<Search className="h-4 w-4" />} className="h-10" aria-label="Search payments" />
+          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={tr.clientPhoneReference} leftIcon={<Search className="h-4 w-4" />} className="h-10" aria-label={tr.searchPayments} />
         </div>
-        <FilterSelect label="Status" value={url.get('status')} onChange={(v) => url.set({ status: v })}>
-          <option value="">All statuses</option>
-          <option value="PENDING">Pending</option>
-          <option value="PAID">Paid</option>
-          <option value="FAILED">Failed</option>
-          <option value="CANCELLED">Cancelled</option>
-          <option value="REFUNDED">Refunded</option>
-          <option value="PARTIALLY_REFUNDED">Partly refunded</option>
+        <FilterSelect label={tr.status} value={url.get('status')} onChange={(v) => url.set({ status: v })}>
+          <option value="">{tr.allStatuses}</option>
+          <option value="PENDING">{tr.pending}</option>
+          <option value="PAID">{tr.paid}</option>
+          <option value="FAILED">{tr.failed}</option>
+          <option value="CANCELLED">{tr.cancelled}</option>
+          <option value="REFUNDED">{tr.refunded}</option>
+          <option value="PARTIALLY_REFUNDED">{tr.partlyRefunded}</option>
         </FilterSelect>
-        <FilterSelect label="Product" value={url.get('product')} onChange={(v) => url.set({ product: v })}>
-          <option value="">All products</option>
-          <option value="MEMBERSHIP">Memberships</option>
-          <option value="TRIAL">Trials</option>
-          <option value="OTHER">Other</option>
+        <FilterSelect label={tr.product} value={url.get('product')} onChange={(v) => url.set({ product: v })}>
+          <option value="">{tr.allProducts}</option>
+          <option value="MEMBERSHIP">{tr.memberships}</option>
+          <option value="TRIAL">{tr.trials}</option>
+          <option value="OTHER">{tr.other}</option>
         </FilterSelect>
-        <FilterSelect label="Method" value={url.get('method')} onChange={(v) => url.set({ method: v })}>
-          <option value="">All methods</option>
+        <FilterSelect label={tr.method} value={url.get('method')} onChange={(v) => url.set({ method: v })}>
+          <option value="">{tr.allMethods}</option>
           {methods?.map((m) => (
             <option key={m.code} value={m.code}>
               {m.name}
             </option>
           ))}
         </FilterSelect>
-        <Input type="date" value={fromDay} onChange={(e) => url.set({ from: e.target.value })} className="h-10 w-40" aria-label="From" />
-        <Input type="date" value={toDay} onChange={(e) => url.set({ to: e.target.value })} className="h-10 w-40" aria-label="To" />
+        <Input type="date" value={fromDay} onChange={(e) => url.set({ from: e.target.value })} className="h-10 w-40" aria-label={tr.from} />
+        <Input type="date" value={toDay} onChange={(e) => url.set({ to: e.target.value })} className="h-10 w-40" aria-label={tr.to} />
       </Toolbar>
       {query.error ? (
         <ErrorState error={query.error} onRetry={() => query.refetch()} />
@@ -148,7 +151,7 @@ function Payments() {
           setPicking(o);
           if (!o && url.get('new')) url.set({ new: null });
         }}
-        title="Payment request for…"
+        title={tr.paymentRequest}
         size="sm"
       >
         <ClientPicker
@@ -166,6 +169,7 @@ function Payments() {
 }
 
 function PaymentDrawer({ id, onClose }: { id: string | null; onClose: () => void }) {
+  const tr = useT(moneyMessages);
   const canManage = useCan('payments.manage');
   const canRefund = useCan('payments.refund');
   const [dialog, setDialog] = useState<'confirm' | 'cancel' | 'refund' | null>(null);
@@ -176,7 +180,7 @@ function PaymentDrawer({ id, onClose }: { id: string | null; onClose: () => void
   });
   const refundable = p ? p.amount - p.refundedAmount : 0;
   return (
-    <Drawer open={!!id} onOpenChange={(o) => !o && onClose()} title={p ? fmt.money(p.amount) : 'Payment'} description={p?.description ?? undefined}>
+    <Drawer open={!!id} onOpenChange={(o) => !o && onClose()} title={p ? fmt.money(p.amount) : tr.paymentFallback} description={p?.description ?? undefined}>
       {!p ? (
         <Skeleton className="h-64 w-full" />
       ) : (
@@ -189,37 +193,37 @@ function PaymentDrawer({ id, onClose }: { id: string | null; onClose: () => void
           <KeyValue
             items={[
               {
-                label: 'Client',
+                label: tr.client,
                 value: (
                   <Link href={`/admin/clients/${p.client.id}?tab=payments`} className="text-brand-700">
                     {p.client.name}
                   </Link>
                 ),
               },
-              { label: 'Method', value: p.method.name },
-              ...(p.plan ? [{ label: 'Plan', value: `${p.plan.name} (${p.plan.visits} visits, ${p.plan.validityDays} days)` }] : []),
-              { label: 'Reference', value: p.reference ?? '—' },
-              { label: 'Created', value: `${fmt.dateTime(p.createdAt)}${p.createdBy ? ` · ${p.createdBy.name}` : ' · by client'}` },
-              ...(p.paidAt ? [{ label: 'Paid', value: `${fmt.dateTime(p.paidAt)}${p.confirmedBy ? ` · ${p.confirmedBy.name}` : ''}` }] : []),
-              ...(p.cancelledAt ? [{ label: 'Cancelled', value: fmt.dateTime(p.cancelledAt) }] : []),
-              ...(p.failureReason ? [{ label: 'Reason', value: p.failureReason }] : []),
-              ...(p.refundedAmount ? [{ label: 'Refunded', value: `${fmt.money(p.refundedAmount)}${p.refundedAt ? ` · ${fmt.date(p.refundedAt)}` : ''}${p.refundReason ? ` · ${p.refundReason}` : ''}` }] : []),
-              ...(p.membershipId ? [{ label: 'Membership', value: <Link href={`/admin/clients/${p.client.id}?tab=memberships`} className="text-brand-700">Open</Link> }] : []),
+              { label: tr.method, value: p.method.name },
+              ...(p.plan ? [{ label: tr.plan, value: tr.planDetails(p.plan.name, p.plan.visits, p.plan.validityDays) }] : []),
+              { label: tr.reference, value: p.reference ?? '—' },
+              { label: tr.created, value: `${fmt.dateTime(p.createdAt)}${p.createdBy ? ` · ${p.createdBy.name}` : ' · by client'}` },
+              ...(p.paidAt ? [{ label: tr.paid, value: `${fmt.dateTime(p.paidAt)}${p.confirmedBy ? ` · ${p.confirmedBy.name}` : ''}` }] : []),
+              ...(p.cancelledAt ? [{ label: tr.cancelled, value: fmt.dateTime(p.cancelledAt) }] : []),
+              ...(p.failureReason ? [{ label: tr.reason, value: p.failureReason }] : []),
+              ...(p.refundedAmount ? [{ label: tr.refunded, value: `${fmt.money(p.refundedAmount)}${p.refundedAt ? ` · ${fmt.date(p.refundedAt)}` : ''}${p.refundReason ? ` · ${p.refundReason}` : ''}` }] : []),
+              ...(p.membershipId ? [{ label: tr.membership, value: <Link href={`/admin/clients/${p.client.id}?tab=memberships`} className="text-brand-700">{tr.open}</Link> }] : []),
             ]}
           />
           {p.notes && <p className="rounded-2xl bg-canvas p-3 text-sm">{p.notes}</p>}
           <div className="flex flex-wrap gap-2">
             {canManage && p.status === 'PENDING' && (
               <>
-                <Button onClick={() => setDialog('confirm')}>Confirm payment</Button>
+                <Button onClick={() => setDialog('confirm')}>{tr.confirmPayment}</Button>
                 <Button variant="ghost" className="text-danger-700" onClick={() => setDialog('cancel')}>
-                  Cancel request
+                  {tr.cancelRequest}
                 </Button>
               </>
             )}
             {canRefund && (p.status === 'PAID' || p.status === 'PARTIALLY_REFUNDED') && refundable > 0 && (
               <Button variant="outline" onClick={() => setDialog('refund')}>
-                Refund
+                {tr.refund}
               </Button>
             )}
           </div>

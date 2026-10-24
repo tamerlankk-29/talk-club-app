@@ -5,11 +5,14 @@ import { useQuery } from '@tanstack/react-query';
 import { CreditCard, GraduationCap, KanbanSquare, Search, Ticket, UserRound } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Badge } from '@/components/ui/feedback';
+import { Badge, statusLabel } from '@/components/ui/feedback';
 import { Spinner } from '@/components/ui/button';
 import { api, call } from '@/lib/api/client';
 import { fmt } from '@/lib/format';
 import { cn } from '@/lib/utils';
+import { messagesFor, useT } from '@/lib/i18n';
+import { crmMessages } from '@/lib/i18n/messages/admin/crm';
+import { adminCommonMessages } from '@/lib/i18n/messages/admin/common';
 
 interface Hit {
   key: string;
@@ -31,6 +34,7 @@ function useDebounced<T>(value: T, ms: number): T {
 
 /** Global search across clients, leads, teachers, payments and memberships (Ctrl/⌘ + K). */
 export function CommandSearch({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+  const m = useT(adminCommonMessages);
   const router = useRouter();
   const [q, setQ] = useState('');
   const [cursor, setCursor] = useState(0);
@@ -51,14 +55,14 @@ export function CommandSearch({ open, onOpenChange }: { open: boolean; onOpenCha
         icon: <UserRound className="h-4 w-4" />,
         title: c.name,
         subtitle: [fmt.phone(c.phone), c.level].filter(Boolean).join(' · '),
-        badge: c.status !== 'ACTIVE' ? c.status : undefined,
+        badge: c.status !== 'ACTIVE' ? statusLabel(c.status) : undefined,
       })),
-      ...data.leads.map((l) => ({ key: `l${l.id}`, href: `/admin/crm?lead=${l.id}`, icon: <KanbanSquare className="h-4 w-4" />, title: l.name, subtitle: fmt.phone(l.phone), badge: l.stage.replace(/_/g, ' ').toLowerCase() })),
-      ...data.teachers.map((t) => ({ key: `t${t.id}`, href: `/admin/teachers?id=${t.id}`, icon: <GraduationCap className="h-4 w-4" />, title: t.name, subtitle: 'Teacher', badge: t.isActive ? undefined : 'inactive' })),
-      ...data.memberships.map((m) => ({ key: `m${m.id}`, href: `/admin/clients/${m.client.id}?tab=memberships`, icon: <Ticket className="h-4 w-4" />, title: `${m.planName} · ${m.client.name}`, subtitle: `${m.visitsRemaining} visits left` })),
-      ...data.payments.map((p) => ({ key: `p${p.id}`, href: `/admin/payments?id=${p.id}`, icon: <CreditCard className="h-4 w-4" />, title: `${fmt.money(p.amount)} · ${p.client}`, subtitle: p.reference ?? undefined, badge: p.status.toLowerCase() })),
+      ...data.leads.map((l) => ({ key: `l${l.id}`, href: `/admin/crm?lead=${l.id}`, icon: <KanbanSquare className="h-4 w-4" />, title: l.name, subtitle: fmt.phone(l.phone), badge: messagesFor(crmMessages).stages[l.stage] ?? l.stage })),
+      ...data.teachers.map((t) => ({ key: `t${t.id}`, href: `/admin/teachers?id=${t.id}`, icon: <GraduationCap className="h-4 w-4" />, title: t.name, subtitle: m.teacher, badge: t.isActive ? undefined : m.inactive })),
+      ...data.memberships.map((ms) => ({ key: `m${ms.id}`, href: `/admin/clients/${ms.client.id}?tab=memberships`, icon: <Ticket className="h-4 w-4" />, title: `${ms.planName} · ${ms.client.name}`, subtitle: m.visitsLeft(ms.visitsRemaining) })),
+      ...data.payments.map((p) => ({ key: `p${p.id}`, href: `/admin/payments?id=${p.id}`, icon: <CreditCard className="h-4 w-4" />, title: `${fmt.money(p.amount)} · ${p.client}`, subtitle: p.reference ?? undefined, badge: statusLabel(p.status) })),
     ];
-  }, [data]);
+  }, [data, m]);
 
   useEffect(() => setCursor(0), [hits.length]);
   useEffect(() => {
@@ -76,8 +80,8 @@ export function CommandSearch({ open, onOpenChange }: { open: boolean; onOpenCha
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-brand-950/40 backdrop-blur-[2px]" />
         <Dialog.Content className="fixed left-1/2 top-[12vh] z-50 w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 overflow-hidden rounded-3xl bg-white shadow-float outline-none">
-          <Dialog.Title className="sr-only">Search</Dialog.Title>
-          <Dialog.Description className="sr-only">Search clients, leads, teachers, payments and memberships</Dialog.Description>
+          <Dialog.Title className="sr-only">{m.search}</Dialog.Title>
+          <Dialog.Description className="sr-only">{m.searchDescription}</Dialog.Description>
           <div className="flex items-center gap-3 border-b border-line px-5">
             <Search className="h-5 w-5 text-subtle" />
             <input
@@ -95,16 +99,16 @@ export function CommandSearch({ open, onOpenChange }: { open: boolean; onOpenCha
                   go(hits[cursor]);
                 }
               }}
-              placeholder="Search by name, phone, email, reference…"
+              placeholder={m.searchPlaceholder}
               className="h-14 flex-1 bg-transparent text-[15px] outline-none placeholder:text-subtle"
             />
             {isFetching && <Spinner className="h-4 w-4 text-brand-600" />}
           </div>
           <div className="max-h-[60vh] overflow-y-auto p-2">
             {term.length < 2 ? (
-              <p className="px-3 py-6 text-center text-sm text-muted">Type at least 2 characters.</p>
+              <p className="px-3 py-6 text-center text-sm text-muted">{m.typeTwo}</p>
             ) : hits.length === 0 && !isFetching ? (
-              <p className="px-3 py-6 text-center text-sm text-muted">Nothing found for “{term}”.</p>
+              <p className="px-3 py-6 text-center text-sm text-muted">{m.nothingFound(term)}</p>
             ) : (
               hits.map((h, i) => (
                 <button

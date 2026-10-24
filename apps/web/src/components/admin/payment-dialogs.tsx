@@ -12,6 +12,8 @@ import type { S } from '@/lib/api/types';
 import { useAdminMethods, useAdminPlans } from '@/lib/admin-queries';
 import { useCan } from '@/lib/auth';
 import { fmt } from '@/lib/format';
+import { useT } from '@/lib/i18n';
+import { moneyMessages } from '@/lib/i18n/messages/admin/money';
 
 type AdminPayment = S<'AdminPaymentDto'>;
 type ProductType = S<'ProductType'>;
@@ -44,6 +46,7 @@ export function PaymentRequestDrawer({
   clientId: string;
   clientName: string;
 }) {
+  const tr = useT(moneyMessages);
   const invalidate = useInvalidateMoney();
   const { data: plans } = useAdminPlans();
   const { data: methods } = useAdminMethods();
@@ -78,7 +81,7 @@ export function PaymentRequestDrawer({
       ),
     onSuccess: async (p) => {
       await invalidate();
-      toast.success(p.status === 'PAID' ? `Payment recorded${p.membershipId ? ' — membership activated' : ''}.` : 'Payment request created. The client was notified.');
+      toast.success(p.status === 'PAID' ? tr.paymentRecorded(!!p.membershipId) : tr.paymentRequestCreated);
       onOpenChange(false);
     },
   });
@@ -88,48 +91,48 @@ export function PaymentRequestDrawer({
     <Drawer
       open={open}
       onOpenChange={onOpenChange}
-      title="Payment request"
+      title={tr.paymentRequest2}
       description={clientName}
       footer={
         <>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
-            Cancel
+            {tr.cancel}
           </Button>
           <Button loading={create.isPending} disabled={(productType === 'MEMBERSHIP' && !planId) || (productType !== 'MEMBERSHIP' && !amount)} onClick={() => create.mutate()}>
-            {markPaid ? 'Record payment' : 'Create request'}
+            {markPaid ? tr.recordPayment : tr.createRequest}
           </Button>
         </>
       }
     >
       <div className="space-y-4">
-        <Field label="For" htmlFor="pr-type">
+        <Field label={tr.for} htmlFor="pr-type">
           <Select id="pr-type" value={productType} onChange={(e) => setProductType(e.target.value as ProductType)}>
-            <option value="MEMBERSHIP">Membership</option>
-            <option value="TRIAL">Trial session</option>
-            <option value="OTHER">Other</option>
+            <option value="MEMBERSHIP">{tr.membership}</option>
+            <option value="TRIAL">{tr.trialSession}</option>
+            <option value="OTHER">{tr.other}</option>
           </Select>
         </Field>
         {productType === 'MEMBERSHIP' && (
-          <Field label="Plan" required htmlFor="pr-plan" error={errors.planId}>
+          <Field label={tr.plan} required htmlFor="pr-plan" error={errors.planId}>
             <Select id="pr-plan" value={planId} onChange={(e) => setPlanId(e.target.value)}>
-              <option value="">Choose a plan…</option>
+              <option value="">{tr.choosePlan}</option>
               {activePlans.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.name} — {p.visits} visits, {p.validityDays} days · {fmt.money(p.price)}
+                  {tr.planOption(p.name, p.visits, p.validityDays)} · {fmt.money(p.price)}
                 </option>
               ))}
             </Select>
           </Field>
         )}
         <Field
-          label="Amount, ₸"
+          label={tr.amount}
           htmlFor="pr-amount"
           error={errors.amount}
-          hint={productType === 'MEMBERSHIP' ? `Leave empty to use the plan price${plan ? ` (${fmt.money(plan.price)})` : ''}` : undefined}
+          hint={productType === 'MEMBERSHIP' ? tr.leaveEmptyPlanPrice(plan ? fmt.money(plan.price) : undefined) : undefined}
         >
           <Input id="pr-amount" type="number" inputMode="numeric" min={0} value={amount} onChange={(e) => setAmount(e.target.value)} />
         </Field>
-        <Field label="Method" htmlFor="pr-method">
+        <Field label={tr.method} htmlFor="pr-method">
           <Select id="pr-method" value={methodCode} onChange={(e) => setMethodCode(e.target.value)}>
             {manualMethods.map((m) => (
               <option key={m.code} value={m.code}>
@@ -138,18 +141,18 @@ export function PaymentRequestDrawer({
             ))}
           </Select>
         </Field>
-        <Field label="Reference" htmlFor="pr-ref" hint="Kaspi invoice or receipt number (optional)">
+        <Field label={tr.reference} htmlFor="pr-ref" hint={tr.kaspiInvoiceReceiptNumber}>
           <Input id="pr-ref" value={reference} onChange={(e) => setReference(e.target.value)} maxLength={120} />
         </Field>
         {productType !== 'MEMBERSHIP' && (
-          <Field label="Description" htmlFor="pr-desc">
+          <Field label={tr.description} htmlFor="pr-desc">
             <Input id="pr-desc" value={description} onChange={(e) => setDescription(e.target.value)} maxLength={200} />
           </Field>
         )}
-        <Field label="Internal note" htmlFor="pr-notes">
+        <Field label={tr.internalNote} htmlFor="pr-notes">
           <Textarea id="pr-notes" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={500} />
         </Field>
-        <Checkbox checked={markPaid} onChange={setMarkPaid} label="Payment already received" description="Records it as paid now; a membership is activated immediately." />
+        <Checkbox checked={markPaid} onChange={setMarkPaid} label={tr.paymentAlreadyReceived} description={tr.recordsPaidNowMembership} />
         {create.error && !Object.keys(errors).length && <InlineAlert tone="danger">{errorMessage(create.error)}</InlineAlert>}
       </div>
     </Drawer>
@@ -158,6 +161,7 @@ export function PaymentRequestDrawer({
 
 /** Confirm a pending (e.g. Kaspi invoice) payment — activates the membership. */
 export function ConfirmPaymentDialog({ payment, open, onOpenChange }: { payment: Pick<AdminPayment, 'id' | 'amount' | 'description' | 'reference'>; open: boolean; onOpenChange: (open: boolean) => void }) {
+  const tr = useT(moneyMessages);
   const invalidate = useInvalidateMoney();
   const { data: methods } = useAdminMethods();
   const [reference, setReference] = useState(payment.reference ?? '');
@@ -167,7 +171,7 @@ export function ConfirmPaymentDialog({ payment, open, onOpenChange }: { payment:
       call(api.POST('/api/admin/payments/{id}/confirm', { params: { path: { id: payment.id } }, body: { reference: reference.trim() || undefined, methodCode: methodCode || undefined } })),
     onSuccess: async (p) => {
       await invalidate();
-      toast.success(p.membershipId ? 'Payment confirmed — membership activated.' : 'Payment confirmed.');
+      toast.success(p.membershipId ? tr.paymentConfirmedMembershipActivated : tr.paymentConfirmed);
       onOpenChange(false);
     },
   });
@@ -175,27 +179,27 @@ export function ConfirmPaymentDialog({ payment, open, onOpenChange }: { payment:
     <Modal
       open={open}
       onOpenChange={onOpenChange}
-      title={`Confirm ${fmt.money(payment.amount)}`}
+      title={tr.confirmAmount(fmt.money(payment.amount))}
       description={payment.description ?? undefined}
       size="sm"
       footer={
         <>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
-            Not yet
+            {tr.notYet}
           </Button>
           <Button loading={confirm.isPending} onClick={() => confirm.mutate()}>
-            Confirm payment
+            {tr.confirmPayment}
           </Button>
         </>
       }
     >
       <div className="space-y-4">
-        <Field label="Kaspi / receipt reference" htmlFor="cp-ref">
+        <Field label={tr.kaspiReceiptReference} htmlFor="cp-ref">
           <Input id="cp-ref" value={reference} onChange={(e) => setReference(e.target.value)} autoFocus maxLength={120} />
         </Field>
-        <Field label="Paid with" htmlFor="cp-method" hint="Only if different from the requested method">
+        <Field label={tr.paid2} htmlFor="cp-method" hint={tr.onlyIfDifferentRequested}>
           <Select id="cp-method" value={methodCode} onChange={(e) => setMethodCode(e.target.value)}>
-            <option value="">As requested</option>
+            <option value="">{tr.requested}</option>
             {(methods ?? [])
               .filter((m) => m.isActive)
               .map((m) => (
@@ -223,6 +227,7 @@ export function PaymentReasonDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const tr = useT(moneyMessages);
   const invalidate = useInvalidateMoney();
   const canRefund = useCan('payments.refund');
   const [reason, setReason] = useState('');
@@ -241,7 +246,7 @@ export function PaymentReasonDialog({
           ),
     onSuccess: async () => {
       await invalidate();
-      toast.success(mode === 'cancel' ? 'Payment request cancelled.' : 'Refund recorded.');
+      toast.success(mode === 'cancel' ? tr.paymentRequestCancelled : tr.refundRecorded);
       onOpenChange(false);
     },
   });
@@ -250,30 +255,30 @@ export function PaymentReasonDialog({
     <Modal
       open={open}
       onOpenChange={onOpenChange}
-      title={mode === 'cancel' ? 'Cancel payment request?' : `Refund up to ${fmt.money(refundable)}`}
+      title={mode === 'cancel' ? tr.cancelPaymentRequestQ : tr.refundUpTo(fmt.money(refundable))}
       size="sm"
       footer={
         <>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
-            Back
+            {tr.back}
           </Button>
           <Button variant="danger" loading={run.isPending} disabled={reason.trim().length < 3} onClick={() => run.mutate()}>
-            {mode === 'cancel' ? 'Cancel request' : 'Record refund'}
+            {mode === 'cancel' ? tr.cancelRequest : tr.recordRefund}
           </Button>
         </>
       }
     >
       <div className="space-y-4">
         {mode === 'refund' && (
-          <Field label="Amount, ₸" htmlFor="rf-amount" hint="Leave empty for a full refund">
+          <Field label={tr.amount} htmlFor="rf-amount" hint={tr.leaveEmptyFullRefund}>
             <Input id="rf-amount" type="number" min={1} max={refundable} value={amount} onChange={(e) => setAmount(e.target.value)} />
           </Field>
         )}
-        <Field label="Reason" required htmlFor="rf-reason">
+        <Field label={tr.reason} required htmlFor="rf-reason">
           <Textarea id="rf-reason" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} autoFocus />
         </Field>
         {mode === 'refund' && payment.membershipId && (
-          <Checkbox checked={cancelMembership} onChange={setCancelMembership} label="Also cancel the membership" description="Remaining visits are removed." />
+          <Checkbox checked={cancelMembership} onChange={setCancelMembership} label={tr.alsoCancelMembership} description={tr.remainingVisitsRemoved} />
         )}
         {run.error && <InlineAlert tone="danger">{errorMessage(run.error)}</InlineAlert>}
       </div>

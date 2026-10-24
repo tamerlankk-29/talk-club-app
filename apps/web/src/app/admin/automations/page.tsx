@@ -15,6 +15,9 @@ import { api, call, errorMessage } from '@/lib/api/client';
 import type { S } from '@/lib/api/types';
 import { useAdminTeam, useAdminTags } from '@/lib/admin-queries';
 import { fmt } from '@/lib/format';
+import { messagesFor, useT } from '@/lib/i18n';
+import { marketingMessages } from '@/lib/i18n/messages/admin/marketing';
+import { crmMessages } from '@/lib/i18n/messages/admin/crm';
 
 type Rule = S<'AutomationRuleDto'>;
 type Trigger = S<'AutomationTrigger'>;
@@ -28,21 +31,25 @@ function useMeta() {
 }
 
 function describeAction(a: Action, templates: Array<{ key: string; name: string }>): string {
+  const tr = messagesFor(marketingMessages);
   switch (a.type) {
     case 'SEND_NOTIFICATION':
-      return a.templateKey ? `Send “${templates.find((t) => t.key === a.templateKey)?.name ?? a.templateKey}”` : `Send “${String(a.title ?? 'message')}”`;
+      return a.templateKey
+        ? tr.sendTemplate(tr.templateNames[String(a.templateKey)] ?? templates.find((t) => t.key === a.templateKey)?.name ?? String(a.templateKey))
+        : tr.sendTemplate(String(a.title ?? tr.messageWord));
     case 'CREATE_TASK':
-      return `Create task “${String(a.title)}”`;
+      return tr.createTaskNamed(String(a.title));
     case 'ADD_TAG':
-      return 'Add a tag';
+      return tr.addTagAction;
     case 'SET_LEAD_STAGE':
-      return `Move to ${String(a.stage).toLowerCase().replace(/_/g, ' ')}`;
+      return tr.moveTo(messagesFor(crmMessages).stages[String(a.stage)] ?? String(a.stage));
     default:
       return a.type;
   }
 }
 
 export default function AutomationsPage() {
+  const tr = useT(marketingMessages);
   const qc = useQueryClient();
   const meta = useMeta();
   const rules = useQuery({ queryKey: KEY, queryFn: () => call(api.GET('/api/admin/automations')) });
@@ -58,18 +65,18 @@ export default function AutomationsPage() {
 
   return (
     <AdminPage
-      title="Automations"
-      description="Rules that react to events (registration, no-show, payment…) or run daily checks (expiring memberships, inactive clients)."
+      title={tr.automations}
+      description={tr.rulesReactEventsRegistration}
       actions={
         <Button size="sm" leftIcon={<Plus className="h-4 w-4" />} onClick={() => setEditing('new')}>
-          New rule
+          {tr.newRule}
         </Button>
       }
     >
       <Tabs defaultValue="rules">
         <TabsList className="max-w-xs">
-          <TabsTrigger value="rules">Rules</TabsTrigger>
-          <TabsTrigger value="runs">Activity log</TabsTrigger>
+          <TabsTrigger value="rules">{tr.rules}</TabsTrigger>
+          <TabsTrigger value="runs">{tr.activityLog}</TabsTrigger>
         </TabsList>
         <TabsContent value="rules">
           {rules.isLoading ? (
@@ -95,9 +102,9 @@ export default function AutomationsPage() {
                         <Zap className="h-3 w-3" /> {trig?.label ?? r.trigger}
                         {trig?.config ? `: ${cfg[trig.config]}` : ''}
                       </Badge>
-                      {r.conditions.length > 0 && <Badge>{r.conditions.length} condition{r.conditions.length === 1 ? '' : 's'}</Badge>}
-                      {r.delayMinutes > 0 && <Badge>after {fmt.minutesAsHours(r.delayMinutes)}</Badge>}
-                      {r.isSystem && <Badge>built-in</Badge>}
+                      {r.conditions.length > 0 && <Badge>{tr.conditions(r.conditions.length)}</Badge>}
+                      {r.delayMinutes > 0 && <Badge>{tr.afterDelay(fmt.minutesAsHours(r.delayMinutes))}</Badge>}
+                      {r.isSystem && <Badge>{tr.builtIn}</Badge>}
                     </div>
                     <ul className="space-y-0.5 text-sm">
                       {(r.actions as Action[]).map((a, i) => (
@@ -105,8 +112,8 @@ export default function AutomationsPage() {
                       ))}
                     </ul>
                     <p className="text-xs text-muted">
-                      {r.runCount} runs{r.lastRunAt ? ` · last ${fmt.relative(r.lastRunAt)}` : ''}
-                      {r.stats ? ` · ${r.stats.completed} done, ${r.stats.skipped} skipped, ${r.stats.failed} failed` : ''}
+                      {tr.runs(r.runCount, r.lastRunAt ? fmt.relative(r.lastRunAt) : null)}
+                      {r.stats ? tr.runStats(r.stats.completed, r.stats.skipped, r.stats.failed) : ''}
                     </p>
                   </Card>
                 );
@@ -127,7 +134,7 @@ export default function AutomationsPage() {
                 </div>
               ))
             ) : (
-              <p className="px-5 py-6 text-center text-sm text-muted">No runs yet.</p>
+              <p className="px-5 py-6 text-center text-sm text-muted">{tr.noRunsYet}</p>
             )}
           </Card>
         </TabsContent>
@@ -138,6 +145,8 @@ export default function AutomationsPage() {
 }
 
 function RuleDrawer({ rule, open, onOpenChange }: { rule?: Rule; open: boolean; onOpenChange: (o: boolean) => void }) {
+  const tr = useT(marketingMessages);
+  const crm = useT(crmMessages);
   const qc = useQueryClient();
   const meta = useMeta();
   const { data: tags } = useAdminTags();
@@ -177,7 +186,7 @@ function RuleDrawer({ rule, open, onOpenChange }: { rule?: Rule; open: boolean; 
     },
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: KEY });
-      toast.success('Rule saved.');
+      toast.success(tr.ruleSaved);
       onOpenChange(false);
     },
   });
@@ -194,36 +203,36 @@ function RuleDrawer({ rule, open, onOpenChange }: { rule?: Rule; open: boolean; 
     <Drawer
       open={open}
       onOpenChange={onOpenChange}
-      title={rule ? rule.name : 'New automation'}
+      title={rule ? rule.name : tr.newAutomation}
       width="xl"
       footer={
         <>
           {rule && !rule.isSystem && (
             <Button variant="ghost" className="mr-auto text-danger-700" leftIcon={<Trash2 className="h-4 w-4" />} onClick={() => setDeleting(true)}>
-              Delete
+              {tr.delete}
             </Button>
           )}
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
-            Cancel
+            {tr.cancel}
           </Button>
           <Button loading={save.isPending} disabled={!f.name.trim() || !f.actions.length} onClick={() => save.mutate()}>
-            Save rule
+            {tr.saveRule}
           </Button>
         </>
       }
     >
       <div className="space-y-5">
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Name" required htmlFor="au-name">
+          <Field label={tr.name} required htmlFor="au-name">
             <Input id="au-name" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} />
           </Field>
-          <Field label="Active" htmlFor="au-active">
+          <Field label={tr.active} htmlFor="au-active">
             <div className="flex h-12 items-center">
-              <Switch checked={f.isActive} onChange={(v) => setF({ ...f, isActive: v })} label={f.isActive ? 'On' : 'Off'} />
+              <Switch checked={f.isActive} onChange={(v) => setF({ ...f, isActive: v })} label={f.isActive ? tr.on : tr.off} />
             </div>
           </Field>
         </div>
-        <Field label="Description" htmlFor="au-desc">
+        <Field label={tr.description} htmlFor="au-desc">
           <Textarea id="au-desc" rows={2} value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} />
         </Field>
         <section className="space-y-3 rounded-2xl border border-line p-4">
@@ -231,10 +240,10 @@ function RuleDrawer({ rule, open, onOpenChange }: { rule?: Rule; open: boolean; 
             <Zap className="h-4 w-4 text-brand-700" /> When
           </p>
           <div className="flex flex-wrap gap-2">
-            <Select value={f.trigger} onChange={(e) => setF({ ...f, trigger: e.target.value as Trigger, triggerConfig: {} })} className="w-72" aria-label="Trigger">
+            <Select value={f.trigger} onChange={(e) => setF({ ...f, trigger: e.target.value as Trigger, triggerConfig: {} })} className="w-72" aria-label={tr.trigger}>
               {meta.data?.triggers.map((t) => (
                 <option key={t.trigger} value={t.trigger}>
-                  {t.label} {t.kind === 'schedule' ? '(daily check)' : ''}
+                  {tr.triggerLabels[t.trigger] ?? t.label} {t.kind === 'schedule' ? tr.dailyCheck : ''}
                 </option>
               ))}
             </Select>
@@ -248,12 +257,12 @@ function RuleDrawer({ rule, open, onOpenChange }: { rule?: Rule; open: boolean; 
                 onChange={(e) => setF({ ...f, triggerConfig: { [trig.config!]: Number(e.target.value) } })}
               />
             )}
-            <Input type="number" min={0} className="w-36" aria-label="Delay in minutes" placeholder="delay, min" value={f.delayMinutes} onChange={(e) => setF({ ...f, delayMinutes: e.target.value })} />
+            <Input type="number" min={0} className="w-36" aria-label={tr.delayMinutes} placeholder={tr.delayMin} value={f.delayMinutes} onChange={(e) => setF({ ...f, delayMinutes: e.target.value })} />
           </div>
-          <p className="text-xs text-muted">Delay: wait this many minutes after the trigger before acting (0 = immediately).</p>
+          <p className="text-xs text-muted">{tr.delayWaitManyMinutes}</p>
         </section>
         <section className="space-y-3 rounded-2xl border border-line p-4">
-          <p className="text-sm font-semibold">Only if the client matches (optional)</p>
+          <p className="text-sm font-semibold">{tr.onlyIfClientMatches}</p>
           <RuleBuilder value={f.conditions} onChange={(conditions) => setF({ ...f, conditions: { ...conditions, match: 'all' } })} allowMatch={false} />
         </section>
         <section className="space-y-3 rounded-2xl border border-line p-4">
@@ -263,34 +272,34 @@ function RuleDrawer({ rule, open, onOpenChange }: { rule?: Rule; open: boolean; 
           {f.actions.map((a, i) => (
             <div key={i} className="space-y-2 rounded-2xl bg-canvas p-3">
               <div className="flex gap-2">
-                <Select value={a.type} onChange={(e) => setAction(i, { type: e.target.value })} className="h-10 w-64" aria-label="Action">
-                  <option value="SEND_NOTIFICATION">Send a notification</option>
-                  <option value="CREATE_TASK">Create a task for staff</option>
-                  <option value="ADD_TAG">Add a tag</option>
-                  <option value="SET_LEAD_STAGE">Change CRM stage</option>
+                <Select value={a.type} onChange={(e) => setAction(i, { type: e.target.value })} className="h-10 w-64" aria-label={tr.action}>
+                  <option value="SEND_NOTIFICATION">{tr.sendNotification}</option>
+                  <option value="CREATE_TASK">{tr.createTaskStaff}</option>
+                  <option value="ADD_TAG">{tr.addTag}</option>
+                  <option value="SET_LEAD_STAGE">{tr.changeCrmStage}</option>
                 </Select>
-                <button type="button" className="ml-auto rounded-xl p-2 text-muted hover:bg-white" aria-label="Remove action" onClick={() => setF({ ...f, actions: f.actions.filter((_, j) => j !== i) })}>
+                <button type="button" className="ml-auto rounded-xl p-2 text-muted hover:bg-white" aria-label={tr.removeAction} onClick={() => setF({ ...f, actions: f.actions.filter((_, j) => j !== i) })}>
                   <X className="h-4 w-4" />
                 </button>
               </div>
               {a.type === 'SEND_NOTIFICATION' && (
                 <>
-                  <Select value={String(a.templateKey ?? '')} onChange={(e) => setAction(i, { ...a, templateKey: e.target.value })} className="h-10" aria-label="Template">
-                    <option value="">Custom text…</option>
+                  <Select value={String(a.templateKey ?? '')} onChange={(e) => setAction(i, { ...a, templateKey: e.target.value })} className="h-10" aria-label={tr.template}>
+                    <option value="">{tr.customText}</option>
                     {meta.data?.templates.map((t) => (
                       <option key={t.key} value={t.key}>
-                        {t.name}
+                        {tr.templateNames[t.key] ?? t.name}
                       </option>
                     ))}
                   </Select>
                   {!a.templateKey && (
                     <>
-                      <Input className="h-10" placeholder="Title" value={String(a.title ?? '')} onChange={(e) => setAction(i, { ...a, title: e.target.value })} />
+                      <Input className="h-10" placeholder={tr.title} value={String(a.title ?? '')} onChange={(e) => setAction(i, { ...a, title: e.target.value })} />
                       <Textarea rows={3} placeholder="Message — {{firstName}} works" value={String(a.body ?? '')} onChange={(e) => setAction(i, { ...a, body: e.target.value })} />
-                      <Select value={String(a.category ?? 'TRANSACTIONAL')} onChange={(e) => setAction(i, { ...a, category: e.target.value })} className="h-10" aria-label="Category">
-                        <option value="TRANSACTIONAL">Service message</option>
-                        <option value="REMINDER">Reminder</option>
-                        <option value="MARKETING">Marketing (opt-in only)</option>
+                      <Select value={String(a.category ?? 'TRANSACTIONAL')} onChange={(e) => setAction(i, { ...a, category: e.target.value })} className="h-10" aria-label={tr.category}>
+                        <option value="TRANSACTIONAL">{tr.serviceMessage}</option>
+                        <option value="REMINDER">{tr.reminder}</option>
+                        <option value="MARKETING">{tr.marketingOptOnly}</option>
                       </Select>
                     </>
                   )}
@@ -298,17 +307,17 @@ function RuleDrawer({ rule, open, onOpenChange }: { rule?: Rule; open: boolean; 
               )}
               {a.type === 'CREATE_TASK' && (
                 <>
-                  <Input className="h-10" placeholder="Task title, e.g. Call {{firstName}} about renewal" value={String(a.title ?? '')} onChange={(e) => setAction(i, { ...a, title: e.target.value })} />
+                  <Input className="h-10" placeholder={tr.taskTitlePlaceholder} value={String(a.title ?? '')} onChange={(e) => setAction(i, { ...a, title: e.target.value })} />
                   <div className="flex flex-wrap gap-2">
-                    <Select value={String(a.priority ?? 'MEDIUM')} onChange={(e) => setAction(i, { ...a, priority: e.target.value })} className="h-10 w-36" aria-label="Priority">
-                      <option value="LOW">Low</option>
-                      <option value="MEDIUM">Medium</option>
-                      <option value="HIGH">High</option>
-                      <option value="URGENT">Urgent</option>
+                    <Select value={String(a.priority ?? 'MEDIUM')} onChange={(e) => setAction(i, { ...a, priority: e.target.value })} className="h-10 w-36" aria-label={tr.priority}>
+                      <option value="LOW">{tr.low}</option>
+                      <option value="MEDIUM">{tr.medium}</option>
+                      <option value="HIGH">{tr.high}</option>
+                      <option value="URGENT">{tr.urgent}</option>
                     </Select>
-                    <Input type="number" min={0} className="h-10 w-40" placeholder="due in, hours" value={String(a.dueInHours ?? '')} onChange={(e) => setAction(i, { ...a, dueInHours: e.target.value ? Number(e.target.value) : undefined })} />
-                    <Select value={String(a.assignToUserId ?? '')} onChange={(e) => setAction(i, { ...a, assignToUserId: e.target.value || undefined })} className="h-10 w-56" aria-label="Assignee">
-                      <option value="">Unassigned</option>
+                    <Input type="number" min={0} className="h-10 w-40" placeholder={tr.dueHours} value={String(a.dueInHours ?? '')} onChange={(e) => setAction(i, { ...a, dueInHours: e.target.value ? Number(e.target.value) : undefined })} />
+                    <Select value={String(a.assignToUserId ?? '')} onChange={(e) => setAction(i, { ...a, assignToUserId: e.target.value || undefined })} className="h-10 w-56" aria-label={tr.assignee}>
+                      <option value="">{tr.unassigned}</option>
                       {staff?.map((s) => (
                         <option key={s.id} value={s.id}>
                           {s.displayName}
@@ -319,8 +328,8 @@ function RuleDrawer({ rule, open, onOpenChange }: { rule?: Rule; open: boolean; 
                 </>
               )}
               {a.type === 'ADD_TAG' && (
-                <Select value={String(a.tagId ?? '')} onChange={(e) => setAction(i, { ...a, tagId: e.target.value })} className="h-10" aria-label="Tag">
-                  <option value="">Choose a tag…</option>
+                <Select value={String(a.tagId ?? '')} onChange={(e) => setAction(i, { ...a, tagId: e.target.value })} className="h-10" aria-label={tr.tag}>
+                  <option value="">{tr.chooseTag}</option>
                   {tags?.map((t) => (
                     <option key={t.id} value={t.id}>
                       {t.name}
@@ -329,10 +338,10 @@ function RuleDrawer({ rule, open, onOpenChange }: { rule?: Rule; open: boolean; 
                 </Select>
               )}
               {a.type === 'SET_LEAD_STAGE' && (
-                <Select value={String(a.stage ?? 'CONTACTED')} onChange={(e) => setAction(i, { ...a, stage: e.target.value })} className="h-10" aria-label="Stage">
+                <Select value={String(a.stage ?? 'CONTACTED')} onChange={(e) => setAction(i, { ...a, stage: e.target.value })} className="h-10" aria-label={tr.stage}>
                   {STAGES.map((s) => (
                     <option key={s} value={s}>
-                      {s.toLowerCase().replace(/_/g, ' ')}
+                      {crm.stages[s] ?? s}
                     </option>
                   ))}
                 </Select>
@@ -340,12 +349,12 @@ function RuleDrawer({ rule, open, onOpenChange }: { rule?: Rule; open: boolean; 
             </div>
           ))}
           <Button size="sm" variant="outline" leftIcon={<Plus className="h-4 w-4" />} onClick={() => setF({ ...f, actions: [...f.actions, { type: 'CREATE_TASK', title: '' }] })}>
-            Add action
+            {tr.addAction}
           </Button>
         </section>
         {save.error && <InlineAlert tone="danger">{errorMessage(save.error)}</InlineAlert>}
       </div>
-      <ConfirmDialog open={deleting} onOpenChange={setDeleting} title="Delete this rule?" confirmLabel="Delete" tone="danger" loading={remove.isPending} onConfirm={() => remove.mutate()} />
+      <ConfirmDialog open={deleting} onOpenChange={setDeleting} title={tr.deleteRule} confirmLabel={tr.delete} tone="danger" loading={remove.isPending} onConfirm={() => remove.mutate()} />
     </Drawer>
   );
 }

@@ -23,9 +23,12 @@ import { ErrorState, Skeleton, StatusBadge } from '@/components/ui/feedback';
 import { Card, Section, StatCard } from '@/components/ui/layout';
 import { api, call } from '@/lib/api/client';
 import { useAuth, useCan } from '@/lib/auth';
-import { clubNow, fmt } from '@/lib/format';
+import { clubNow, fmt, formatDate } from '@/lib/format';
+import { useT } from '@/lib/i18n';
+import { dashboardMessages } from '@/lib/i18n/messages/admin/dashboard';
 
 export default function AdminDashboard() {
+  const t = useT(dashboardMessages);
   const { user } = useAuth();
   const canFinance = useCan('finance.view');
   const canSchedule = useCan('schedule.manage');
@@ -43,27 +46,27 @@ export default function AdminDashboard() {
   if (dashboard.error) return <ErrorState error={dashboard.error} onRetry={() => dashboard.refetch()} />;
   const d = dashboard.data;
   const hour = clubNow().hour;
-  const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+  const greeting = hour < 12 ? t.goodMorning : hour < 18 ? t.goodAfternoon : t.goodEvening;
 
   return (
     <AdminPage
       title={`${greeting}, ${user?.displayName.split(' ')[0] ?? ''}`}
-      description={`${clubNow().toFormat('cccc, d MMMM')} · Talk Club`}
+      description={`${formatDate(clubNow(), 'cccc, d MMMM')} · Talk Club`}
       actions={
         <>
           {canClients && (
             <Link href="/admin/clients?new=1" className={buttonClasses('outline', 'sm')}>
-              <UserPlus className="h-4 w-4" /> New client
+              <UserPlus className="h-4 w-4" /> {t.newClient}
             </Link>
           )}
           {canPayments && (
             <Link href="/admin/payments?new=1" className={buttonClasses('outline', 'sm')}>
-              <CreditCard className="h-4 w-4" /> Payment request
+              <CreditCard className="h-4 w-4" /> {t.paymentRequest}
             </Link>
           )}
           {canSchedule && (
             <Link href="/admin/schedule?new=1" className={buttonClasses('primary', 'sm')}>
-              <CalendarCheck2 className="h-4 w-4" /> New session
+              <CalendarCheck2 className="h-4 w-4" /> {t.newSession}
             </Link>
           )}
         </>
@@ -71,81 +74,81 @@ export default function AdminDashboard() {
     >
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
-          label="Sessions today"
+          label={t.sessionsToday}
           loading={!d}
           value={d?.today.sessions ?? 0}
-          hint={d ? `${d.today.bookings} of ${d.today.capacity} seats booked · ${Math.round(d.today.occupancy)}% full` : undefined}
+          hint={d ? t.seatsBooked(d.today.bookings, d.today.capacity, Math.round(d.today.occupancy)) : undefined}
           icon={<CalendarCheck2 className="h-5 w-5" />}
           tone="brand"
           href="/admin/schedule"
         />
         <StatCard
-          label="Attendance today"
+          label={t.attendanceToday}
           loading={!d}
           value={d ? `${d.today.attended}` : 0}
-          hint={d ? `${d.today.noShows} no-shows · ${d.today.cancellations} cancelled (${d.today.lateCancellations} late)` : undefined}
+          hint={d ? t.attendanceHint(d.today.noShows, d.today.cancellations, d.today.lateCancellations) : undefined}
           icon={<ClipboardCheck className="h-5 w-5" />}
           href="/admin/attendance"
         />
         <StatCard
-          label="Active clients"
+          label={t.activeClients}
           loading={!d}
           value={d?.clients.active ?? 0}
-          hint={d ? `+${d.clients.newThisWeek} new · ${d.clients.newTrialsThisWeek} trials this week` : undefined}
+          hint={d ? t.clientsHint(d.clients.newThisWeek, d.clients.newTrialsThisWeek) : undefined}
           icon={<Users className="h-5 w-5" />}
           href="/admin/clients"
         />
         {canFinance ? (
           <StatCard
-            label="Revenue this month"
+            label={t.revenueMonth}
             loading={!d}
             value={fmt.money(d?.finance?.revenue.month ?? 0)}
-            hint={d?.finance ? `Today ${fmt.money(d.finance.revenue.today)} · week ${fmt.money(d.finance.revenue.week)}` : undefined}
+            hint={d?.finance ? t.revenueHint(fmt.money(d.finance.revenue.today), fmt.money(d.finance.revenue.week)) : undefined}
             icon={<TrendingUp className="h-5 w-5" />}
             tone="success"
             href="/admin/reports"
           />
         ) : (
-          <StatCard label="Waitlist" loading={!d} value={d?.waitlist ?? 0} hint="people waiting for a place" icon={<Hourglass className="h-5 w-5" />} />
+          <StatCard label={t.waitlist} loading={!d} value={d?.waitlist ?? 0} hint={t.waitlistHint} icon={<Hourglass className="h-5 w-5" />} />
         )}
       </div>
 
       {d && (
         <div className="flex flex-wrap gap-2">
           <Alert show={d.pending.payments > 0} href="/admin/payments?status=PENDING" icon={<CreditCard className="h-4 w-4" />} tone="warning">
-            {d.pending.payments} pending payment{d.pending.payments === 1 ? '' : 's'} · {fmt.money(d.pending.paymentsAmount)}
+            {t.pendingPayments(d.pending.payments, fmt.money(d.pending.paymentsAmount))}
           </Alert>
           <Alert show={d.unmarkedAttendance > 0} href="/admin/attendance" icon={<ClipboardCheck className="h-4 w-4" />} tone="danger">
-            {d.unmarkedAttendance} session{d.unmarkedAttendance === 1 ? '' : 's'} with unmarked attendance
+            {t.unmarked(d.unmarkedAttendance)}
           </Alert>
           <Alert show={d.clients.membershipsExpiringSoon > 0} href="/admin/memberships?status=EXPIRING" icon={<AlarmClock className="h-4 w-4" />} tone="warning">
-            {d.clients.membershipsExpiringSoon} membership{d.clients.membershipsExpiringSoon === 1 ? '' : 's'} expiring soon
+            {t.expiring(d.clients.membershipsExpiringSoon)}
           </Alert>
           <Alert show={d.tasks.overdue > 0} href="/admin/tasks" icon={<ListTodo className="h-4 w-4" />} tone="danger">
-            {d.tasks.overdue} overdue task{d.tasks.overdue === 1 ? '' : 's'}
+            {t.overdue(d.tasks.overdue)}
           </Alert>
           <Alert show={d.tasks.open > 0 && d.tasks.overdue === 0} href="/admin/tasks" icon={<ListTodo className="h-4 w-4" />} tone="brand">
-            {d.tasks.open} open task{d.tasks.open === 1 ? '' : 's'}
+            {t.openTasks(d.tasks.open)}
           </Alert>
           <Alert show={d.waitlist > 0} href="/admin/bookings" icon={<Hourglass className="h-4 w-4" />} tone="brand">
-            {d.waitlist} on waitlists
+            {t.onWaitlists(d.waitlist)}
           </Alert>
           <Alert show={d.clients.newTrialsThisWeek > 0} href="/admin/trials" icon={<Sparkles className="h-4 w-4" />} tone="brand">
-            Trials this week: {d.clients.newTrialsThisWeek}
+            {t.trialsWeek(d.clients.newTrialsThisWeek)}
           </Alert>
           <Alert show={d.deletionRequests > 0} href="/admin/data" icon={<ShieldAlert className="h-4 w-4" />} tone="danger">
-            {d.deletionRequests} data deletion request{d.deletionRequests === 1 ? '' : 's'}
+            {t.deletionRequests(d.deletionRequests)}
           </Alert>
         </div>
       )}
 
       <div className="grid gap-6 xl:grid-cols-5">
         <Section
-          title="Today's sessions"
+          title={t.todaysSessions}
           className="xl:col-span-3"
           action={
             <Link href="/admin/schedule" className="text-sm font-semibold text-brand-700">
-              Open schedule
+              {t.openSchedule}
             </Link>
           }
         >
@@ -157,18 +160,18 @@ export default function AdminDashboard() {
                 <Skeleton className="h-10 w-full" />
               </div>
             ) : d.sessions.length === 0 ? (
-              <p className="p-6 text-center text-sm text-muted">No sessions today.</p>
+              <p className="p-6 text-center text-sm text-muted">{t.noSessionsToday}</p>
             ) : (
               d.sessions.map((s) => (
                 <Link key={s.id} href={`/admin/sessions/${s.id}`} className="flex items-center gap-4 px-5 py-3.5 transition hover:bg-brand-50/40">
                   <div className="w-24 shrink-0">
                     <p className="font-display font-semibold">{s.startTime}</p>
-                    <p className="text-xs text-muted">until {s.endTime}</p>
+                    <p className="text-xs text-muted">{t.until(s.endTime)}</p>
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-semibold">{s.title}</p>
                     <p className="truncate text-sm text-muted">
-                      {s.teacher?.name ?? 'No teacher'} · {s.room?.name ?? (s.format === 'ONLINE' ? 'Online' : 'No room')} · {s.levelLabel}
+                      {s.teacher?.name ?? t.noTeacher} · {s.room?.name ?? (s.format === 'ONLINE' ? t.online : t.noRoom)} · {s.levelLabel}
                     </p>
                   </div>
                   <div className="text-right">
@@ -183,7 +186,7 @@ export default function AdminDashboard() {
           </Card>
         </Section>
 
-        <Section title="Recent activity" className="xl:col-span-2">
+        <Section title={t.recentActivity} className="xl:col-span-2">
           <Card padded={false} className="max-h-[420px] divide-y divide-line/70 overflow-y-auto">
             {!d ? (
               <div className="space-y-2 p-5">
@@ -191,7 +194,7 @@ export default function AdminDashboard() {
                 <Skeleton className="h-8 w-full" />
               </div>
             ) : d.recentActivity.length === 0 ? (
-              <p className="p-6 text-center text-sm text-muted">No activity yet.</p>
+              <p className="p-6 text-center text-sm text-muted">{t.noActivity}</p>
             ) : (
               d.recentActivity.map((a) => (
                 <Link key={a.id} href={`/admin/clients/${a.client.id}`} className="block px-5 py-3 text-sm hover:bg-brand-50/40">
@@ -207,7 +210,7 @@ export default function AdminDashboard() {
       </div>
 
       {canFinance && (
-        <Section title="Revenue, last 30 days" description={revenue.data ? `${fmt.money(revenue.data.totals.net)} net · ${revenue.data.totals.count} payments` : undefined}>
+        <Section title={t.revenue30} description={revenue.data ? t.revenueTotals(fmt.money(revenue.data.totals.net), revenue.data.totals.count) : undefined}>
           <Card className="h-72 pl-1">
             {revenue.data ? (
               <ResponsiveContainer width="100%" height="100%">
@@ -221,7 +224,7 @@ export default function AdminDashboard() {
                   <CartesianGrid vertical={false} stroke="#ebe7f3" />
                   <XAxis dataKey="label" tickLine={false} axisLine={false} fontSize={12} minTickGap={24} />
                   <YAxis tickLine={false} axisLine={false} fontSize={12} width={70} tickFormatter={(v: number) => `${Math.round(v / 1000)}k ₸`} />
-                  <Tooltip formatter={(v) => [fmt.money(Number(v)), 'Net revenue']} />
+                  <Tooltip formatter={(v) => [fmt.money(Number(v)), t.netRevenue]} />
                   <Area type="monotone" dataKey="net" stroke="#6d28d9" strokeWidth={2.5} fill="url(#rev)" />
                 </AreaChart>
               </ResponsiveContainer>
