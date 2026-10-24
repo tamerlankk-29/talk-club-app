@@ -11,11 +11,13 @@ async function bootstrap(): Promise<void> {
   const config = loadConfig();
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   configureApp(app, config);
-  setupSwagger(app);
+  // Interactive API docs only outside production/staging unless explicitly enabled.
+  const docsEnabled = !config.isProduction || process.env.API_DOCS_ENABLED === 'true';
+  if (docsEnabled) setupSwagger(app);
   await app.listen(config.port);
   const logger = new Logger('Bootstrap');
   logger.log(`Talk Club API listening on http://localhost:${config.port}/api (${config.env})`);
-  logger.log(`API docs: http://localhost:${config.port}/api/docs`);
+  if (docsEnabled) logger.log(`API docs: http://localhost:${config.port}/api/docs`);
 }
 
 void bootstrap();

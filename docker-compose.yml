@@ -4,7 +4,7 @@
 #   docker compose up -d --build
 #   docker compose --profile demo run --rm seed   # optional: demo data (never in production)
 #
-# Web: http://localhost:3000 · API docs: http://localhost:4000/api/docs
+# Web: http://localhost:3000 (bound to 127.0.0.1; the TLS reverse proxy on the host serves it publicly)
 # For a public deployment put a TLS reverse proxy in front of "web" (see docs/DEPLOYMENT.md).
 
 name: talkclub
@@ -18,8 +18,10 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-talkclub}
       POSTGRES_DB: ${POSTGRES_DB:-talkclub}
       POSTGRES_INITDB_ARGS: --encoding=UTF8 --locale=C
-    ports:
-      - "${POSTGRES_PORT:-5433}:5432"
+    # Not published by default: only the API reaches the database over the compose network.
+    # For local access uncomment and keep it bound to 127.0.0.1.
+    # ports:
+    #   - "127.0.0.1:${POSTGRES_PORT:-5433}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -67,10 +69,12 @@ services:
       KASPI_MERCHANT_ID: ${KASPI_MERCHANT_ID:-}
       KASPI_API_KEY: ${KASPI_API_KEY:-}
       JOBS_ENABLED: "true"
+      API_DOCS_ENABLED: ${API_DOCS_ENABLED:-false}
     volumes:
       - uploads:/app/apps/api/uploads
-    ports:
-      - "${API_PORT:-4000}:4000"
+    # Not published by default: the browser reaches the API through the web app's /api proxy.
+    # ports:
+    #   - "127.0.0.1:${API_PORT:-4000}:4000"
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -83,7 +87,7 @@ services:
         API_INTERNAL_URL: http://api:4000
     restart: unless-stopped
     ports:
-      - "${WEB_PORT:-3000}:3000"
+      - "${WEB_BIND:-127.0.0.1}:${WEB_PORT:-3000}:3000"
     depends_on:
       api:
         condition: service_healthy
