@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { AuthUser } from '../../common/auth/auth-user';
+import { ClockService } from '../../common/clock/clock.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
 const TTL_MS = 30_000;
@@ -14,7 +15,10 @@ export class AuthContextService {
   private readonly users = new Map<string, { value: AuthUser | null; blocked: boolean; loadedAt: number }>();
   private readonly sessions = new Map<string, { valid: boolean; loadedAt: number }>();
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly clock: ClockService,
+  ) {}
 
   async load(userId: string, sessionId: string | null): Promise<{ user: AuthUser | null; blocked: boolean }> {
     if (sessionId && !(await this.isSessionValid(sessionId, userId))) return { user: null, blocked: false };
@@ -73,7 +77,7 @@ export class AuthContextService {
       where: { id: sessionId },
       select: { userId: true, revokedAt: true, expiresAt: true },
     });
-    const valid = !!session && session.userId === userId && !session.revokedAt && session.expiresAt > new Date();
+    const valid = !!session && session.userId === userId && !session.revokedAt && session.expiresAt > this.clock.now();
     this.sessions.set(sessionId, { valid, loadedAt: Date.now() });
     return valid;
   }
