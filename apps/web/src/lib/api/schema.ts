@@ -174,6 +174,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/auth/totp/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Finish a sign-in that requires two-factor authentication (authenticator app code or recovery code) */
+        post: operations["Auth_verifyTotp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/refresh": {
         parameters: {
             query?: never;
@@ -1999,6 +2016,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/staff/{id}/reset-2fa": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Turn off two-factor sign-in for a staff member who lost their phone (signs them out) */
+        post: operations["Rbac_resetTwoFactor"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/segments/fields": {
         parameters: {
             query?: never;
@@ -3561,6 +3595,22 @@ export interface components {
             /** @description Email address or phone number */
             login: string;
             password: string;
+        };
+        VerifyTotpDto: {
+            /** @description challengeToken from the AUTH_TOTP_REQUIRED / AUTH_TOTP_SETUP_REQUIRED error details */
+            challengeToken: string;
+            /** @description 6-digit code from the authenticator app, or a recovery code like "k7m2-x9pq" */
+            code: string;
+        };
+        TotpVerifiedDto: {
+            accessToken: string;
+            /** @description Seconds until the access token expires */
+            expiresIn: number;
+            /** @description Returned only to native clients (header X-Client-Platform: native) */
+            refreshToken?: string;
+            user: components["schemas"]["SessionUserDto"];
+            /** @description Only right after setup: one-time recovery codes to keep somewhere safe. Shown once. */
+            recoveryCodes?: string[];
         };
         RefreshDto: {
             /** @description Native apps only — web clients use the httpOnly refresh cookie */
@@ -5199,6 +5249,8 @@ export interface components {
             status: string;
             roles: string[];
             teacherId: string | null;
+            /** @description Signs in with an authenticator app code */
+            twoFactorEnabled: boolean;
             /** Format: date-time */
             lastLoginAt: string | null;
             /** Format: date-time */
@@ -5221,6 +5273,8 @@ export interface components {
             status: string;
             roles: string[];
             teacherId: string | null;
+            /** @description Signs in with an authenticator app code */
+            twoFactorEnabled: boolean;
             /** Format: date-time */
             lastLoginAt: string | null;
             /** Format: date-time */
@@ -7234,6 +7288,32 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AuthTokensDto"];
+                };
+            };
+        };
+    };
+    Auth_verifyTotp: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description "native" for mobile apps: the refresh token is returned in the body instead of an httpOnly cookie */
+                "X-Client-Platform"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VerifyTotpDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TotpVerifiedDto"];
                 };
             };
         };
@@ -11703,6 +11783,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ResetPasswordResultDto"];
+                };
+            };
+            /** @description UNAUTHENTICATED — missing or expired access token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description FORBIDDEN — requires permission(s): staff.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    Rbac_resetTwoFactor: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OkResponseDto"];
                 };
             };
             /** @description UNAUTHENTICATED — missing or expired access token */

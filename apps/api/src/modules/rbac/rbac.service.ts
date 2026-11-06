@@ -7,6 +7,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { AuthContextService } from '../auth/auth-context.service';
 import { hashPassword } from '../auth/password';
+import { TwoFactorService } from '../auth/two-factor.service';
 import {
   CreateRoleDto,
   CreateStaffDto,
@@ -29,6 +30,7 @@ export class RbacService implements OnApplicationBootstrap {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly authContext: AuthContextService,
+    private readonly twoFactor: TwoFactorService,
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
@@ -219,6 +221,18 @@ export class RbacService implements OnApplicationBootstrap {
     return temporaryPassword ? { temporaryPassword } : {};
   }
 
+  /** For a lost phone: turns two-factor sign-in off; required roles set it up again at next sign-in. */
+  async resetTwoFactor(id: string, actor: AuthUser): Promise<void> {
+    const user = await this.prisma.user.findUnique({ where: { id }, include: { roles: { include: { role: true } } } });
+    if (!user) throw notFound('User');
+    // Admins can't strip a super admin's second factor.
+    this.assertCanGrant(actor, user.roles.map((r) => r.role.key));
+    await this.twoFactor.reset(id);
+    await this.prisma.authSession.updateMany({ where: { userId: id, revokedAt: null }, data: { revokedAt: new Date() } });
+    await this.audit.log({ actor, action: 'staff.reset_2fa', entityType: 'User', entityId: id });
+    this.authContext.invalidateAll();
+  }
+
   /** Only super admins can hand out the super admin role. */
   private assertCanGrant(actor: AuthUser, roles: string[]): void {
     if (roles.includes(ROLE_KEYS.SUPER_ADMIN) && !actor.roles.includes(ROLE_KEYS.SUPER_ADMIN)) {
@@ -234,6 +248,7 @@ export class RbacService implements OnApplicationBootstrap {
     status: string;
     lastLoginAt: Date | null;
     createdAt: Date;
+    totpEnabledAt: Date | null;
     roles: Array<{ role: { key: string } }>;
     teacher: { id: string } | null;
   }): StaffUserDto {
@@ -245,6 +260,7 @@ export class RbacService implements OnApplicationBootstrap {
       status: u.status,
       roles: u.roles.map((r) => r.role.key),
       teacherId: u.teacher?.id ?? null,
+      twoFactorEnabled: !!u.totpEnabledAt,
       lastLoginAt: u.lastLoginAt,
       createdAt: u.createdAt,
     };

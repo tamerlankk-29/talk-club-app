@@ -85,6 +85,8 @@ export class StaffUserDto {
   status: string;
   roles: string[];
   teacherId: string | null;
+  /** Signs in with an authenticator app code */
+  twoFactorEnabled: boolean;
   lastLoginAt: Date | null;
   createdAt: Date;
 }

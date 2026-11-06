@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { destinationFor } from '@/components/auth/auth-flow';
+import { TwoFactorChallenge, twoFactorChallenge, TwoFactorStep } from '@/components/auth/two-factor-step';
 import { Button } from '@/components/ui/button';
 import { InlineAlert } from '@/components/ui/feedback';
 import { Field, Input, OtpInput, PhoneInput } from '@/components/ui/inputs';
@@ -22,6 +23,7 @@ export default function ResetPasswordPage() {
   const [devCode, setDevCode] = useState<string | undefined>();
   const [code, setCode] = useState('');
   const [password, setPassword] = useState('');
+  const [challenge, setChallenge] = useState<TwoFactorChallenge | null>(null);
 
   const request = useMutation({
     mutationFn: () => call(api.POST('/api/auth/password/reset/request', { body: { phone } })),
@@ -33,11 +35,18 @@ export default function ResetPasswordPage() {
   });
   const reset = useMutation({
     mutationFn: () => call(api.POST('/api/auth/password/reset', { body: { phone, code, newPassword: password } })),
-    onSuccess: (tokens) => {
-      applySession(tokens);
-      router.replace(destinationFor(tokens.user, null));
-    },
+    onSuccess: (tokens) => finish(tokens),
+    // The new password is saved; owners and admins still confirm with their authenticator app.
+    onError: (error) => setChallenge(twoFactorChallenge(error)),
   });
+  const finish = (tokens: Parameters<typeof applySession>[0]) => {
+    applySession(tokens);
+    router.replace(destinationFor(tokens.user, null));
+  };
+
+  if (challenge) {
+    return <TwoFactorStep challenge={challenge} onBack={() => router.replace('/login')} onDone={finish} />;
+  }
   const errors = fieldErrors(reset.error);
 
   return (

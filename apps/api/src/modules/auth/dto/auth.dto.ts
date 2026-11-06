@@ -257,6 +257,23 @@ export class AuthTokensDto {
   user: SessionUserDto;
 }
 
+export class VerifyTotpDto {
+  /** challengeToken from the AUTH_TOTP_REQUIRED / AUTH_TOTP_SETUP_REQUIRED error details */
+  @IsString()
+  @MaxLength(2048)
+  challengeToken: string;
+
+  /** 6-digit code from the authenticator app, or a recovery code like "k7m2-x9pq" */
+  @IsString()
+  @MaxLength(32)
+  code: string;
+}
+
+export class TotpVerifiedDto extends AuthTokensDto {
+  /** Only right after setup: one-time recovery codes to keep somewhere safe. Shown once. */
+  recoveryCodes?: string[];
+}
+
 export class VerifyOtpResponseDto {
   @ApiProperty({ enum: ['AUTHENTICATED', 'REGISTRATION_REQUIRED'] })
   status: 'AUTHENTICATED' | 'REGISTRATION_REQUIRED';

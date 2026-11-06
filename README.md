@@ -81,6 +81,9 @@ npm run dev:web                             # terminal 3 — web on http://local
 | Client (Tamerlan) | phone `+7 701 555 01 01` (the SMS code is shown on screen in dev) or `tamerlan@example.com` | `Client2026!` |
 | Parent with a child profile | phone `+7 701 555 01 10` or `aigerim@example.com` | `Client2026!` |
 
+Owner and admin accounts ask you to set up an authenticator app (two-factor sign-in) on the
+first sign-in; to skip it locally set `AUTH_2FA_REQUIRED_ROLES=` (empty) in `apps/api/.env`.
+
 These exist only in the development seed. Never run the seed against a real database
 (it refuses non-local hosts and `NODE_ENV=production`).
 

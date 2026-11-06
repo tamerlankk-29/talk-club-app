@@ -14,6 +14,11 @@ interface RegistrationPayload {
   typ: 'registration';
 }
 
+interface MfaPayload {
+  sub: string;
+  typ: 'mfa';
+}
+
 interface CheckinPayload {
   cid: string;
   typ: 'checkin';
@@ -51,6 +56,21 @@ export class TokenService {
     try {
       const payload = this.jwt.verify<RegistrationPayload>(token);
       return payload.typ === 'registration' ? payload.phone : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /** Proof that the password (or phone code) step passed; exchanged for a session with a 2FA code. */
+  signMfaChallenge(userId: string): string {
+    const payload: MfaPayload = { sub: userId, typ: 'mfa' };
+    return this.jwt.sign(payload, { expiresIn: 10 * 60 });
+  }
+
+  verifyMfaChallenge(token: string): string | null {
+    try {
+      const payload = this.jwt.verify<MfaPayload>(token);
+      return payload.typ === 'mfa' ? payload.sub : null;
     } catch {
       return null;
     }

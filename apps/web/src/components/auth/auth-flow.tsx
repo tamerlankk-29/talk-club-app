@@ -16,6 +16,7 @@ import { useAuth } from '@/lib/auth';
 import { phoneDigitsComplete } from '@/lib/format';
 import { RegistrationForm } from './registration-form';
 import { Turnstile } from './turnstile';
+import { TwoFactorChallenge, twoFactorChallenge, TwoFactorStep } from './two-factor-step';
 
 /** Where to go after signing in: the requested page, else the area the account can use. */
 export function destinationFor(user: SessionUser, next: string | null): string {
@@ -78,7 +79,9 @@ type Step =
   | { name: 'phone' }
   | { name: 'telegram-link'; phone: string; botUrl: string | null }
   | { name: 'code'; phone: string; channel: OtpChannel }
-  | { name: 'register'; phone: string; token: string } | { name: 'password' };
+  | { name: 'register'; phone: string; token: string }
+  | { name: 'password' }
+  | { name: 'two-factor'; challenge: TwoFactorChallenge };
 
 /**
  * Phone-first sign-in: phone → code by SMS or Telegram → (new users) profile details.
@@ -166,6 +169,11 @@ export function AuthFlow({ mode }: { mode: 'login' | 'register' }) {
     },
     onError: (error) => {
       setCode('');
+      const challenge = twoFactorChallenge(error);
+      if (challenge) {
+        setStep({ name: 'two-factor', challenge });
+        return;
+      }
       setCodeError(errorMessage(error));
     },
   });
@@ -192,7 +200,17 @@ export function AuthFlow({ mode }: { mode: 'login' | 'register' }) {
   }
 
   if (step.name === 'password') {
-    return <PasswordLogin onBack={() => setStep({ name: 'phone' })} onDone={finish} />;
+    return (
+      <PasswordLogin
+        onBack={() => setStep({ name: 'phone' })}
+        onDone={finish}
+        onTwoFactor={(challenge) => setStep({ name: 'two-factor', challenge })}
+      />
+    );
+  }
+
+  if (step.name === 'two-factor') {
+    return <TwoFactorStep challenge={step.challenge} onBack={() => setStep({ name: 'phone' })} onDone={finish} />;
   }
 
   const captchaPanel = captcha && (
@@ -357,13 +375,26 @@ export function AuthFlow({ mode }: { mode: 'login' | 'register' }) {
   );
 }
 
-function PasswordLogin({ onBack, onDone }: { onBack: () => void; onDone: (tokens: AuthTokens) => void }) {
+function PasswordLogin({
+  onBack,
+  onDone,
+  onTwoFactor,
+}: {
+  onBack: () => void;
+  onDone: (tokens: AuthTokens) => void;
+  onTwoFactor: (challenge: TwoFactorChallenge) => void;
+}) {
   const [login, setLogin] = useState('');
   const [password, setPassword] = useState('');
   const mutation = useMutation({
     mutationFn: () => call(api.POST('/api/auth/login', { body: { login: login.trim(), password } })),
     onSuccess: onDone,
+    onError: (error) => {
+      const challenge = twoFactorChallenge(error);
+      if (challenge) onTwoFactor(challenge);
+    },
   });
+  const shownError = mutation.error && !twoFactorChallenge(mutation.error) ? mutation.error : null;
   return (
     <>
       <AuthHeader title="Sign in" subtitle="Use your email or phone number and password." onBack={onBack} />
@@ -380,9 +411,9 @@ function PasswordLogin({ onBack, onDone }: { onBack: () => void; onDone: (tokens
         <Field label="Password" htmlFor="password">
           <Input id="password" type="password" autoComplete="current-password" leftIcon={<Lock className="h-4 w-4" />} value={password} onChange={(e) => setPassword(e.target.value)} required />
         </Field>
-        {mutation.error && (
+        {shownError && (
           <InlineAlert tone="danger">
-            {errorCode(mutation.error) === 'AUTH_INVALID_CREDENTIALS' ? 'Wrong login or password.' : errorMessage(mutation.error)}
+            {errorCode(shownError) === 'AUTH_INVALID_CREDENTIALS' ? 'Wrong login or password.' : errorMessage(shownError)}
           </InlineAlert>
         )}
         <Button type="submit" size="lg" block loading={mutation.isPending} disabled={!login || !password}>

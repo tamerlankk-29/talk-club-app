@@ -126,7 +126,8 @@ problem (missing secret, dev-only flags enabled, …).
    ```
 
    Without `ADMIN_PASSWORD` a temporary password is generated and printed once. Add other staff
-   from Admin → Staff & roles.
+   from Admin → Staff & roles. On the first sign-in the owner sets up an authenticator app and
+   saves the recovery codes (two-factor sign-in is required for owners and admins).
 3. Replace the legal templates (Admin → Settings → Legal documents) with lawyer-approved texts.
 4. Fill in the club profile, opening hours, map coordinates, teachers (photos, bios), plans and
    prices, and create the weekly templates (Admin → Schedule → Weekly templates).

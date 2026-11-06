@@ -15,6 +15,7 @@ import { ReferralsService } from '../referrals/referrals.service';
 import { AuthContextService } from './auth-context.service';
 import { RegisterDto, SessionUserDto } from './dto/auth.dto';
 import { OtpChannel, OtpService } from './otp.service';
+import { TwoFactorService } from './two-factor.service';
 import { hashPassword, isStrongPassword, verifyPassword } from './password';
 import { TokenService } from './token.service';
 
@@ -35,6 +36,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly tokens: TokenService,
     private readonly otp: OtpService,
+    private readonly twoFactor: TwoFactorService,
     private readonly authContext: AuthContextService,
     private readonly legal: LegalService,
     private readonly referrals: ReferralsService,
@@ -79,6 +81,7 @@ export class AuthService {
     if (!user.phoneVerifiedAt) {
       await this.prisma.user.update({ where: { id: user.id }, data: { phoneVerifiedAt: this.clock.now() } });
     }
+    await this.twoFactor.gate(user);
     return { status: 'AUTHENTICATED', session: await this.issueSession(user.id) };
   }
 
@@ -185,7 +188,16 @@ export class AuthService {
       throw new DomainError('AUTH_INVALID_CREDENTIALS');
     }
     this.assertActive(user);
+    await this.twoFactor.gate(user);
     return this.issueSession(user.id);
+  }
+
+  /** Second step of a sign-in that asked for an authenticator code. */
+  async verifyTwoFactor(challengeToken: string, code: string): Promise<{ session: IssuedSession; recoveryCodes?: string[] }> {
+    const { userId, recoveryCodes } = await this.twoFactor.verify(challengeToken, code);
+    const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
+    this.assertActive(user);
+    return { session: await this.issueSession(userId), recoveryCodes };
   }
 
   async requestPasswordReset(rawPhone: string, channel?: OtpChannel) {
@@ -212,6 +224,8 @@ export class AuthService {
       this.prisma.authSession.updateMany({ where: { userId: user.id, revokedAt: null }, data: { revokedAt: this.clock.now() } }),
     ]);
     this.authContext.invalidateAll();
+    // A new password alone must not get past two-factor sign-in.
+    await this.twoFactor.gate(user);
     return this.issueSession(user.id);
   }
 
