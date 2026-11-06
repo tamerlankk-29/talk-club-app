@@ -1,6 +1,7 @@
 import { Injectable, Logger, Module } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { ClockService } from '../../common/clock/clock.service';
+import { reportError } from '../../instrument';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AttendanceModule } from '../attendance/attendance.module';
 import { AttendanceService } from '../attendance/attendance.service';
@@ -55,6 +56,7 @@ export class JobsService {
       );
     } catch (error) {
       this.logger.error(`Job ${name} failed: ${(error as Error).message}`, (error as Error).stack);
+      reportError(error, { job: name });
     }
   }
 

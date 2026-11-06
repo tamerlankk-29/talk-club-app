@@ -4,6 +4,9 @@
 #   docker compose up -d --build
 #   docker compose --profile demo run --rm seed   # optional: demo data (never in production)
 #
+# On the production server COMPOSE_PROFILES=production in .env also starts Caddy (HTTPS on
+# ports 80/443) and the nightly backup service. First-time setup: scripts/server-setup.sh.
+#
 # Web: http://localhost:3000 (bound to 127.0.0.1; the TLS reverse proxy on the host serves it publicly)
 # For a public deployment put a TLS reverse proxy in front of "web" (see docs/DEPLOYMENT.md).
 
@@ -78,6 +81,8 @@ services:
       KASPI_API_KEY: ${KASPI_API_KEY:-}
       JOBS_ENABLED: "true"
       API_DOCS_ENABLED: ${API_DOCS_ENABLED:-false}
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      APP_VERSION: ${APP_VERSION:-}
     volumes:
       - uploads:/app/apps/api/uploads
     # Not published by default: the browser reaches the API through the web app's /api proxy.
@@ -100,6 +105,53 @@ services:
       api:
         condition: service_healthy
 
+  # HTTPS reverse proxy (production profile): Let's Encrypt certificates for APP_DOMAIN.
+  caddy:
+    image: caddy:2.10-alpine
+    profiles: ["production"]
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:-localhost}
+      ACME_EMAIL: ${ACME_EMAIL:-}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+
+  # Nightly database and uploads backups (production profile), kept 30 days in ./backups,
+  # with a monthly restore test and Telegram alerts. See deploy/backup.sh.
+  backup:
+    image: postgres:17-alpine
+    profiles: ["production"]
+    restart: unless-stopped
+    entrypoint: ["/bin/sh", "/usr/local/bin/backup.sh"]
+    environment:
+      TZ: Asia/Almaty
+      POSTGRES_USER: ${POSTGRES_USER:-talkclub}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-talkclub}
+      POSTGRES_DB: ${POSTGRES_DB:-talkclub}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-30}
+      BACKUP_AT: ${BACKUP_AT:-02:30}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      ALERT_TELEGRAM_CHAT_ID: ${ALERT_TELEGRAM_CHAT_ID:-}
+      BACKUP_S3_BUCKET: ${BACKUP_S3_BUCKET:-}
+      BACKUP_S3_ENDPOINT: ${BACKUP_S3_ENDPOINT:-}
+      BACKUP_S3_ACCESS_KEY: ${BACKUP_S3_ACCESS_KEY:-}
+      BACKUP_S3_SECRET_KEY: ${BACKUP_S3_SECRET_KEY:-}
+    volumes:
+      - ./deploy/backup.sh:/usr/local/bin/backup.sh:ro
+      - ./backups:/backups
+      - uploads:/uploads:ro
+    depends_on:
+      db:
+        condition: service_healthy
+
   # Demo data for a local or staging trial run — refuses to run with NODE_ENV=production.
   seed:
     profiles: ["demo"]
@@ -119,3 +171,5 @@ services:
 volumes:
   pgdata:
   uploads:
+  caddy_data:
+  caddy_config:
