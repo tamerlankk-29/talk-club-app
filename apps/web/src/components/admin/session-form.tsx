@@ -11,6 +11,8 @@ import { api, call, errorCode, errorMessage, fieldErrors } from '@/lib/api/clien
 import type { S } from '@/lib/api/types';
 import { useAdminGroupTypes, useAdminLevels, useAdminRooms, useAdminTeachers } from '@/lib/admin-queries';
 import { useClub } from '@/lib/queries';
+import { useT } from '@/lib/i18n';
+import { scheduleMessages } from '@/lib/i18n/messages/admin/schedule';
 
 type SessionAdmin = S<'SessionAdminDto'>;
 type Format = S<'SessionFormat'>;
@@ -78,6 +80,7 @@ export function SessionFormDrawer({
   draft?: SessionDraft;
   onSaved?: (session: SessionAdmin) => void;
 }) {
+  const tr = useT(scheduleMessages);
   const qc = useQueryClient();
   const { data: club } = useClub();
   const { data: rooms } = useAdminRooms();
@@ -121,7 +124,7 @@ export function SessionFormDrawer({
     onSuccess: async (saved) => {
       await Promise.all([qc.invalidateQueries({ queryKey: ['admin', 'sessions'] }), qc.invalidateQueries({ queryKey: ['admin', 'session'] }), qc.invalidateQueries({ queryKey: ['admin', 'dashboard'] })]);
       if (saved.warnings.length) toast.warning(saved.warnings.join(' '));
-      else toast.success(session ? 'Session updated.' : 'Session created.');
+      else toast.success(session ? tr.sessionUpdated : tr.sessionCreated);
       onOpenChange(false);
       onSaved?.(saved);
     },
@@ -134,60 +137,60 @@ export function SessionFormDrawer({
     <Drawer
       open={open}
       onOpenChange={onOpenChange}
-      title={session ? 'Edit session' : 'New session'}
+      title={session ? tr.editSession : tr.newSession}
       description={session ? `${session.title} · ${session.localDate} ${session.startTime}` : 'One-off session. Use templates for a weekly schedule.'}
       width="lg"
       footer={
         <>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
-            Cancel
+            {tr.cancel}
           </Button>
           <Button loading={save.isPending} disabled={!form.date || !form.startTime} onClick={() => save.mutate()}>
-            {session ? 'Save changes' : 'Create session'}
+            {session ? tr.saveChanges : tr.createSession}
           </Button>
         </>
       }
     >
       <div className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-3">
-          <Field label="Date" required htmlFor="sf-date" error={errors.date}>
+          <Field label={tr.date} required htmlFor="sf-date" error={errors.date}>
             <Input id="sf-date" type="date" value={form.date} onChange={(e) => set('date', e.target.value)} />
           </Field>
-          <Field label="Start" required htmlFor="sf-time" error={errors.startTime}>
+          <Field label={tr.start} required htmlFor="sf-time" error={errors.startTime}>
             <Input id="sf-time" type="time" step={300} value={form.startTime} onChange={(e) => set('startTime', e.target.value)} />
           </Field>
-          <Field label="Minutes" htmlFor="sf-dur" error={errors.durationMinutes}>
+          <Field label={tr.minutes} htmlFor="sf-dur" error={errors.durationMinutes}>
             <Input id="sf-dur" type="number" min={15} max={480} step={5} value={form.durationMinutes} onChange={(e) => set('durationMinutes', e.target.value)} />
           </Field>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Format" htmlFor="sf-format">
+          <Field label={tr.format} htmlFor="sf-format">
             <Select id="sf-format" value={form.format} onChange={(e) => set('format', e.target.value as Format)}>
-              <option value="OFFLINE">At the club</option>
-              <option value="ONLINE">Online</option>
+              <option value="OFFLINE">{tr.club}</option>
+              <option value="ONLINE">{tr.online}</option>
             </Select>
           </Field>
           {form.format === 'OFFLINE' ? (
-            <Field label="Room" htmlFor="sf-room" error={errors.roomId}>
+            <Field label={tr.room} htmlFor="sf-room" error={errors.roomId}>
               <Select id="sf-room" value={form.roomId} onChange={(e) => set('roomId', e.target.value)}>
-                <option value="">No room yet</option>
+                <option value="">{tr.noRoomYet}</option>
                 {rooms
                   ?.filter((r) => r.isActive)
                   .map((r) => (
                     <option key={r.id} value={r.id}>
-                      {r.name} ({r.capacity} seats)
+                      {r.name} ({tr.seatsCount(r.capacity)})
                     </option>
                   ))}
               </Select>
             </Field>
           ) : (
-            <Field label="Online link" htmlFor="sf-url" error={errors.onlineUrl} hint="Shown to booked clients only">
-              <Input id="sf-url" type="url" placeholder="https://meet.google.com/…" value={form.onlineUrl} onChange={(e) => set('onlineUrl', e.target.value)} />
+            <Field label={tr.onlineLink} htmlFor="sf-url" error={errors.onlineUrl} hint={tr.shownBookedClientsOnly}>
+              <Input id="sf-url" type="url" placeholder={tr.httpsMeetGoogleCom} value={form.onlineUrl} onChange={(e) => set('onlineUrl', e.target.value)} />
             </Field>
           )}
-          <Field label="Teacher" htmlFor="sf-teacher">
+          <Field label={tr.teacher} htmlFor="sf-teacher">
             <Select id="sf-teacher" value={form.teacherId} onChange={(e) => set('teacherId', e.target.value)}>
-              <option value="">Not assigned</option>
+              <option value="">{tr.notAssigned}</option>
               {teachers
                 ?.filter((t) => t.isActive || t.id === form.teacherId)
                 .map((t) => (
@@ -197,7 +200,7 @@ export function SessionFormDrawer({
                 ))}
             </Select>
           </Field>
-          <Field label="Group type" htmlFor="sf-gt">
+          <Field label={tr.groupType} htmlFor="sf-gt">
             <Select id="sf-gt" value={form.groupTypeId} onChange={(e) => set('groupTypeId', e.target.value)}>
               <option value="">—</option>
               {groupTypes?.map((g) => (
@@ -207,9 +210,9 @@ export function SessionFormDrawer({
               ))}
             </Select>
           </Field>
-          <Field label="Level from" htmlFor="sf-lmin">
+          <Field label={tr.level} htmlFor="sf-lmin">
             <Select id="sf-lmin" value={form.levelMinId} onChange={(e) => set('levelMinId', e.target.value)}>
-              <option value="">Any</option>
+              <option value="">{tr.any}</option>
               {levels?.map((l) => (
                 <option key={l.id} value={l.id}>
                   {l.name}
@@ -217,9 +220,9 @@ export function SessionFormDrawer({
               ))}
             </Select>
           </Field>
-          <Field label="Level to" htmlFor="sf-lmax">
+          <Field label={tr.level2} htmlFor="sf-lmax">
             <Select id="sf-lmax" value={form.levelMaxId} onChange={(e) => set('levelMaxId', e.target.value)}>
-              <option value="">Any</option>
+              <option value="">{tr.any}</option>
               {levels?.map((l) => (
                 <option key={l.id} value={l.id}>
                   {l.name}
@@ -227,26 +230,26 @@ export function SessionFormDrawer({
               ))}
             </Select>
           </Field>
-          <Field label="Capacity" htmlFor="sf-cap" error={errors.capacity} hint={hasBookings ? `${session!.booked} already booked` : undefined}>
+          <Field label={tr.capacity} htmlFor="sf-cap" error={errors.capacity} hint={hasBookings ? tr.alreadyBooked(session!.booked) : undefined}>
             <Input id="sf-cap" type="number" min={1} max={50} value={form.capacity} onChange={(e) => set('capacity', e.target.value)} />
           </Field>
-          <Field label="Title" htmlFor="sf-title" hint="Defaults to the group type name">
+          <Field label={tr.title} htmlFor="sf-title" hint={tr.defaultsGroupTypeName}>
             <Input id="sf-title" value={form.title} onChange={(e) => set('title', e.target.value)} maxLength={120} />
           </Field>
         </div>
-        <Field label="Topic" htmlFor="sf-topic" hint="Shown to clients, e.g. “Travel stories”">
+        <Field label={tr.topic} htmlFor="sf-topic" hint={tr.shownClientsEG}>
           <Input id="sf-topic" value={form.topic} onChange={(e) => set('topic', e.target.value)} maxLength={160} />
         </Field>
-        <Field label="Description" htmlFor="sf-desc">
+        <Field label={tr.description} htmlFor="sf-desc">
           <Textarea id="sf-desc" rows={3} value={form.description} onChange={(e) => set('description', e.target.value)} maxLength={2000} />
         </Field>
         <div className="space-y-3">
-          <Checkbox checked={form.trialsAllowed} onChange={(v) => set('trialsAllowed', v)} label="Open for trial sessions" />
-          <Checkbox checked={form.bookingClosed} onChange={(v) => set('bookingClosed', v)} label="Close online booking" description="Staff can still add participants." />
-          {hasBookings && <Checkbox checked={notifyClients} onChange={setNotifyClients} label="Notify booked clients about changes" description="Sent when time, room or teacher changes." />}
+          <Checkbox checked={form.trialsAllowed} onChange={(v) => set('trialsAllowed', v)} label={tr.openTrialSessions} />
+          <Checkbox checked={form.bookingClosed} onChange={(v) => set('bookingClosed', v)} label={tr.closeOnlineBooking} description={tr.staffCanStillAdd} />
+          {hasBookings && <Checkbox checked={notifyClients} onChange={setNotifyClients} label={tr.notifyBookedClientsAbout} description={tr.sentWhenTimeRoom} />}
         </div>
         {save.error && !Object.keys(errors).length && (
-          <InlineAlert tone="danger" title={conflict ? 'Scheduling conflict' : undefined}>
+          <InlineAlert tone="danger" title={conflict ? tr.schedulingConflict : undefined}>
             {errorMessage(save.error)}
           </InlineAlert>
         )}

@@ -35,6 +35,9 @@ import { adminKeys, useAdminTags, useUrlState } from '@/lib/admin-queries';
 import { useCan } from '@/lib/auth';
 import { fmt } from '@/lib/format';
 import { CATEGORY_LABELS, FORMAT_LABELS, TIME_OF_DAY_LABELS, WEEKDAYS_SHORT } from '@/lib/utils';
+import { messagesFor, useT } from '@/lib/i18n';
+import { crmMessages } from '@/lib/i18n/messages/admin/crm';
+import { clientsMessages } from '@/lib/i18n/messages/admin/clients';
 
 type ClientDetail = S<'ClientDetailDto'>;
 
@@ -47,6 +50,7 @@ export default function ClientPage() {
 }
 
 function ClientView() {
+  const tr = useT(clientsMessages);
   const { id } = useParams<{ id: string }>();
   const url = useUrlState();
   const tab = url.get('tab', 'overview');
@@ -66,14 +70,14 @@ function ClientView() {
       <ClientHeader client={c} />
       <Tabs value={tab} onValueChange={(v) => url.set({ tab: v === 'overview' ? null : v })}>
         <TabsList className="max-w-full">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="bookings">Bookings</TabsTrigger>
-          <TabsTrigger value="memberships">Memberships</TabsTrigger>
-          <TabsTrigger value="payments">Payments</TabsTrigger>
-          <TabsTrigger value="activity">Activity</TabsTrigger>
-          <TabsTrigger value="tasks">Tasks{c.openTasks ? ` (${c.openTasks})` : ''}</TabsTrigger>
-          <TabsTrigger value="feedback">Feedback</TabsTrigger>
-          <TabsTrigger value="privacy">Family & privacy</TabsTrigger>
+          <TabsTrigger value="overview">{tr.overview}</TabsTrigger>
+          <TabsTrigger value="bookings">{tr.bookings}</TabsTrigger>
+          <TabsTrigger value="memberships">{tr.memberships}</TabsTrigger>
+          <TabsTrigger value="payments">{tr.payments}</TabsTrigger>
+          <TabsTrigger value="activity">{tr.activity}</TabsTrigger>
+          <TabsTrigger value="tasks">{tr.tasksTab}{c.openTasks ? ` (${c.openTasks})` : ''}</TabsTrigger>
+          <TabsTrigger value="feedback">{tr.feedback}</TabsTrigger>
+          <TabsTrigger value="privacy">{tr.familyPrivacy}</TabsTrigger>
         </TabsList>
         <TabsContent value="overview">
           <Overview client={c} />
@@ -105,6 +109,7 @@ function ClientView() {
 }
 
 function ClientHeader({ client: c }: { client: ClientDetail }) {
+  const tr = useT(clientsMessages);
   const canManage = useCan('clients.manage');
   const canPay = useCan('payments.manage');
   const [editing, setEditing] = useState(false);
@@ -120,8 +125,8 @@ function ClientHeader({ client: c }: { client: ClientDetail }) {
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="truncate font-display text-2xl font-semibold">{p.fullName}</h1>
             {c.status !== 'ACTIVE' && <StatusBadge status={c.status} />}
-            {c.lead && <Badge tone="brand">{c.lead.stageLabel}</Badge>}
-            {c.deletionRequestedAt && <Badge tone="danger">Deletion requested</Badge>}
+            {c.lead && <Badge tone="brand">{messagesFor(crmMessages).stages[c.lead.stage] ?? c.lead.stageLabel}</Badge>}
+            {c.deletionRequestedAt && <Badge tone="danger">{tr.deletionRequested}</Badge>}
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted">
             {p.phone && (
@@ -131,7 +136,7 @@ function ClientHeader({ client: c }: { client: ClientDetail }) {
             )}
             {p.phone && (
               <a href={`https://wa.me/${p.phone.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="font-semibold text-[#128C7E] hover:underline">
-                WhatsApp
+                {tr.whatsapp}
               </a>
             )}
             {p.email && (
@@ -141,7 +146,7 @@ function ClientHeader({ client: c }: { client: ClientDetail }) {
             )}
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-1.5">
-            <Badge tone="brand">{p.level?.name ?? 'Level not set'}</Badge>
+            <Badge tone="brand">{p.level?.name ?? tr.levelNotSet}</Badge>
             <Badge>{CATEGORY_LABELS[p.category] ?? p.category}</Badge>
             {c.tags.map((t) => (
               <span key={t.id} className="rounded-full px-2.5 py-0.5 text-xs font-semibold" style={{ background: `${t.color ?? '#6d28d9'}1f`, color: t.color ?? '#6d28d9' }}>
@@ -150,7 +155,7 @@ function ClientHeader({ client: c }: { client: ClientDetail }) {
             ))}
             {canManage && (
               <button type="button" onClick={() => setTagging(true)} className="inline-flex items-center gap-1 rounded-full border border-dashed border-line px-2.5 py-0.5 text-xs font-semibold text-muted hover:border-brand-300">
-                <Tag className="h-3 w-3" /> Tags
+                <Tag className="h-3 w-3" /> {tr.tagsButton}
               </button>
             )}
           </div>
@@ -163,20 +168,20 @@ function ClientHeader({ client: c }: { client: ClientDetail }) {
               <p className="font-semibold text-brand-900">
                 {m.planName} · {m.visitsRemaining}/{m.visitsCredited} visits
               </p>
-              <p className="text-xs text-brand-900/70">until {fmt.date(m.expiresAt)}</p>
+              <p className="text-xs text-brand-900/70">{tr.untilDate(fmt.date(m.expiresAt))}</p>
             </>
           ) : (
-            <p className="font-semibold text-brand-900">No active membership</p>
+            <p className="font-semibold text-brand-900">{tr.noActiveMembership}</p>
           )}
         </div>
         {canPay && (
           <Button size="sm" leftIcon={<CreditCard className="h-4 w-4" />} onClick={() => setPaying(true)}>
-            Payment request
+            {tr.paymentRequest}
           </Button>
         )}
         {canManage && (
           <Button size="sm" variant="outline" leftIcon={<Pencil className="h-4 w-4" />} onClick={() => setEditing(true)}>
-            Edit
+            {tr.edit}
           </Button>
         )}
       </div>
@@ -188,6 +193,7 @@ function ClientHeader({ client: c }: { client: ClientDetail }) {
 }
 
 function TagsDialog({ client, open, onOpenChange }: { client: ClientDetail; open: boolean; onOpenChange: (o: boolean) => void }) {
+  const tr = useT(clientsMessages);
   const qc = useQueryClient();
   const { data: tags } = useAdminTags();
   const [selected, setSelected] = useState<string[]>(client.tags.map((t) => t.id));
@@ -219,15 +225,15 @@ function TagsDialog({ client, open, onOpenChange }: { client: ClientDetail; open
     <Modal
       open={open}
       onOpenChange={onOpenChange}
-      title="Tags"
+      title={tr.tags}
       size="sm"
       footer={
         <>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
-            Cancel
+            {tr.cancel}
           </Button>
           <Button loading={save.isPending} onClick={() => save.mutate()}>
-            Save
+            {tr.save}
           </Button>
         </>
       }
@@ -239,9 +245,9 @@ function TagsDialog({ client, open, onOpenChange }: { client: ClientDetail; open
           ))}
         </div>
         <div className="flex gap-2">
-          <Input value={newTag} onChange={(e) => setNewTag(e.target.value)} placeholder="New tag" className="h-10" maxLength={40} />
+          <Input value={newTag} onChange={(e) => setNewTag(e.target.value)} placeholder={tr.newTag} className="h-10" maxLength={40} />
           <Button variant="outline" size="sm" className="h-10" disabled={!newTag.trim()} loading={create.isPending} onClick={() => create.mutate()}>
-            Add
+            {tr.add}
           </Button>
         </div>
       </div>
@@ -250,6 +256,7 @@ function TagsDialog({ client, open, onOpenChange }: { client: ClientDetail; open
 }
 
 function Overview({ client: c }: { client: ClientDetail }) {
+  const tr = useT(clientsMessages);
   const stats = useQuery({
     queryKey: ['admin', 'client', c.profile.id, 'stats'],
     queryFn: () => call(api.GET('/api/admin/clients/{id}/stats', { params: { path: { id: c.profile.id } } })),
@@ -260,12 +267,12 @@ function Overview({ client: c }: { client: ClientDetail }) {
     <div className="grid gap-6 xl:grid-cols-3">
       <div className="space-y-6 xl:col-span-2">
         <div className="grid gap-3 sm:grid-cols-4">
-          <Mini label="Attended" value={s?.sessionsAttended} />
-          <Mini label="Attendance rate" value={s ? `${s.attendanceRate}%` : undefined} />
-          <Mini label="No-shows" value={s?.noShows} />
-          <Mini label="Late cancels" value={s?.lateCancelled} />
+          <Mini label={tr.attended} value={s?.sessionsAttended} />
+          <Mini label={tr.attendanceRate} value={s ? `${s.attendanceRate}%` : undefined} />
+          <Mini label={tr.noShows} value={s?.noShows} />
+          <Mini label={tr.lateCancels} value={s?.lateCancelled} />
         </div>
-        <Section title="Upcoming sessions">
+        <Section title={tr.upcomingSessions}>
           <Card padded={false} className="divide-y divide-line/70">
             {c.upcomingBookings.length ? (
               c.upcomingBookings.map((b) => (
@@ -277,15 +284,15 @@ function Overview({ client: c }: { client: ClientDetail }) {
                     · {b.title}
                     {b.teacherName ? ` · ${b.teacherName}` : ''}
                   </span>
-                  {b.kind === 'TRIAL' && <Badge tone="zest">Trial</Badge>}
+                  {b.kind === 'TRIAL' && <Badge tone="zest">{tr.trial}</Badge>}
                 </Link>
               ))
             ) : (
-              <p className="px-5 py-4 text-sm text-muted">No upcoming bookings.</p>
+              <p className="px-5 py-4 text-sm text-muted">{tr.noUpcomingBookings}</p>
             )}
           </Card>
         </Section>
-        <Section title="Notes">
+        <Section title={tr.notes}>
           <NoteComposer clientId={p.id} />
           {c.notes && <p className="whitespace-pre-line rounded-2xl bg-warning-50 p-4 text-sm text-warning-700">{c.notes}</p>}
         </Section>
@@ -294,23 +301,23 @@ function Overview({ client: c }: { client: ClientDetail }) {
         <Card>
           <KeyValue
             items={[
-              { label: 'Registered', value: fmt.date(p.registeredAt) },
-              { label: 'Date of birth', value: p.birthDate ? fmt.date(`${p.birthDate}T12:00:00Z`) : '—' },
-              { label: 'Days', value: p.preferredDays.length ? p.preferredDays.map((d) => WEEKDAYS_SHORT[d]).join(', ') : '—' },
-              { label: 'Time', value: p.preferredTimes.length ? p.preferredTimes.map((t) => TIME_OF_DAY_LABELS[t]).join(', ') : '—' },
-              { label: 'Format', value: FORMAT_LABELS[p.formatPreference] ?? '—' },
-              { label: 'Favourite teachers', value: p.preferredTeachers.map((t) => t.name).join(', ') || '—' },
-              { label: 'Source', value: c.lead?.source ?? '—' },
-              { label: 'App account', value: c.account?.hasAccount ? (c.account.lastLoginAt ? `last login ${fmt.relative(c.account.lastLoginAt)}` : 'yes') : 'no' },
-              { label: 'Marketing consent', value: p.marketingConsent ? 'yes' : 'no' },
-              ...(s?.favoriteTeacher ? [{ label: 'Most visited teacher', value: `${s.favoriteTeacher.name} (${s.favoriteTeacher.sessions})` }] : []),
-              ...(s?.lastVisitAt ? [{ label: 'Last visit', value: fmt.date(s.lastVisitAt) }] : []),
+              { label: tr.registered, value: fmt.date(p.registeredAt) },
+              { label: tr.dateBirth, value: p.birthDate ? fmt.date(`${p.birthDate}T12:00:00Z`) : '—' },
+              { label: tr.days, value: p.preferredDays.length ? p.preferredDays.map((d) => WEEKDAYS_SHORT[d]).join(', ') : '—' },
+              { label: tr.time, value: p.preferredTimes.length ? p.preferredTimes.map((t) => TIME_OF_DAY_LABELS[t]).join(', ') : '—' },
+              { label: tr.format, value: FORMAT_LABELS[p.formatPreference] ?? '—' },
+              { label: tr.favouriteTeachers, value: p.preferredTeachers.map((t) => t.name).join(', ') || '—' },
+              { label: tr.source, value: c.lead?.source ?? '—' },
+              { label: tr.appAccount, value: c.account?.hasAccount ? (c.account.lastLoginAt ? tr.lastLogin(fmt.relative(c.account.lastLoginAt)) : tr.yes) : tr.no },
+              { label: tr.marketingConsent, value: p.marketingConsent ? tr.yes : tr.no },
+              ...(s?.favoriteTeacher ? [{ label: tr.mostVisitedTeacher, value: `${s.favoriteTeacher.name} (${s.favoriteTeacher.sessions})` }] : []),
+              ...(s?.lastVisitAt ? [{ label: tr.lastVisit, value: fmt.date(s.lastVisitAt) }] : []),
             ]}
           />
         </Card>
         {c.referral.referredBy && (
           <Card className="text-sm">
-            Referred by{' '}
+            {tr.referredBy}{' '}
             <Link className="font-semibold text-brand-700" href={`/admin/clients/${c.referral.referredBy.id}`}>
               {c.referral.referredBy.name}
             </Link>
@@ -331,15 +338,16 @@ function Mini({ label, value }: { label: string; value: ReactNode }) {
 }
 
 function BookingsTab({ client: c }: { client: ClientDetail }) {
+  const tr = useT(clientsMessages);
   return (
     <div className="space-y-6">
       <InlineAlert tone="info" icon={<CalendarPlus className="h-5 w-5" />}>
-        To book this client into a session, open the session in the schedule and use <span className="font-semibold">Add participant</span>.
+        {tr.toBookClient} <span className="font-semibold">{tr.addParticipant}</span>.
       </InlineAlert>
-      <Section title="Upcoming">
+      <Section title={tr.upcoming}>
         <BookingRows rows={c.upcomingBookings.map((b) => ({ ...b, status: 'BOOKED', visitReturned: false }))} />
       </Section>
-      <Section title="Recent">
+      <Section title={tr.recent}>
         <BookingRows rows={c.recentBookings} />
       </Section>
     </div>
@@ -347,7 +355,8 @@ function BookingsTab({ client: c }: { client: ClientDetail }) {
 }
 
 function BookingRows({ rows }: { rows: Array<{ id: string; sessionId: string; startsAt: string; title: string; teacherName: string | null; kind: string; status: string; visitReturned: boolean }> }) {
-  if (!rows.length) return <p className="text-sm text-muted">Nothing here.</p>;
+  const tr = useT(clientsMessages);
+  if (!rows.length) return <p className="text-sm text-muted">{tr.nothingHere}</p>;
   return (
     <Card padded={false} className="divide-y divide-line/70">
       {rows.map((b) => (
@@ -360,8 +369,8 @@ function BookingRows({ rows }: { rows: Array<{ id: string; sessionId: string; st
             {b.teacherName ? ` · ${b.teacherName}` : ''}
           </span>
           <span className="flex items-center gap-2">
-            {b.kind === 'TRIAL' && <Badge tone="zest">Trial</Badge>}
-            {b.visitReturned && <span className="text-xs text-muted">visit returned</span>}
+            {b.kind === 'TRIAL' && <Badge tone="zest">{tr.trial}</Badge>}
+            {b.visitReturned && <span className="text-xs text-muted">{tr.visitReturned}</span>}
             <StatusBadge status={b.status} />
           </span>
         </Link>
@@ -371,6 +380,7 @@ function BookingRows({ rows }: { rows: Array<{ id: string; sessionId: string; st
 }
 
 function MembershipsTab({ client: c }: { client: ClientDetail }) {
+  const tr = useT(clientsMessages);
   const canManage = useCan('memberships.manage');
   const [granting, setGranting] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -379,19 +389,19 @@ function MembershipsTab({ client: c }: { client: ClientDetail }) {
       {canManage && (
         <div className="flex justify-end">
           <Button size="sm" variant="outline" leftIcon={<Gift className="h-4 w-4" />} onClick={() => setGranting(true)}>
-            Grant membership
+            {tr.grantMembership}
           </Button>
         </div>
       )}
       {c.memberships.length === 0 ? (
-        <EmptyState icon={<Ticket className="h-7 w-7" />} title="No memberships yet" description="Create a payment request to sell one." />
+        <EmptyState icon={<Ticket className="h-7 w-7" />} title={tr.noMembershipsYet} description={tr.createPaymentRequestSell} />
       ) : (
         <Card padded={false} className="divide-y divide-line/70">
           {c.memberships.map((m) => (
             <button key={m.id} type="button" onClick={() => setOpenId(m.id)} className="flex w-full flex-wrap items-center gap-4 px-5 py-4 text-left text-sm hover:bg-brand-50/40">
               <div className="min-w-0 flex-1">
                 <p className="font-semibold">
-                  {m.planName} {m.isRenewal && <span className="text-xs font-medium text-muted">· renewal</span>}
+                  {m.planName} {m.isRenewal && <span className="text-xs font-medium text-muted">{tr.renewal}</span>}
                 </p>
                 <p className="text-muted">
                   {fmt.date(m.startsAt)} – {fmt.date(m.expiresAt)}
@@ -415,15 +425,16 @@ function MembershipsTab({ client: c }: { client: ClientDetail }) {
 }
 
 function PaymentsTab({ client: c }: { client: ClientDetail }) {
+  const tr = useT(clientsMessages);
   const canPay = useCan('payments.manage');
   const [confirming, setConfirming] = useState<ClientDetail['payments'][number] | null>(null);
-  if (!c.payments.length) return <EmptyState icon={<CreditCard className="h-7 w-7" />} title="No payments yet" />;
+  if (!c.payments.length) return <EmptyState icon={<CreditCard className="h-7 w-7" />} title={tr.noPaymentsYet} />;
   return (
     <Card padded={false} className="divide-y divide-line/70">
       {c.payments.map((p) => (
         <div key={p.id} className="flex flex-wrap items-center gap-4 px-5 py-3.5 text-sm">
           <div className="min-w-0 flex-1">
-            <p className="font-semibold">{p.description ?? 'Payment'}</p>
+            <p className="font-semibold">{p.description ?? tr.paymentFallback}</p>
             <p className="text-muted">
               {fmt.dateTime(p.paidAt ?? p.createdAt)} · {p.method}
             </p>
@@ -432,11 +443,11 @@ function PaymentsTab({ client: c }: { client: ClientDetail }) {
           <StatusBadge status={p.status} />
           {canPay && p.status === 'PENDING' && (
             <Button size="xs" onClick={() => setConfirming(p)}>
-              Confirm
+              {tr.confirm}
             </Button>
           )}
           <Link href={`/admin/payments?id=${p.id}`} className="text-xs font-semibold text-brand-700">
-            Open
+            {tr.open}
           </Link>
         </div>
       ))}
@@ -446,13 +457,14 @@ function PaymentsTab({ client: c }: { client: ClientDetail }) {
 }
 
 function ActivityTab({ client: c }: { client: ClientDetail }) {
+  const tr = useT(clientsMessages);
   const timeline = useQuery({
     queryKey: ['admin', 'client', c.profile.id, 'timeline'],
     queryFn: () => call(api.GET('/api/admin/clients/{id}/timeline', { params: { path: { id: c.profile.id }, query: { limit: 100 } } })),
   });
   return (
     <div className="grid gap-6 xl:grid-cols-2">
-      <Section title="Timeline">
+      <Section title={tr.timeline}>
         <NoteComposer clientId={c.profile.id} />
         <Card padded={false} className="divide-y divide-line/70">
           {timeline.isLoading ? (
@@ -468,11 +480,11 @@ function ActivityTab({ client: c }: { client: ClientDetail }) {
               </div>
             ))
           ) : (
-            <p className="px-5 py-4 text-sm text-muted">No activity yet.</p>
+            <p className="px-5 py-4 text-sm text-muted">{tr.noActivityYet}</p>
           )}
         </Card>
       </Section>
-      <Section title="Communications">
+      <Section title={tr.communications}>
         <CommunicationLog clientId={c.profile.id} />
       </Section>
     </div>
@@ -480,18 +492,19 @@ function ActivityTab({ client: c }: { client: ClientDetail }) {
 }
 
 function FeedbackTab({ clientId }: { clientId: string }) {
+  const tr = useT(clientsMessages);
   const { data, isLoading } = useQuery({
     queryKey: ['admin', 'feedback', clientId],
     queryFn: () => call(api.GET('/api/admin/feedback', { params: { query: { clientId } } })),
   });
   if (isLoading) return <Skeleton className="h-40 w-full" />;
-  if (!data?.length) return <EmptyState icon={<MessageSquarePlus className="h-7 w-7" />} title="No feedback yet" description="Teachers leave feedback after sessions." />;
+  if (!data?.length) return <EmptyState icon={<MessageSquarePlus className="h-7 w-7" />} title={tr.noFeedbackYet} description={tr.teachersLeaveFeedbackAfter} />;
   return (
     <div className="grid gap-3 lg:grid-cols-2">
       {data.map((f) => (
         <Card key={f.id} className="space-y-2 text-sm">
           <div className="flex items-center justify-between gap-2">
-            <p className="font-semibold">{f.teacher?.name ?? 'Teacher'}</p>
+            <p className="font-semibold">{f.teacher?.name ?? tr.teacherFallback}</p>
             <span className="text-xs text-muted">
               {f.sessionTitle} · {fmt.weekdayDate(f.sessionStartsAt)}
             </span>
@@ -505,7 +518,7 @@ function FeedbackTab({ clientId }: { clientId: string }) {
                   {k} {v}/5
                 </span>
               ))}
-            {!f.isVisibleToClient && <Badge>hidden from client</Badge>}
+            {!f.isVisibleToClient && <Badge>{tr.hiddenClient}</Badge>}
           </div>
         </Card>
       ))}
@@ -514,6 +527,7 @@ function FeedbackTab({ clientId }: { clientId: string }) {
 }
 
 function PrivacyTab({ client: c }: { client: ClientDetail }) {
+  const tr = useT(clientsMessages);
   const qc = useQueryClient();
   const canManage = useCan('clients.manage');
   const canDelete = useCan('clients.delete');
@@ -531,7 +545,7 @@ function PrivacyTab({ client: c }: { client: ClientDetail }) {
     onSuccess: async () => {
       await refresh();
       setGuardianOpen(false);
-      toast.success('Parent / guardian linked.');
+      toast.success(tr.parentGuardianLinked);
     },
   });
   const archive = useMutation({
@@ -550,7 +564,7 @@ function PrivacyTab({ client: c }: { client: ClientDetail }) {
     onSuccess: async () => {
       await refresh();
       setAnonOpen(false);
-      toast.success('Personal data anonymized.');
+      toast.success(tr.personalDataAnonymized);
     },
     onError: toastError,
   });
@@ -558,11 +572,11 @@ function PrivacyTab({ client: c }: { client: ClientDetail }) {
   return (
     <div className="grid gap-6 xl:grid-cols-2">
       <Section
-        title="Family"
+        title={tr.family}
         action={
           canManage && (
             <Button size="sm" variant="outline" leftIcon={<UserRoundPlus className="h-4 w-4" />} onClick={() => setGuardianOpen(true)}>
-              Link parent
+              {tr.linkParent}
             </Button>
           )
         }
@@ -575,16 +589,16 @@ function PrivacyTab({ client: c }: { client: ClientDetail }) {
           ))}
           {c.children.map((ch) => (
             <p key={ch.id}>
-              Parent of{' '}
+              {tr.parentOf}{' '}
               <Link className="font-semibold text-brand-700" href={`/admin/clients/${ch.id}`}>
                 {ch.name}
               </Link>
             </p>
           ))}
-          {!c.guardians.length && !c.children.length && <p className="text-muted">No linked family members.</p>}
+          {!c.guardians.length && !c.children.length && <p className="text-muted">{tr.noLinkedFamilyMembers}</p>}
         </Card>
       </Section>
-      <Section title="Consents">
+      <Section title={tr.consents}>
         <Card padded={false} className="divide-y divide-line/70">
           {c.consents.length ? (
             c.consents.map((k, i) => (
@@ -598,26 +612,26 @@ function PrivacyTab({ client: c }: { client: ClientDetail }) {
               </div>
             ))
           ) : (
-            <p className="px-5 py-4 text-sm text-muted">No consents recorded (client created by staff).</p>
+            <p className="px-5 py-4 text-sm text-muted">{tr.noConsentsRecordedClient}</p>
           )}
         </Card>
       </Section>
-      <Section title="Account actions">
+      <Section title={tr.accountActions}>
         <Card className="space-y-3">
           {c.deletionRequestedAt && (
-            <InlineAlert tone="danger" title="The client asked to delete their data">
-              Requested {fmt.dateTime(c.deletionRequestedAt)}. Anonymize the profile to complete the request.
+            <InlineAlert tone="danger" title={tr.clientAskedDeleteTheir}>
+              {tr.requestedAnonymize(fmt.dateTime(c.deletionRequestedAt))}
             </InlineAlert>
           )}
           <div className="flex flex-wrap gap-2">
             {canDelete && c.status !== 'ANONYMIZED' && (
               <Button variant="outline" size="sm" leftIcon={c.status === 'ARCHIVED' ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />} onClick={() => setArchiveOpen(true)}>
-                {c.status === 'ARCHIVED' ? 'Restore client' : 'Archive client'}
+                {c.status === 'ARCHIVED' ? tr.restoreClient : tr.archiveClient}
               </Button>
             )}
             {canDelete && c.status !== 'ANONYMIZED' && (
               <Button variant="ghost" size="sm" className="text-danger-700" leftIcon={<ShieldX className="h-4 w-4" />} onClick={() => setAnonOpen(true)}>
-                Anonymize (GDPR)
+                {tr.anonymizeGdpr}
               </Button>
             )}
           </div>
@@ -627,26 +641,26 @@ function PrivacyTab({ client: c }: { client: ClientDetail }) {
       <Modal
         open={guardianOpen}
         onOpenChange={setGuardianOpen}
-        title="Link a parent or guardian"
-        description="They will be able to book and pay for this client from their own app account."
+        title={tr.linkParentGuardian}
+        description={tr.theyWillAbleBook}
         size="sm"
         footer={
           <>
             <Button variant="ghost" onClick={() => setGuardianOpen(false)}>
-              Cancel
+              {tr.cancel}
             </Button>
             <Button loading={link.isPending} onClick={() => link.mutate()}>
-              Link
+              {tr.link}
             </Button>
           </>
         }
       >
         <div className="space-y-4">
-          <Field label="Parent's phone" htmlFor="g-phone">
+          <Field label={tr.parentsPhone} htmlFor="g-phone">
             <PhoneInput id="g-phone" value={guardianPhone} onChange={setGuardianPhone} />
           </Field>
-          <Field label="Relationship" htmlFor="g-rel">
-            <Input id="g-rel" value={relationship} onChange={(e) => setRelationship(e.target.value)} placeholder="Mother, father…" />
+          <Field label={tr.relationship} htmlFor="g-rel">
+            <Input id="g-rel" value={relationship} onChange={(e) => setRelationship(e.target.value)} placeholder={tr.motherFather} />
           </Field>
           {link.error && <InlineAlert tone="danger">{errorMessage(link.error)}</InlineAlert>}
         </div>
@@ -654,24 +668,24 @@ function PrivacyTab({ client: c }: { client: ClientDetail }) {
       <ConfirmDialog
         open={archiveOpen}
         onOpenChange={setArchiveOpen}
-        title={c.status === 'ARCHIVED' ? 'Restore this client?' : 'Archive this client?'}
-        description={c.status === 'ARCHIVED' ? 'The client will appear in lists again.' : 'Archived clients are hidden from lists and campaigns. History is kept.'}
-        confirmLabel={c.status === 'ARCHIVED' ? 'Restore' : 'Archive'}
+        title={c.status === 'ARCHIVED' ? tr.restoreClient2 : tr.archiveClient2}
+        description={c.status === 'ARCHIVED' ? tr.clientWillAppearLists : tr.archivedClientsHiddenLists}
+        confirmLabel={c.status === 'ARCHIVED' ? tr.restore : tr.archive}
         loading={archive.isPending}
         onConfirm={() => archive.mutate()}
       />
       <ConfirmDialog
         open={anonOpen}
         onOpenChange={setAnonOpen}
-        title="Anonymize personal data?"
-        description="Name, phone, email, birth date, photo and notes are erased permanently. Bookings and payments stay for accounting, without personal data. This cannot be undone."
-        confirmLabel="Anonymize"
+        title={tr.anonymizePersonalData}
+        description={tr.namePhoneEmailBirth}
+        confirmLabel={tr.anonymize}
         tone="danger"
         loading={anonymize.isPending}
         disabled={anonReason.trim().length < 3}
         onConfirm={() => anonymize.mutate()}
       >
-        <Textarea placeholder="Reason (e.g. client's deletion request of 1 Oct)" rows={2} value={anonReason} onChange={(e) => setAnonReason(e.target.value)} />
+        <Textarea placeholder={tr.reasonEGClients} rows={2} value={anonReason} onChange={(e) => setAnonReason(e.target.value)} />
       </ConfirmDialog>
     </div>
   );

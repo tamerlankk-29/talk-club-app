@@ -13,6 +13,8 @@ import { useAdminPlans } from '@/lib/admin-queries';
 import { useCan } from '@/lib/auth';
 import { clubNow, fmt } from '@/lib/format';
 import { cn } from '@/lib/utils';
+import { useT } from '@/lib/i18n';
+import { moneyMessages } from '@/lib/i18n/messages/admin/money';
 
 type Membership = S<'MembershipDto'>;
 export type MembershipAction = 'extend' | 'expiry' | 'adjust' | 'cancel';
@@ -30,6 +32,7 @@ function useInvalidateMemberships() {
 
 /** Give a client a membership without payment (gift, compensation, migration). */
 export function GrantMembershipDrawer({ open, onOpenChange, clientId, clientName }: { open: boolean; onOpenChange: (o: boolean) => void; clientId: string; clientName: string }) {
+  const tr = useT(moneyMessages);
   const invalidate = useInvalidateMemberships();
   const { data: plans } = useAdminPlans();
   const [planId, setPlanId] = useState('');
@@ -47,7 +50,7 @@ export function GrantMembershipDrawer({ open, onOpenChange, clientId, clientName
       ),
     onSuccess: async () => {
       await invalidate();
-      toast.success('Membership granted.');
+      toast.success(tr.membershipGranted);
       onOpenChange(false);
     },
   });
@@ -55,44 +58,44 @@ export function GrantMembershipDrawer({ open, onOpenChange, clientId, clientName
     <Drawer
       open={open}
       onOpenChange={onOpenChange}
-      title="Grant membership"
+      title={tr.grantMembership}
       description={`${clientName} · no payment is recorded`}
       footer={
         <>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
-            Cancel
+            {tr.cancel}
           </Button>
           <Button loading={grant.isPending} disabled={!planId || reason.trim().length < 3} onClick={() => grant.mutate()}>
-            Grant
+            {tr.grant}
           </Button>
         </>
       }
     >
       <div className="space-y-4">
-        <InlineAlert tone="info">To sell a membership, create a payment request instead — the membership activates when it is paid.</InlineAlert>
-        <Field label="Plan" required htmlFor="gm-plan">
+        <InlineAlert tone="info">{tr.sellMembershipCreatePayment}</InlineAlert>
+        <Field label={tr.plan} required htmlFor="gm-plan">
           <Select id="gm-plan" value={planId} onChange={(e) => setPlanId(e.target.value)}>
-            <option value="">Choose…</option>
+            <option value="">{tr.choose}</option>
             {plans?.map((p) => (
               <option key={p.id} value={p.id}>
-                {p.name} — {p.visits} visits, {p.validityDays} days
+                {tr.planOption(p.name, p.visits, p.validityDays)}
               </option>
             ))}
           </Select>
         </Field>
-        <Field label="Starts on" htmlFor="gm-start">
+        <Field label={tr.starts} htmlFor="gm-start">
           <Input id="gm-start" type="date" value={startsAt} onChange={(e) => setStartsAt(e.target.value)} />
         </Field>
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Visits" htmlFor="gm-visits" hint={plan ? `Plan: ${plan.visits}` : undefined}>
+          <Field label={tr.visits} htmlFor="gm-visits" hint={plan ? `Plan: ${plan.visits}` : undefined}>
             <Input id="gm-visits" type="number" min={1} value={visits} onChange={(e) => setVisits(e.target.value)} />
           </Field>
-          <Field label="Valid for, days" htmlFor="gm-days" hint={plan ? `Plan: ${plan.validityDays}` : undefined}>
+          <Field label={tr.validDays} htmlFor="gm-days" hint={plan ? `Plan: ${plan.validityDays}` : undefined}>
             <Input id="gm-days" type="number" min={1} value={validityDays} onChange={(e) => setValidityDays(e.target.value)} />
           </Field>
         </div>
-        <Field label="Reason" required htmlFor="gm-reason" hint="Recorded in the visit ledger and audit log">
-          <Textarea id="gm-reason" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Compensation for a cancelled session" />
+        <Field label={tr.reason} required htmlFor="gm-reason" hint={tr.recordedVisitLedgerAudit}>
+          <Textarea id="gm-reason" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} placeholder={tr.eGCompensationCancelled} />
         </Field>
         {grant.error && <InlineAlert tone="danger">{errorMessage(grant.error)}</InlineAlert>}
       </div>
@@ -102,6 +105,7 @@ export function GrantMembershipDrawer({ open, onOpenChange, clientId, clientName
 
 /** Extend, change expiry, adjust visits or cancel — every change needs a reason (ledger + audit log). */
 export function MembershipActionDialog({ membership, action, open, onOpenChange }: { membership: Membership; action: MembershipAction; open: boolean; onOpenChange: (o: boolean) => void }) {
+  const tr = useT(moneyMessages);
   const invalidate = useInvalidateMemberships();
   const [days, setDays] = useState('7');
   const [expiresOn, setExpiresOn] = useState(membership.expiresOn);
@@ -124,15 +128,15 @@ export function MembershipActionDialog({ membership, action, open, onOpenChange 
     },
     onSuccess: async () => {
       await invalidate();
-      toast.success('Membership updated.');
+      toast.success(tr.membershipUpdated);
       onOpenChange(false);
     },
   });
   const titles: Record<MembershipAction, string> = {
-    extend: 'Extend membership',
-    expiry: 'Change expiry date',
-    adjust: 'Adjust visits',
-    cancel: 'Cancel membership?',
+    extend: tr.extendMembership,
+    expiry: tr.changeExpiryDate,
+    adjust: tr.adjustVisits,
+    cancel: tr.cancelMembershipQ,
   };
   const invalid = reason.trim().length < 3 || (action === 'adjust' && (!Number(delta) || membership.visitsRemaining + Number(delta) < 0)) || (action === 'extend' && !(Number(days) > 0));
   return (
@@ -140,37 +144,37 @@ export function MembershipActionDialog({ membership, action, open, onOpenChange 
       open={open}
       onOpenChange={onOpenChange}
       title={titles[action]}
-      description={`${membership.planName} · ${membership.visitsRemaining} visits left · until ${fmt.date(membership.expiresAt)}`}
+      description={tr.membershipSummary(membership.planName, membership.visitsRemaining, fmt.date(membership.expiresAt))}
       size="sm"
       footer={
         <>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
-            Back
+            {tr.back}
           </Button>
           <Button variant={action === 'cancel' ? 'danger' : 'primary'} loading={run.isPending} disabled={invalid} onClick={() => run.mutate()}>
-            {action === 'cancel' ? 'Cancel membership' : 'Save'}
+            {action === 'cancel' ? tr.cancelMembership : tr.save}
           </Button>
         </>
       }
     >
       <div className="space-y-4">
         {action === 'extend' && (
-          <Field label="Add days" htmlFor="ma-days">
+          <Field label={tr.addDays} htmlFor="ma-days">
             <Input id="ma-days" type="number" min={1} max={365} value={days} onChange={(e) => setDays(e.target.value)} />
           </Field>
         )}
         {action === 'expiry' && (
-          <Field label="New last day" htmlFor="ma-exp">
+          <Field label={tr.newLastDay} htmlFor="ma-exp">
             <Input id="ma-exp" type="date" value={expiresOn} onChange={(e) => setExpiresOn(e.target.value)} />
           </Field>
         )}
         {action === 'adjust' && (
-          <Field label="Change in visits" htmlFor="ma-delta" hint="Use a negative number to remove visits">
+          <Field label={tr.changeVisits} htmlFor="ma-delta" hint={tr.useNegativeNumberRemove}>
             <Input id="ma-delta" type="number" value={delta} onChange={(e) => setDelta(e.target.value)} />
           </Field>
         )}
-        {action === 'cancel' && <InlineAlert tone="warning">The membership stops immediately and remaining visits can no longer be used. Existing bookings stay.</InlineAlert>}
-        <Field label="Reason" required htmlFor="ma-reason">
+        {action === 'cancel' && <InlineAlert tone="warning">{tr.membershipStopsImmediatelyRemaining}</InlineAlert>}
+        <Field label={tr.reason} required htmlFor="ma-reason">
           <Textarea id="ma-reason" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} />
         </Field>
         {run.error && <InlineAlert tone="danger">{errorMessage(run.error)}</InlineAlert>}
@@ -179,19 +183,9 @@ export function MembershipActionDialog({ membership, action, open, onOpenChange 
   );
 }
 
-const TX_LABEL: Record<string, string> = {
-  PURCHASE: 'Purchased',
-  GRANT: 'Granted',
-  BOOKING: 'Booked',
-  CANCELLATION_REFUND: 'Cancelled in time',
-  SESSION_CANCELLED_REFUND: 'Session cancelled',
-  ADMIN_RETURN: 'Returned by staff',
-  ADMIN_ADJUSTMENT: 'Adjusted',
-  EXTENSION: 'Extended',
-};
-
 /** Membership detail with the full visit ledger and the correction actions. */
 export function MembershipDrawer({ membershipId, open, onOpenChange }: { membershipId: string | null; open: boolean; onOpenChange: (o: boolean) => void }) {
+  const tr = useT(moneyMessages);
   const canManage = useCan('memberships.manage');
   const [action, setAction] = useState<MembershipAction | null>(null);
   const { data } = useQuery({
@@ -201,7 +195,7 @@ export function MembershipDrawer({ membershipId, open, onOpenChange }: { members
   });
   const active = data && (data.status === 'ACTIVE' || data.status === 'NOT_STARTED' || data.status === 'USED_UP');
   return (
-    <Drawer open={open} onOpenChange={onOpenChange} title={data ? data.planName : 'Membership'} description={data ? `${fmt.date(data.startsAt)} – ${fmt.date(data.expiresAt)}` : undefined} width="lg">
+    <Drawer open={open} onOpenChange={onOpenChange} title={data ? data.planName : tr.membership} description={data ? `${fmt.date(data.startsAt)} – ${fmt.date(data.expiresAt)}` : undefined} width="lg">
       {!data ? (
         <Skeleton className="h-64 w-full" />
       ) : (
@@ -209,41 +203,41 @@ export function MembershipDrawer({ membershipId, open, onOpenChange }: { members
           <div className="grid grid-cols-3 gap-3 text-center">
             <div className="rounded-2xl bg-brand-50 p-3">
               <p className="font-display text-2xl font-semibold text-brand-800">{data.visitsRemaining}</p>
-              <p className="text-xs text-muted">remaining</p>
+              <p className="text-xs text-muted">{tr.remaining}</p>
             </div>
             <div className="rounded-2xl bg-canvas p-3">
               <p className="font-display text-2xl font-semibold">{data.visitsUsed}</p>
-              <p className="text-xs text-muted">used</p>
+              <p className="text-xs text-muted">{tr.used}</p>
             </div>
             <div className="rounded-2xl bg-canvas p-3">
               <p className="font-display text-2xl font-semibold">{data.daysLeft}</p>
-              <p className="text-xs text-muted">days left</p>
+              <p className="text-xs text-muted">{tr.daysLeft}</p>
             </div>
           </div>
           <div className="flex items-center justify-between">
             <StatusBadge status={data.status} />
             <span className="text-sm text-muted">
-              {fmt.money(data.price)} · {data.visitsCredited} visits credited
+              {fmt.money(data.price)} · {tr.visitsCreditedN(data.visitsCredited)}
             </span>
           </div>
           {canManage && active && (
             <div className="flex flex-wrap gap-2">
               <Button size="sm" variant="secondary" onClick={() => setAction('extend')}>
-                Extend
+                {tr.extend}
               </Button>
               <Button size="sm" variant="secondary" onClick={() => setAction('expiry')}>
-                Change expiry
+                {tr.changeExpiry}
               </Button>
               <Button size="sm" variant="secondary" onClick={() => setAction('adjust')}>
-                Adjust visits
+                {tr.adjustVisits}
               </Button>
               <Button size="sm" variant="ghost" className="text-danger-700" onClick={() => setAction('cancel')}>
-                Cancel
+                {tr.cancel}
               </Button>
             </div>
           )}
           <div>
-            <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted">Visit ledger</h3>
+            <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted">{tr.visitLedger}</h3>
             <div className="divide-y divide-line/70 rounded-2xl border border-line">
               {data.transactions.map((t) => (
                 <div key={t.id} className="flex items-start gap-3 px-4 py-3 text-sm">
@@ -251,7 +245,7 @@ export function MembershipDrawer({ membershipId, open, onOpenChange }: { members
                     {t.delta > 0 ? `+${t.delta}` : t.delta === 0 ? '·' : t.delta}
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="font-semibold">{TX_LABEL[t.type] ?? t.type}</p>
+                    <p className="font-semibold">{tr.tx[t.type] ?? t.type}</p>
                     {t.booking && (
                       <p className="text-muted">
                         {t.booking.session.title} · {fmt.weekdayDate(t.booking.session.startsAt)} {fmt.time(t.booking.session.startsAt)}

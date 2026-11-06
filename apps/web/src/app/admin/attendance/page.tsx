@@ -13,20 +13,23 @@ import { toast, toastError } from '@/components/ui/toast';
 import { api, call } from '@/lib/api/client';
 import type { S } from '@/lib/api/types';
 import { adminKeys, useUrlState } from '@/lib/admin-queries';
-import { clubNow, CLUB_TZ, fmt } from '@/lib/format';
+import { clubNow, CLUB_TZ, fmt, formatDate } from '@/lib/format';
 import { intlLocale } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
+import { useT } from '@/lib/i18n';
+import { scheduleMessages } from '@/lib/i18n/messages/admin/schedule';
 
 type Detail = S<'AdminSessionDetailDto'>;
 type AttendanceStatus = S<'AttendanceStatus'>;
 
-const OPTIONS: Array<{ value: AttendanceStatus; label: string; active: string }> = [
-  { value: 'PRESENT', label: 'Present', active: 'bg-success-600 text-white border-success-600' },
-  { value: 'LATE', label: 'Late', active: 'bg-warning-600 text-white border-warning-600' },
-  { value: 'ABSENT', label: 'No-show', active: 'bg-danger-600 text-white border-danger-600' },
+const OPTIONS: Array<{ value: AttendanceStatus; active: string }> = [
+  { value: 'PRESENT', active: 'bg-success-600 text-white border-success-600' },
+  { value: 'LATE', active: 'bg-warning-600 text-white border-warning-600' },
+  { value: 'ABSENT', active: 'bg-danger-600 text-white border-danger-600' },
 ];
 
 function Board() {
+  const tr = useT(scheduleMessages);
   const url = useUrlState();
   const day = DateTime.fromISO(url.get('date') || clubNow().toISODate()!, { zone: CLUB_TZ }).setLocale(intlLocale());
   const iso = day.toISODate()!;
@@ -41,33 +44,33 @@ function Board() {
 
   return (
     <AdminPage
-      title="Attendance"
-      description="Mark who came. Unmarked participants are treated as no-shows when attendance is finalised."
+      title={tr.attendance}
+      description={tr.markWhoCameUnmarked}
       actions={
         <div className="flex items-center gap-1">
-          <Button variant="outline" size="sm" onClick={() => url.set({ date: day.minus({ days: 1 }).toISODate() })} aria-label="Previous day">
+          <Button variant="outline" size="sm" onClick={() => url.set({ date: day.minus({ days: 1 }).toISODate() })} aria-label={tr.previousDay}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <Button variant="outline" size="sm" onClick={() => url.set({ date: null })}>
-            Today
+            {tr.today}
           </Button>
-          <Button variant="outline" size="sm" onClick={() => url.set({ date: day.plus({ days: 1 }).toISODate() })} aria-label="Next day">
+          <Button variant="outline" size="sm" onClick={() => url.set({ date: day.plus({ days: 1 }).toISODate() })} aria-label={tr.nextDay}>
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
       }
     >
-      <h2 className="font-display text-lg font-semibold">{day.toFormat('cccc, d MMMM')}</h2>
+      <h2 className="font-display text-lg font-semibold">{formatDate(day, 'cccc, d MMMM')}</h2>
       {list.error ? (
         <ErrorState error={list.error} onRetry={() => list.refetch()} />
       ) : list.isLoading ? (
         <Skeleton className="h-64 w-full rounded-3xl" />
       ) : sessions.length === 0 ? (
-        <EmptyState title="No sessions this day" />
+        <EmptyState title={tr.noSessionsDay} />
       ) : (
         <div className="grid gap-4 xl:grid-cols-2">
           {sessions.map((s, i) => (
-            <SessionAttendance key={s.id} detail={details[i]?.data} title={`${s.startTime} · ${s.title}`} sub={`${s.teacher?.name ?? 'No teacher'} · ${s.room?.name ?? 'Online'}`} sessionId={s.id} startsAt={s.startsAt} />
+            <SessionAttendance key={s.id} detail={details[i]?.data} title={`${s.startTime} · ${s.title}`} sub={`${s.teacher?.name ?? tr.noTeacher} · ${s.room?.name ?? tr.online}`} sessionId={s.id} startsAt={s.startsAt} />
           ))}
         </div>
       )}
@@ -76,6 +79,7 @@ function Board() {
 }
 
 function SessionAttendance({ detail, title, sub, sessionId, startsAt }: { detail?: Detail; title: string; sub: string; sessionId: string; startsAt: string }) {
+  const tr = useT(scheduleMessages);
   const qc = useQueryClient();
   const started = new Date(startsAt).getTime() <= Date.now();
   const refresh = () => Promise.all([qc.invalidateQueries({ queryKey: adminKeys.session(sessionId) }), qc.invalidateQueries({ queryKey: ['admin', 'dashboard'] })]);
@@ -90,7 +94,7 @@ function SessionAttendance({ detail, title, sub, sessionId, startsAt }: { detail
     mutationFn: () => call(api.POST('/api/admin/sessions/{id}/attendance', { params: { path: { id: sessionId } }, body: { items: unmarked.map((p) => ({ bookingId: p.bookingId, status: 'PRESENT' as const })) } })),
     onSuccess: async (r) => {
       await refresh();
-      toast.success(`Marked ${r.length} present.`);
+      toast.success(tr.markedPresent(r.length));
     },
     onError: toastError,
   });
@@ -105,26 +109,26 @@ function SessionAttendance({ detail, title, sub, sessionId, startsAt }: { detail
         </div>
         {started && unmarked.length > 0 ? (
           <Button size="xs" variant="secondary" leftIcon={<CheckCheck className="h-3.5 w-3.5" />} loading={all.isPending} onClick={() => all.mutate()}>
-            All {unmarked.length} present
+            {tr.allPresentN(unmarked.length)}
           </Button>
         ) : started && participants.length > 0 ? (
-          <Badge tone="success">Done</Badge>
+          <Badge tone="success">{tr.done}</Badge>
         ) : (
-          <Badge>Not started</Badge>
+          <Badge>{tr.notStarted}</Badge>
         )}
       </div>
       {!detail ? (
         <Skeleton className="m-5 h-16" />
       ) : participants.length === 0 ? (
-        <p className="px-5 py-4 text-sm text-muted">No participants.</p>
+        <p className="px-5 py-4 text-sm text-muted">{tr.noParticipants}</p>
       ) : (
         <div className="divide-y divide-line/70">
           {participants.map((p) => (
             <div key={p.bookingId} className="flex flex-wrap items-center gap-3 px-5 py-2.5 text-sm">
               <Link href={`/admin/clients/${p.client.id}`} className="min-w-0 flex-1 truncate font-medium hover:text-brand-700">
                 {p.client.name}
-                {p.kind === 'TRIAL' && <span className="ml-1.5 text-xs font-semibold text-zest-dark">trial</span>}
-                {p.isFirstVisit && <span className="ml-1.5 text-xs font-semibold text-brand-700">first visit</span>}
+                {p.kind === 'TRIAL' && <span className="ml-1.5 text-xs font-semibold text-zest-dark">{tr.trial2}</span>}
+                {p.isFirstVisit && <span className="ml-1.5 text-xs font-semibold text-brand-700">{tr.firstVisit2}</span>}
               </Link>
               {started ? (
                 <div className="flex gap-1">
@@ -140,7 +144,7 @@ function SessionAttendance({ detail, title, sub, sessionId, startsAt }: { detail
                         p.attendance?.status === o.value ? o.active : 'border-line bg-white hover:border-brand-300',
                       )}
                     >
-                      {o.label}
+                      {tr.attendanceStatus[o.value]}
                     </button>
                   ))}
                 </div>

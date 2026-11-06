@@ -15,29 +15,25 @@ import { api, call, errorMessage, fieldErrors } from '@/lib/api/client';
 import type { S } from '@/lib/api/types';
 import { adminKeys } from '@/lib/admin-queries';
 import { fmt, fromClubInput } from '@/lib/format';
+import { useT } from '@/lib/i18n';
+import { marketingMessages } from '@/lib/i18n/messages/admin/marketing';
 
 type Broadcast = S<'BroadcastDto'>;
 type Channel = S<'NotificationChannel'>;
 const KEY = ['admin', 'broadcasts'];
-const CHANNELS: Array<{ value: Channel; label: string }> = [
-  { value: 'IN_APP', label: 'In-app' },
-  { value: 'PUSH', label: 'Push' },
-  { value: 'WHATSAPP', label: 'WhatsApp' },
-  { value: 'TELEGRAM', label: 'Telegram' },
-  { value: 'SMS', label: 'SMS' },
-  { value: 'EMAIL', label: 'Email' },
-];
+const CHANNELS: Channel[] = ['IN_APP', 'PUSH', 'WHATSAPP', 'TELEGRAM', 'SMS', 'EMAIL'];
 
 export default function BroadcastsPage() {
+  const tr = useT(marketingMessages);
   const query = useQuery({ queryKey: KEY, queryFn: () => call(api.GET('/api/admin/broadcasts')) });
   const [editing, setEditing] = useState<Broadcast | 'new' | null>(null);
   return (
     <AdminPage
-      title="Broadcasts"
-      description="One-off messages to a segment: promotions, new groups, events, holiday schedules. Marketing broadcasts only reach clients who opted in."
+      title={tr.broadcasts}
+      description={tr.oneOffMessagesSegment}
       actions={
         <Button size="sm" leftIcon={<Plus className="h-4 w-4" />} onClick={() => setEditing('new')}>
-          New broadcast
+          {tr.newBroadcast}
         </Button>
       }
     >
@@ -46,7 +42,7 @@ export default function BroadcastsPage() {
       ) : query.error ? (
         <ErrorState error={query.error} onRetry={() => query.refetch()} />
       ) : !query.data?.length ? (
-        <EmptyState icon={<Send className="h-7 w-7" />} title="No broadcasts yet" />
+        <EmptyState icon={<Send className="h-7 w-7" />} title={tr.noBroadcastsYet} />
       ) : (
         <div className="space-y-3">
           {query.data.map((b) => (
@@ -55,24 +51,24 @@ export default function BroadcastsPage() {
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="font-semibold">{b.title}</p>
                   <StatusBadge status={b.status} />
-                  <Badge tone={b.kind === 'MARKETING' ? 'zest' : 'info'}>{b.kind.toLowerCase()}</Badge>
+                  <Badge tone={b.kind === 'MARKETING' ? 'zest' : 'info'}>{tr.kinds[b.kind] ?? b.kind.toLowerCase()}</Badge>
                 </div>
                 <p className="mt-0.5 line-clamp-1 text-sm text-muted">{b.body}</p>
                 <p className="mt-1 text-xs text-muted">
-                  {b.segmentName ?? 'Custom audience'} · {b.channels.map((c) => CHANNELS.find((x) => x.value === c)?.label ?? c).join(', ')}
-                  {b.sentAt ? ` · sent ${fmt.dateTime(b.sentAt)}` : b.scheduledAt ? ` · scheduled ${fmt.dateTime(b.scheduledAt)}` : ''}
+                  {b.segmentName ?? tr.customAudience} · {b.channels.map((c) => tr.channelNames[c] ?? c).join(', ')}
+                  {b.sentAt ? tr.sentAt(fmt.dateTime(b.sentAt)) : b.scheduledAt ? tr.scheduledFor(fmt.dateTime(b.scheduledAt)) : ''}
                 </p>
               </div>
               {b.status === 'SENT' || b.status === 'SENDING' ? (
                 <div className="grid grid-cols-4 gap-3 text-center text-xs">
-                  <Stat label="recipients" value={b.recipientCount} />
-                  <Stat label="sent" value={b.stats.sent} />
-                  <Stat label="read" value={b.stats.read} />
-                  <Stat label="failed" value={b.stats.failed} />
+                  <Stat label={tr.statLabels.recipients} value={b.recipientCount} />
+                  <Stat label={tr.statLabels.sent} value={b.stats.sent} />
+                  <Stat label={tr.statLabels.read} value={b.stats.read} />
+                  <Stat label={tr.statLabels.failed} value={b.stats.failed} />
                 </div>
               ) : (
                 <Button size="sm" variant="secondary" onClick={() => setEditing(b)}>
-                  Open
+                  {tr.open}
                 </Button>
               )}
             </Card>
@@ -94,6 +90,7 @@ function Stat({ label, value }: { label: string; value: number }) {
 }
 
 function BroadcastDrawer({ broadcast, open, onOpenChange }: { broadcast?: Broadcast; open: boolean; onOpenChange: (o: boolean) => void }) {
+  const tr = useT(marketingMessages);
   const qc = useQueryClient();
   const segments = useQuery({ queryKey: adminKeys.segments, queryFn: () => call(api.GET('/api/admin/segments')), enabled: open });
   const init = () => ({
@@ -153,7 +150,7 @@ function BroadcastDrawer({ broadcast, open, onOpenChange }: { broadcast?: Broadc
     },
     onSuccess: async (b) => {
       await refresh();
-      toast.success(`Sending to ${b.recipientCount} clients.`);
+      toast.success(tr.sendingTo(b.recipientCount));
       setConfirmSend(false);
       onOpenChange(false);
     },
@@ -166,7 +163,7 @@ function BroadcastDrawer({ broadcast, open, onOpenChange }: { broadcast?: Broadc
     },
     onSuccess: async () => {
       await refresh();
-      toast.success('Broadcast scheduled.');
+      toast.success(tr.broadcastScheduled);
       onOpenChange(false);
     },
     onError: toastError,
@@ -187,14 +184,14 @@ function BroadcastDrawer({ broadcast, open, onOpenChange }: { broadcast?: Broadc
     <Drawer
       open={open}
       onOpenChange={onOpenChange}
-      title={broadcast ? broadcast.title : 'New broadcast'}
+      title={broadcast ? broadcast.title : tr.newBroadcast}
       width="xl"
       footer={
         editable ? (
           <>
             {broadcast?.status === 'SCHEDULED' && (
               <Button variant="ghost" className="text-danger-700" loading={cancel.isPending} onClick={() => cancel.mutate()}>
-                Cancel schedule
+                {tr.cancelSchedule}
               </Button>
             )}
             <Button
@@ -204,21 +201,21 @@ function BroadcastDrawer({ broadcast, open, onOpenChange }: { broadcast?: Broadc
               onClick={() =>
                 persist()
                   .then(() => {
-                    toast.success('Draft saved.');
+                    toast.success(tr.draftSaved);
                     onOpenChange(false);
                   })
                   .catch(() => undefined)
               }
             >
-              Save draft
+              {tr.saveDraft}
             </Button>
             {f.scheduledAt ? (
               <Button leftIcon={<CalendarClock className="h-4 w-4" />} loading={schedule.isPending} disabled={!valid} onClick={() => schedule.mutate()}>
-                Schedule
+                {tr.schedule}
               </Button>
             ) : (
               <Button leftIcon={<Send className="h-4 w-4" />} disabled={!valid} onClick={() => setConfirmSend(true)}>
-                Send now
+                {tr.sendNow}
               </Button>
             )}
           </>
@@ -228,43 +225,43 @@ function BroadcastDrawer({ broadcast, open, onOpenChange }: { broadcast?: Broadc
       <div className="space-y-5">
         <SegmentedControl
           options={[
-            { value: 'MARKETING', label: 'Marketing (opt-in only)' },
-            { value: 'SERVICE', label: 'Service message' },
+            { value: 'MARKETING', label: tr.marketingOptOnly },
+            { value: 'SERVICE', label: tr.serviceMessage },
           ]}
           value={f.kind}
           onChange={(v) => setF({ ...f, kind: v })}
         />
-        {f.kind === 'SERVICE' && <InlineAlert tone="info">Service messages (schedule changes, closures) reach everyone in the audience regardless of marketing consent. Don&apos;t use them for promotions.</InlineAlert>}
-        <Field label="Title" required htmlFor="bc-title" error={errors.title}>
+        {f.kind === 'SERVICE' && <InlineAlert tone="info">{tr.serviceMessagesScheduleChanges}</InlineAlert>}
+        <Field label={tr.title} required htmlFor="bc-title" error={errors.title}>
           <Input id="bc-title" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} maxLength={120} disabled={!editable} />
         </Field>
-        <Field label="Message" required htmlFor="bc-body" error={errors.body} hint="Placeholders: {{firstName}}, {{clubName}}">
+        <Field label={tr.message} required htmlFor="bc-body" error={errors.body} hint="Placeholders: {{firstName}}, {{clubName}}">
           <Textarea id="bc-body" rows={5} value={f.body} onChange={(e) => setF({ ...f, body: e.target.value })} maxLength={2000} disabled={!editable} />
         </Field>
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Button label" htmlFor="bc-bl">
-            <Input id="bc-bl" value={f.buttonLabel} onChange={(e) => setF({ ...f, buttonLabel: e.target.value })} placeholder="e.g. Book now" disabled={!editable} />
+          <Field label={tr.buttonLabel} htmlFor="bc-bl">
+            <Input id="bc-bl" value={f.buttonLabel} onChange={(e) => setF({ ...f, buttonLabel: e.target.value })} placeholder={tr.eGBookNow} disabled={!editable} />
           </Field>
-          <Field label="Button link" htmlFor="bc-bu" hint="App path like /schedule or a full URL">
+          <Field label={tr.buttonLink} htmlFor="bc-bu" hint={tr.appPathLikeSchedule}>
             <Input id="bc-bu" value={f.buttonUrl} onChange={(e) => setF({ ...f, buttonUrl: e.target.value })} placeholder="/schedule" disabled={!editable} />
           </Field>
         </div>
-        <Field label="Channels">
-          <ChipGroup size="sm" multiple options={CHANNELS} value={f.channels} onChange={(v) => setF({ ...f, channels: v as Channel[] })} />
+        <Field label={tr.channels}>
+          <ChipGroup size="sm" multiple options={CHANNELS.map((c) => ({ value: c, label: tr.channelNames[c] ?? c }))} value={f.channels} onChange={(v) => setF({ ...f, channels: v as Channel[] })} />
         </Field>
-        <Field label="Audience">
+        <Field label={tr.audience}>
           <SegmentedControl
             options={[
-              { value: 'segment', label: 'Saved segment' },
-              { value: 'custom', label: 'Custom rules' },
+              { value: 'segment', label: tr.savedSegment },
+              { value: 'custom', label: tr.customRules },
             ]}
             value={f.audienceMode}
             onChange={(v) => setF({ ...f, audienceMode: v })}
           />
         </Field>
         {f.audienceMode === 'segment' ? (
-          <Select value={f.segmentId} onChange={(e) => setF({ ...f, segmentId: e.target.value })} aria-label="Segment">
-            <option value="">Choose a segment…</option>
+          <Select value={f.segmentId} onChange={(e) => setF({ ...f, segmentId: e.target.value })} aria-label={tr.segment}>
+            <option value="">{tr.chooseSegment}</option>
             {segments.data?.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.name} ({s.clientCount})
@@ -276,10 +273,10 @@ function BroadcastDrawer({ broadcast, open, onOpenChange }: { broadcast?: Broadc
         )}
         <p className="flex items-center gap-2 rounded-2xl bg-brand-50 p-3 text-sm text-brand-900">
           <Users className="h-4 w-4" />
-          {preview.isFetching ? 'Counting recipients…' : preview.data ? `${preview.data.reachable} of ${preview.data.total} clients will receive it` : 'Choose an audience to see the reach'}
+          {preview.isFetching ? tr.countingRecipients : preview.data ? tr.reach(preview.data.reachable, preview.data.total) : tr.chooseAudienceReach}
         </p>
         {editable && (
-          <Field label="Schedule for later" htmlFor="bc-when" hint="Leave empty to send right away">
+          <Field label={tr.scheduleLater} htmlFor="bc-when" hint={tr.leaveEmptySendRight}>
             <Input id="bc-when" type="datetime-local" value={f.scheduledAt} onChange={(e) => setF({ ...f, scheduledAt: e.target.value })} />
           </Field>
         )}
@@ -288,9 +285,9 @@ function BroadcastDrawer({ broadcast, open, onOpenChange }: { broadcast?: Broadc
       <ConfirmDialog
         open={confirmSend}
         onOpenChange={setConfirmSend}
-        title="Send this broadcast now?"
-        description={`It goes to ${preview.data?.reachable ?? 'the selected'} clients via ${f.channels.length} channel${f.channels.length === 1 ? '' : 's'}. This can't be undone.`}
-        confirmLabel="Send now"
+        title={tr.sendBroadcastNow}
+        description={tr.sendConfirm(preview.data?.reachable ?? null, f.channels.length)}
+        confirmLabel={tr.sendNow}
         loading={sendNow.isPending}
         onConfirm={() => sendNow.mutate()}
       />

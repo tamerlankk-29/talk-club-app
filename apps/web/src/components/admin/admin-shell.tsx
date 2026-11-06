@@ -12,16 +12,20 @@ import { useAuth } from '@/lib/auth';
 import { cn } from '@/lib/utils';
 import { CommandSearch } from './command-search';
 import { isActive, visibleNav } from './nav';
+import { useT } from '@/lib/i18n';
+import { adminShellMessages } from '@/lib/i18n/messages/admin/shell';
+import { LanguageSwitcher } from '@/components/ui/language-switcher';
 
 function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
+  const t = useT(adminShellMessages);
   const pathname = usePathname();
   const { user } = useAuth();
   const groups = visibleNav(user?.permissions ?? []);
   return (
-    <nav aria-label="Admin" className="flex-1 space-y-5 overflow-y-auto px-3 pb-6">
+    <nav aria-label={t.admin} className="flex-1 space-y-5 overflow-y-auto px-3 pb-6">
       {groups.map((g) => (
         <div key={g.label}>
-          <p className="px-3 pb-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/45">{g.label}</p>
+          <p className="px-3 pb-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/45">{t.groups[g.label] ?? g.label}</p>
           <ul className="space-y-0.5">
             {g.items.map((item) => {
               const active = isActive(pathname, item.href);
@@ -38,7 +42,7 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
                     )}
                   >
                     <Icon className="h-[18px] w-[18px]" />
-                    {item.label}
+                    {t.nav[item.href] ?? item.label}
                   </Link>
                 </li>
               );
@@ -51,13 +55,14 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
 }
 
 function UserMenu() {
+  const t = useT(adminShellMessages);
   const router = useRouter();
   const { user, logout } = useAuth();
   if (!user) return null;
   const item = 'flex cursor-pointer items-center gap-2 rounded-xl px-3 py-2 text-sm outline-none data-[highlighted]:bg-brand-50';
   return (
     <DropdownMenu.Root>
-      <DropdownMenu.Trigger className="flex items-center gap-2 rounded-2xl py-1 pl-1 pr-3 hover:bg-brand-50" aria-label="Account menu">
+      <DropdownMenu.Trigger className="flex items-center gap-2 rounded-2xl py-1 pl-1 pr-3 hover:bg-brand-50" aria-label={t.accountMenu}>
         <Avatar name={user.displayName} size="sm" />
         <span className="hidden text-left sm:block">
           <span className="block text-sm font-semibold leading-tight">{user.displayName}</span>
@@ -68,11 +73,11 @@ function UserMenu() {
         <DropdownMenu.Content align="end" sideOffset={8} className="z-50 min-w-52 rounded-2xl border border-line bg-white p-1.5 shadow-float">
           {user.areas.teacher && (
             <DropdownMenu.Item className={item} onSelect={() => router.push('/teacher')}>
-              Teacher panel
+              {t.teacherPanel}
             </DropdownMenu.Item>
           )}
           <DropdownMenu.Item className={item} onSelect={() => window.open('/', '_blank', 'noopener')}>
-            <ExternalLink className="h-4 w-4" /> Open client app
+            <ExternalLink className="h-4 w-4" /> {t.openClientApp}
           </DropdownMenu.Item>
           <DropdownMenu.Separator className="my-1 h-px bg-line" />
           <DropdownMenu.Item
@@ -82,7 +87,7 @@ function UserMenu() {
               router.replace('/login?next=/admin');
             }}
           >
-            <LogOut className="h-4 w-4" /> Sign out
+            <LogOut className="h-4 w-4" /> {t.signOut}
           </DropdownMenu.Item>
         </DropdownMenu.Content>
       </DropdownMenu.Portal>
@@ -92,6 +97,7 @@ function UserMenu() {
 
 /** Admin frame: dark purple sidebar, sticky top bar with global search. Requires an admin-area account. */
 export function AdminShell({ children }: { children: ReactNode }) {
+  const t = useT(adminShellMessages);
   const { status, user } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
@@ -118,11 +124,11 @@ export function AdminShell({ children }: { children: ReactNode }) {
   if (!user.areas.admin) {
     return (
       <div className="flex min-h-dvh flex-col items-center justify-center gap-3 p-6 text-center">
-        <p className="font-display text-xl font-semibold">No access to the admin panel</p>
-        <p className="text-sm text-muted">Ask the club owner to give your account a staff role.</p>
+        <p className="font-display text-xl font-semibold">{t.noAccess}</p>
+        <p className="text-sm text-muted">{t.askOwner}</p>
         <div className="flex gap-4 text-sm font-semibold text-brand-700">
-          {user.areas.teacher && <Link href="/teacher">Teacher panel →</Link>}
-          <Link href="/">Client app →</Link>
+          {user.areas.teacher && <Link href="/teacher">{t.teacherPanelLink}</Link>}
+          <Link href="/">{t.clientAppLink}</Link>
         </div>
       </div>
     );
@@ -139,11 +145,11 @@ export function AdminShell({ children }: { children: ReactNode }) {
 
       {menuOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
-          <button type="button" className="absolute inset-0 bg-brand-950/50" aria-label="Close menu" onClick={() => setMenuOpen(false)} />
+          <button type="button" className="absolute inset-0 bg-brand-950/50" aria-label={t.closeMenu} onClick={() => setMenuOpen(false)} />
           <aside className="absolute inset-y-0 left-0 flex w-72 flex-col bg-[linear-gradient(180deg,var(--color-brand-950),var(--color-brand-900))] animate-fade-in">
             <div className="flex h-16 items-center justify-between px-5">
               <Logo light />
-              <button type="button" onClick={() => setMenuOpen(false)} className="rounded-xl p-2 text-white/80 hover:bg-white/10" aria-label="Close menu">
+              <button type="button" onClick={() => setMenuOpen(false)} className="rounded-xl p-2 text-white/80 hover:bg-white/10" aria-label={t.closeMenu}>
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -153,7 +159,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
       )}
 
       <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-line/80 bg-white/85 px-4 backdrop-blur-xl sm:px-6">
-        <button type="button" onClick={() => setMenuOpen(true)} className="rounded-xl p-2 hover:bg-brand-50 lg:hidden" aria-label="Open menu">
+        <button type="button" onClick={() => setMenuOpen(true)} className="rounded-xl p-2 hover:bg-brand-50 lg:hidden" aria-label={t.openMenu}>
           <Menu className="h-5 w-5" />
         </button>
         <button
@@ -162,10 +168,11 @@ export function AdminShell({ children }: { children: ReactNode }) {
           className="flex h-10 max-w-md flex-1 items-center gap-2 rounded-xl border border-line bg-canvas px-3 text-sm text-subtle transition hover:border-brand-200"
         >
           <Search className="h-4 w-4" />
-          <span className="flex-1 text-left">Search clients, leads, payments…</span>
+          <span className="flex-1 text-left">{t.searchPlaceholder}</span>
           <kbd className="hidden rounded-md border border-line bg-white px-1.5 py-0.5 font-sans text-[11px] font-semibold text-muted sm:inline">Ctrl K</kbd>
         </button>
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
+          <LanguageSwitcher className="hidden sm:inline-flex" />
           <UserMenu />
         </div>
       </header>

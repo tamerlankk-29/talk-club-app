@@ -19,6 +19,8 @@ import { useAdminLevels, useAdminSources, useAdminTeam, useUrlState } from '@/li
 import { useCan } from '@/lib/auth';
 import { fmt, phoneDigitsComplete } from '@/lib/format';
 import { cn, TIME_OF_DAY_LABELS, WEEKDAYS_SHORT } from '@/lib/utils';
+import { useT } from '@/lib/i18n';
+import { crmMessages } from '@/lib/i18n/messages/admin/crm';
 
 type Lead = S<'LeadDto'>;
 type Stage = S<'LeadStage'>;
@@ -38,6 +40,7 @@ const STAGE_COLORS: Partial<Record<Stage, string>> = {
 };
 
 function Pipeline() {
+  const tr = useT(crmMessages);
   const qc = useQueryClient();
   const url = useUrlState();
   const canManage = useCan('crm.manage');
@@ -62,7 +65,7 @@ function Pipeline() {
     mutationFn: ({ id, stage }: { id: string; stage: Stage }) => call(api.POST('/api/admin/leads/{id}/move', { params: { path: { id } }, body: { stage } })),
     onSuccess: async (lead) => {
       await qc.invalidateQueries({ queryKey: ['admin', 'pipeline'] });
-      toast.success(`${lead.name} → ${lead.stageLabel}`);
+      toast.success(`${lead.name} → ${tr.stages[lead.stage] ?? lead.stageLabel}`);
     },
     onError: toastError,
   });
@@ -76,30 +79,30 @@ function Pipeline() {
 
   return (
     <AdminPage
-      title="CRM pipeline"
-      description="Drag a card to move it to another stage. Stages also update automatically from bookings, trials and payments."
+      title={tr.crmPipeline}
+      description={tr.dragCardMoveAnother}
       actions={
         canManage && (
           <Button size="sm" leftIcon={<Plus className="h-4 w-4" />} onClick={() => setCreating(true)}>
-            New lead
+            {tr.newLead}
           </Button>
         )
       }
     >
       <Toolbar>
         <div className="w-full sm:w-72">
-          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Name or phone" leftIcon={<Search className="h-4 w-4" />} className="h-10" aria-label="Search leads" />
+          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={tr.namePhone} leftIcon={<Search className="h-4 w-4" />} className="h-10" aria-label={tr.searchLeads} />
         </div>
-        <FilterSelect label="Source" value={url.get('source')} onChange={(v) => url.set({ source: v })}>
-          <option value="">All sources</option>
+        <FilterSelect label={tr.source} value={url.get('source')} onChange={(v) => url.set({ source: v })}>
+          <option value="">{tr.allSources}</option>
           {sources?.map((s) => (
             <option key={s.id} value={s.id}>
               {s.name}
             </option>
           ))}
         </FilterSelect>
-        <FilterSelect label="Assignee" value={url.get('assignee')} onChange={(v) => url.set({ assignee: v })}>
-          <option value="">Anyone</option>
+        <FilterSelect label={tr.assignee} value={url.get('assignee')} onChange={(v) => url.set({ assignee: v })}>
+          <option value="">{tr.anyone}</option>
           {staff?.map((s) => (
             <option key={s.id} value={s.id}>
               {s.displayName}
@@ -121,12 +124,12 @@ function Pipeline() {
                 onDragOver={(e) => canManage && e.preventDefault()}
                 onDrop={onDrop(col.stage)}
                 className={cn('flex w-72 shrink-0 flex-col rounded-3xl bg-white/70 ring-1 ring-line transition', dragging && 'ring-2 ring-dashed ring-brand-200')}
-                aria-label={col.label}
+                aria-label={tr.stages[col.stage] ?? col.label}
               >
                 <header className="flex items-center justify-between gap-2 px-4 pb-2 pt-3.5">
                   <span className="flex items-center gap-2 text-sm font-semibold">
                     <span className="h-2.5 w-2.5 rounded-full" style={{ background: STAGE_COLORS[col.stage] ?? '#6d28d9' }} />
-                    {col.label}
+                    {tr.stages[col.stage] ?? col.label}
                   </span>
                   <span className="rounded-full bg-canvas px-2 py-0.5 text-xs font-semibold text-muted">{col.count}</span>
                 </header>
@@ -134,7 +137,7 @@ function Pipeline() {
                   {col.leads.map((l) => (
                     <LeadCard key={l.id} lead={l} draggable={canManage} onOpen={() => url.set({ lead: l.id })} onDragStart={() => setDragging(l.id)} onDragEnd={() => setDragging(null)} />
                   ))}
-                  {col.count > col.leads.length && <p className="px-2 text-xs text-muted">+{col.count - col.leads.length} more — refine the filters</p>}
+                  {col.count > col.leads.length && <p className="px-2 text-xs text-muted">{tr.moreRefine(col.count - col.leads.length)}</p>}
                 </div>
               </section>
             ))}
@@ -149,6 +152,7 @@ function Pipeline() {
 }
 
 function LeadCard({ lead, draggable, onOpen, onDragStart, onDragEnd }: { lead: Lead; draggable: boolean; onOpen: () => void; onDragStart: () => void; onDragEnd: () => void }) {
+  const tr = useT(crmMessages);
   return (
     <button
       type="button"
@@ -172,31 +176,20 @@ function LeadCard({ lead, draggable, onOpen, onDragStart, onDragEnd }: { lead: L
             <ListTodo className="h-3 w-3" /> {lead.openTasks}
           </Badge>
         )}
-        {lead.clientId && <Badge tone="success">client</Badge>}
+        {lead.clientId && <Badge tone="success">{tr.clientBadge}</Badge>}
       </div>
       <p className="mt-2 text-[11px] text-subtle">
-        {lead.lastActivityAt ? `active ${fmt.relative(lead.lastActivityAt)}` : `added ${fmt.relative(lead.createdAt)}`}
+        {lead.lastActivityAt ? tr.activeAgo(fmt.relative(lead.lastActivityAt)) : tr.addedAgo(fmt.relative(lead.createdAt))}
         {lead.assignedTo ? ` · ${lead.assignedTo.name}` : ''}
       </p>
     </button>
   );
 }
 
-const STAGES: Array<{ value: Stage; label: string }> = [
-  { value: 'NEW_LEAD', label: 'New lead' },
-  { value: 'CONTACTED', label: 'Contacted' },
-  { value: 'INTERESTED', label: 'Interested' },
-  { value: 'TRIAL_BOOKED', label: 'Trial booked' },
-  { value: 'TRIAL_ATTENDED', label: 'Trial attended' },
-  { value: 'MEMBERSHIP_PURCHASED', label: 'Membership purchased' },
-  { value: 'ACTIVE_CLIENT', label: 'Active client' },
-  { value: 'MEMBERSHIP_EXPIRING', label: 'Membership expiring' },
-  { value: 'RENEWED', label: 'Renewed' },
-  { value: 'INACTIVE', label: 'Inactive' },
-  { value: 'LOST', label: 'Lost' },
-];
+const STAGES: Stage[] = ['NEW_LEAD', 'CONTACTED', 'INTERESTED', 'TRIAL_BOOKED', 'TRIAL_ATTENDED', 'MEMBERSHIP_PURCHASED', 'ACTIVE_CLIENT', 'MEMBERSHIP_EXPIRING', 'RENEWED', 'INACTIVE', 'LOST'];
 
 function LeadDrawer({ id, onClose }: { id: string | null; onClose: () => void }) {
+  const tr = useT(crmMessages);
   const qc = useQueryClient();
   const router = useRouter();
   const canManage = useCan('crm.manage');
@@ -220,7 +213,7 @@ function LeadDrawer({ id, onClose }: { id: string | null; onClose: () => void })
     mutationFn: () => call(api.POST('/api/admin/leads/{id}/convert', { params: { path: { id: id! } } })),
     onSuccess: async (r) => {
       await refresh();
-      toast.success('Client profile created.');
+      toast.success(tr.clientProfileCreated);
       router.push(`/admin/clients/${r.clientId}`);
     },
     onError: toastError,
@@ -235,7 +228,7 @@ function LeadDrawer({ id, onClose }: { id: string | null; onClose: () => void })
   });
 
   return (
-    <Drawer open={!!id} onOpenChange={(o) => !o && onClose()} title={lead?.name ?? 'Lead'} description={lead ? `${lead.stageLabel} since ${fmt.dateShort(lead.stageChangedAt)}` : undefined} width="lg">
+    <Drawer open={!!id} onOpenChange={(o) => !o && onClose()} title={lead?.name ?? tr.lead} description={lead ? tr.stageSince(tr.stages[lead.stage] ?? lead.stageLabel, fmt.dateShort(lead.stageChangedAt)) : undefined} width="lg">
       {!lead ? (
         <Skeleton className="h-64 w-full" />
       ) : (
@@ -247,26 +240,26 @@ function LeadDrawer({ id, onClose }: { id: string | null; onClose: () => void })
                   <Phone className="h-4 w-4" /> {fmt.phone(lead.phone)}
                 </a>
                 <a href={`https://wa.me/${lead.phone.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="font-semibold text-[#128C7E]">
-                  WhatsApp
+                  {tr.whatsapp}
                 </a>
               </>
             )}
             {lead.email && <span className="text-muted">{lead.email}</span>}
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Stage" htmlFor="ld-stage">
+            <Field label={tr.stage} htmlFor="ld-stage">
               <Select id="ld-stage" value={lead.stage} disabled={!canManage} onChange={(e) => (e.target.value === 'LOST' ? setLostReason(' ') : update.mutate({ stage: e.target.value as Stage }))}>
                 {STAGES.map((s) => (
-                  <option key={s.value} value={s.value}>
-                    {s.label}
+                  <option key={s} value={s}>
+                    {tr.stages[s] ?? s}
                   </option>
                 ))}
               </Select>
             </Field>
             <div className="text-sm">
-              <p className="font-semibold">Details</p>
+              <p className="font-semibold">{tr.details}</p>
               <p className="text-muted">
-                {lead.source?.name ?? 'Unknown source'} · {lead.level?.name ?? 'level ?'}
+                {lead.source?.name ?? tr.unknownSource} · {lead.level?.name ?? tr.levelQ}
               </p>
               <p className="text-muted">
                 {lead.preferredDays.map((d) => WEEKDAYS_SHORT[d]).join(', ') || 'any day'} · {lead.preferredTimes.map((t) => TIME_OF_DAY_LABELS[t]).join(', ') || 'any time'}
@@ -275,7 +268,7 @@ function LeadDrawer({ id, onClose }: { id: string | null; onClose: () => void })
           </div>
           {lostReason && (
             <div className="flex gap-2">
-              <Input value={lostReason.trim()} onChange={(e) => setLostReason(e.target.value || ' ')} placeholder="Why was the lead lost?" className="h-10" autoFocus />
+              <Input value={lostReason.trim()} onChange={(e) => setLostReason(e.target.value || ' ')} placeholder={tr.whyWasLeadLost} className="h-10" autoFocus />
               <Button
                 size="sm"
                 variant="danger"
@@ -286,11 +279,11 @@ function LeadDrawer({ id, onClose }: { id: string | null; onClose: () => void })
                   setLostReason('');
                 }}
               >
-                Mark lost
+                {tr.markLost}
               </Button>
             </div>
           )}
-          {lead.lostReason && <InlineAlert tone="danger" title="Lost">{lead.lostReason}</InlineAlert>}
+          {lead.lostReason && <InlineAlert tone="danger" title={tr.lost}>{lead.lostReason}</InlineAlert>}
           {lead.notes && <p className="whitespace-pre-line rounded-2xl bg-canvas p-3 text-sm">{lead.notes}</p>}
           <div className="flex flex-wrap gap-2">
             {lead.clientId ? (
@@ -300,24 +293,24 @@ function LeadDrawer({ id, onClose }: { id: string | null; onClose: () => void })
             ) : (
               canClients && (
                 <Button size="sm" variant="secondary" loading={convert.isPending} onClick={() => convert.mutate()}>
-                  Create client profile
+                  {tr.createClientProfile}
                 </Button>
               )
             )}
             {canManage && (
               <Button size="sm" variant="outline" leftIcon={<ListTodo className="h-4 w-4" />} onClick={() => setTaskOpen(true)}>
-                Add task
+                {tr.addTask}
               </Button>
             )}
           </div>
 
           {lead.trials.length > 0 && (
             <div>
-              <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted">Trials</h3>
+              <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted">{tr.trials}</h3>
               <div className="space-y-1.5">
                 {lead.trials.map((t) => (
                   <div key={t.id} className="flex items-center justify-between rounded-2xl bg-canvas px-3 py-2 text-sm">
-                    <span>{t.sessionStartsAt ? fmt.dateTime(t.sessionStartsAt) : `requested ${fmt.dateShort(t.createdAt)}`}</span>
+                    <span>{t.sessionStartsAt ? fmt.dateTime(t.sessionStartsAt) : tr.requestedOn(fmt.dateShort(t.createdAt))}</span>
                     <span className="flex gap-1.5">
                       <StatusBadge status={t.status} />
                       {t.outcome !== 'PENDING' && <Badge>{t.outcome.toLowerCase().replace('_', ' ')}</Badge>}
@@ -330,7 +323,7 @@ function LeadDrawer({ id, onClose }: { id: string | null; onClose: () => void })
 
           {lead.tasks.length > 0 && (
             <div>
-              <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted">Tasks</h3>
+              <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted">{tr.tasks}</h3>
               <Card padded={false} className="divide-y divide-line/70">
                 {lead.tasks.map((t) => (
                   <TaskRow key={t.id} task={t} showClient={false} />
@@ -340,21 +333,21 @@ function LeadDrawer({ id, onClose }: { id: string | null; onClose: () => void })
           )}
 
           <div>
-            <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted">Communications</h3>
+            <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted">{tr.communications}</h3>
             {canManage && (
               <div className="mb-3 space-y-2">
                 <div className="flex gap-2">
-                  <Select value={channel} onChange={(e) => setChannel(e.target.value as S<'CommunicationChannel'>)} className="h-10 w-40" aria-label="Channel">
-                    <option value="WHATSAPP">WhatsApp</option>
-                    <option value="PHONE">Phone</option>
-                    <option value="INSTAGRAM">Instagram</option>
-                    <option value="TELEGRAM">Telegram</option>
-                    <option value="IN_PERSON">In person</option>
-                    <option value="OTHER">Other</option>
+                  <Select value={channel} onChange={(e) => setChannel(e.target.value as S<'CommunicationChannel'>)} className="h-10 w-40" aria-label={tr.channel}>
+                    <option value="WHATSAPP">{tr.whatsapp}</option>
+                    <option value="PHONE">{tr.phone}</option>
+                    <option value="INSTAGRAM">{tr.instagram}</option>
+                    <option value="TELEGRAM">{tr.telegram}</option>
+                    <option value="IN_PERSON">{tr.person}</option>
+                    <option value="OTHER">{tr.other}</option>
                   </Select>
-                  <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="What was discussed?" className="h-10" />
+                  <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder={tr.whatWasDiscussed} className="h-10" />
                   <Button size="sm" className="h-10" disabled={!note.trim()} loading={log.isPending} onClick={() => log.mutate()}>
-                    Log
+                    {tr.log}
                   </Button>
                 </div>
               </div>
@@ -371,7 +364,7 @@ function LeadDrawer({ id, onClose }: { id: string | null; onClose: () => void })
                   </div>
                 ))
               ) : (
-                <p className="text-sm text-muted">Nothing logged yet.</p>
+                <p className="text-sm text-muted">{tr.nothingLoggedYet}</p>
               )}
             </div>
           </div>
@@ -386,6 +379,7 @@ function LeadDrawer({ id, onClose }: { id: string | null; onClose: () => void })
 }
 
 function NewLeadDrawer({ open, onOpenChange, onCreated }: { open: boolean; onOpenChange: (o: boolean) => void; onCreated: (id: string) => void }) {
+  const tr = useT(crmMessages);
   const qc = useQueryClient();
   const { data: sources } = useAdminSources();
   const { data: levels } = useAdminLevels();
@@ -418,33 +412,33 @@ function NewLeadDrawer({ open, onOpenChange, onCreated }: { open: boolean; onOpe
     <Drawer
       open={open}
       onOpenChange={onOpenChange}
-      title="New lead"
-      description="Someone who wrote on Instagram, called, or came by."
+      title={tr.newLead}
+      description={tr.someoneWhoWroteInstagram}
       footer={
         <>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
-            Cancel
+            {tr.cancel}
           </Button>
           <Button loading={create.isPending} disabled={!f.name.trim()} onClick={() => create.mutate()}>
-            Create lead
+            {tr.createLead}
           </Button>
         </>
       }
     >
       <div className="space-y-4">
-        <Field label="Name" required htmlFor="nl-name" error={errors.name}>
+        <Field label={tr.name} required htmlFor="nl-name" error={errors.name}>
           <Input id="nl-name" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} autoFocus />
         </Field>
-        <Field label="Phone" htmlFor="nl-phone" error={errors.phone}>
+        <Field label={tr.phone} htmlFor="nl-phone" error={errors.phone}>
           <PhoneInput id="nl-phone" value={f.phone} onChange={(phone) => setF({ ...f, phone })} />
         </Field>
-        <Field label="Email" htmlFor="nl-email" error={errors.email}>
+        <Field label={tr.email} htmlFor="nl-email" error={errors.email}>
           <Input id="nl-email" type="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} />
         </Field>
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Source" htmlFor="nl-src">
+          <Field label={tr.source} htmlFor="nl-src">
             <Select id="nl-src" value={f.sourceId} onChange={(e) => setF({ ...f, sourceId: e.target.value })}>
-              <option value="">Unknown</option>
+              <option value="">{tr.unknown}</option>
               {sources?.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.name}
@@ -452,9 +446,9 @@ function NewLeadDrawer({ open, onOpenChange, onCreated }: { open: boolean; onOpe
               ))}
             </Select>
           </Field>
-          <Field label="Level" htmlFor="nl-level">
+          <Field label={tr.level} htmlFor="nl-level">
             <Select id="nl-level" value={f.levelId} onChange={(e) => setF({ ...f, levelId: e.target.value })}>
-              <option value="">Unknown</option>
+              <option value="">{tr.unknown}</option>
               {levels?.map((l) => (
                 <option key={l.id} value={l.id}>
                   {l.name}
@@ -463,13 +457,13 @@ function NewLeadDrawer({ open, onOpenChange, onCreated }: { open: boolean; onOpe
             </Select>
           </Field>
         </div>
-        <Field label="Preferred days">
+        <Field label={tr.preferredDays}>
           <ChipGroup size="sm" multiple options={[1, 2, 3, 4, 5, 6].map((d) => ({ value: d, label: WEEKDAYS_SHORT[d] }))} value={f.days} onChange={(v) => setF({ ...f, days: v as number[] })} />
         </Field>
-        <Field label="Preferred time">
+        <Field label={tr.preferredTime}>
           <ChipGroup size="sm" multiple options={(['AFTERNOON', 'EVENING'] as const).map((t) => ({ value: t, label: TIME_OF_DAY_LABELS[t] }))} value={f.times} onChange={(v) => setF({ ...f, times: v as S<'TimeOfDay'>[] })} />
         </Field>
-        <Field label="Notes" htmlFor="nl-notes">
+        <Field label={tr.notes} htmlFor="nl-notes">
           <Textarea id="nl-notes" rows={3} value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} />
         </Field>
         {create.error && !Object.keys(errors).length && <InlineAlert tone="danger">{errorMessage(create.error)}</InlineAlert>}

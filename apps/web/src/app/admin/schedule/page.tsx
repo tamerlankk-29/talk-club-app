@@ -15,10 +15,12 @@ import { api, call } from '@/lib/api/client';
 import type { S } from '@/lib/api/types';
 import { useAdminRooms, useAdminTeachers, useUrlState } from '@/lib/admin-queries';
 import { useCan } from '@/lib/auth';
-import { clubNow, CLUB_TZ } from '@/lib/format';
+import { clubNow, CLUB_TZ, formatDate } from '@/lib/format';
 import { intlLocale } from '@/lib/i18n';
 import { useClub } from '@/lib/queries';
-import { cn } from '@/lib/utils';
+import { cn, WEEKDAYS_SHORT } from '@/lib/utils';
+import { useT } from '@/lib/i18n';
+import { scheduleMessages } from '@/lib/i18n/messages/admin/schedule';
 
 type Session = S<'SessionAdminDto'>;
 type View = 'week' | 'day' | 'month';
@@ -55,6 +57,7 @@ function layout(sessions: Session[]): Array<{ s: Session; lane: number; lanes: n
 }
 
 function SessionBlock({ s, top, height, left, width }: { s: Session; top: number; height: number; left: string; width: string }) {
+  const tr = useT(scheduleMessages);
   const color = s.groupType?.color ?? '#6d28d9';
   const cancelled = s.status === 'CANCELLED';
   const full = s.available === 0 && !cancelled;
@@ -64,20 +67,20 @@ function SessionBlock({ s, top, height, left, width }: { s: Session; top: number
       onClick={(e) => e.stopPropagation()}
       className={cn('absolute overflow-hidden rounded-xl border-l-4 px-2 py-1.5 text-xs shadow-sm transition hover:z-10 hover:shadow-md', cancelled && 'opacity-50')}
       style={{ top, height, left, width, borderColor: color, background: `${color}14` }}
-      title={`${s.startTime}–${s.endTime} ${s.title} · ${s.teacher?.name ?? 'no teacher'} · ${s.booked}/${s.capacity}`}
+      title={`${s.startTime}–${s.endTime} ${s.title} · ${s.teacher?.name ?? tr.noTeacherLower} · ${s.booked}/${s.capacity}`}
     >
       <p className={cn('truncate font-semibold text-ink', cancelled && 'line-through')}>
         {s.startTime} {s.title}
       </p>
-      {height > 40 && <p className="truncate text-muted">{s.teacher?.name ?? 'No teacher'}</p>}
+      {height > 40 && <p className="truncate text-muted">{s.teacher?.name ?? tr.noTeacher}</p>}
       {height > 58 && (
         <p className="truncate text-muted">
-          {s.room?.name ?? (s.format === 'ONLINE' ? 'Online' : 'No room')} · {s.levelLabel}
+          {s.room?.name ?? (s.format === 'ONLINE' ? tr.online : tr.noRoom)} · {s.levelLabel}
         </p>
       )}
       {height > 76 && (
         <p className={cn('mt-0.5 font-semibold', full ? 'text-danger-700' : 'text-brand-800')}>
-          {cancelled ? 'Cancelled' : `${s.booked}/${s.capacity}${s.waitlistCount ? ` · +${s.waitlistCount} waiting` : ''}`}
+          {cancelled ? tr.cancelled : tr.seatsWaiting(s.booked, s.capacity, s.waitlistCount)}
         </p>
       )}
     </Link>
@@ -145,6 +148,7 @@ function TimeGrid({
 }
 
 function Schedule() {
+  const tr = useT(scheduleMessages);
   const router = useRouter();
   const url = useUrlState();
   const canManage = useCan('schedule.manage');
@@ -196,7 +200,7 @@ function Schedule() {
     url.set({ date: next.toISODate() });
   };
   const title =
-    view === 'day' ? anchor.toFormat('cccc, d MMMM yyyy') : view === 'month' ? anchor.toFormat('LLLL yyyy') : `${period.from.toFormat('d MMM')} – ${period.to.toFormat('d MMM yyyy')}`;
+    view === 'day' ? formatDate(anchor, 'cccc, d MMMM yyyy') : view === 'month' ? formatDate(anchor, 'LLLL yyyy') : `${formatDate(period.from, 'd MMM')} – ${formatDate(period.to, 'd MMM yyyy')}`;
   const today = clubNow().toISODate();
   const onSlot = canManage ? (d: SessionDraft) => setDraft(d) : undefined;
 
@@ -208,7 +212,7 @@ function Schedule() {
       muted: !hours[String(day.weekday)],
       label: (
         <button type="button" onClick={() => url.set({ view: 'day', date: iso })} className={cn('rounded-lg px-2 py-0.5 hover:bg-brand-50', iso === today && 'bg-brand-700 text-white hover:bg-brand-800')}>
-          {day.toFormat('ccc d')}
+          {formatDate(day, 'ccc d')}
         </button>
       ),
       sessions: sessions.filter((s) => s.localDate === iso),
@@ -231,7 +235,7 @@ function Schedule() {
       ? [
           {
             key: 'none',
-            label: 'Online / no room',
+            label: tr.onlineNoRoom,
             muted: true,
             sessions: daySessions.filter((s) => !s.room),
             draft: (time: string) => ({ date: dayIso, startTime: time, teacherId }),
@@ -242,16 +246,16 @@ function Schedule() {
 
   return (
     <AdminPage
-      title="Schedule"
-      description={query.data ? `${sessions.filter((s) => s.status !== 'CANCELLED').length} sessions · ${sessions.reduce((n, s) => n + (s.status === 'CANCELLED' ? 0 : s.booked), 0)} bookings` : undefined}
+      title={tr.schedule}
+      description={query.data ? tr.sessionsBookings(sessions.filter((s) => s.status !== 'CANCELLED').length, sessions.reduce((n, s) => n + (s.status === 'CANCELLED' ? 0 : s.booked), 0)) : undefined}
       actions={
         <>
           <Link href="/admin/schedule/templates" className={buttonClasses('outline', 'sm')}>
-            <Repeat className="h-4 w-4" /> Weekly templates
+            <Repeat className="h-4 w-4" /> {tr.weeklyTemplates}
           </Link>
           {canManage && (
             <Button size="sm" leftIcon={<CalendarPlus className="h-4 w-4" />} onClick={() => setDraft({ date: view === 'day' ? dayIso : undefined, teacherId })}>
-              New session
+              {tr.newSession}
             </Button>
           )}
         </>
@@ -259,36 +263,36 @@ function Schedule() {
     >
       <Toolbar>
         <div className="flex items-center gap-1">
-          <Button variant="outline" size="sm" onClick={() => step(-1)} aria-label="Previous">
+          <Button variant="outline" size="sm" onClick={() => step(-1)} aria-label={tr.previous}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <Button variant="outline" size="sm" onClick={() => url.set({ date: null })}>
-            Today
+            {tr.today}
           </Button>
-          <Button variant="outline" size="sm" onClick={() => step(1)} aria-label="Next">
+          <Button variant="outline" size="sm" onClick={() => step(1)} aria-label={tr.next}>
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
         <h2 className="min-w-48 font-display text-lg font-semibold">{title}</h2>
         <SegmentedControl
           options={[
-            { value: 'day', label: 'Day' },
-            { value: 'week', label: 'Week' },
-            { value: 'month', label: 'Month' },
+            { value: 'day', label: tr.day },
+            { value: 'week', label: tr.week },
+            { value: 'month', label: tr.month },
           ]}
           value={view}
           onChange={(v) => url.set({ view: v === 'week' ? null : v })}
         />
-        <FilterSelect label="Teacher" value={teacherId ?? ''} onChange={(v) => url.set({ teacher: v })}>
-          <option value="">All teachers</option>
+        <FilterSelect label={tr.teacher} value={teacherId ?? ''} onChange={(v) => url.set({ teacher: v })}>
+          <option value="">{tr.allTeachers}</option>
           {teachers?.map((t) => (
             <option key={t.id} value={t.id}>
               {t.name}
             </option>
           ))}
         </FilterSelect>
-        <FilterSelect label="Room" value={roomId ?? ''} onChange={(v) => url.set({ room: v })}>
-          <option value="">All rooms</option>
+        <FilterSelect label={tr.room} value={roomId ?? ''} onChange={(v) => url.set({ room: v })}>
+          <option value="">{tr.allRooms}</option>
           {rooms?.map((r) => (
             <option key={r.id} value={r.id}>
               {r.name}
@@ -306,7 +310,7 @@ function Schedule() {
       ) : (
         <TimeGrid columns={view === 'day' ? roomColumns : weekColumns} range={range} onSlot={onSlot} />
       )}
-      {canManage && <p className="text-xs text-muted">Tip: click an empty slot to create a session at that time.</p>}
+      {canManage && <p className="text-xs text-muted">{tr.tipClickEmptySlot}</p>}
 
       <SessionFormDrawer open={!!draft} onOpenChange={(o) => !o && setDraft(null)} draft={draft ?? undefined} onSaved={(s) => router.push(`/admin/sessions/${s.id}`)} />
     </AdminPage>
@@ -314,11 +318,12 @@ function Schedule() {
 }
 
 function MonthGrid({ anchor, start, sessions, onDay }: { anchor: DateTime; start: DateTime; sessions: Session[]; onDay: (iso: string) => void }) {
+  const tr = useT(scheduleMessages);
   const today = clubNow().toISODate();
   return (
     <div className="overflow-hidden rounded-3xl border border-line bg-white shadow-card">
       <div className="grid grid-cols-7 border-b border-line bg-canvas/60 text-center text-xs font-semibold uppercase tracking-wide text-muted">
-        {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => (
+        {WEEKDAYS_SHORT.slice(1).map((d) => (
           <div key={d} className="py-2">
             {d}
           </div>
@@ -346,9 +351,9 @@ function MonthGrid({ anchor, start, sessions, onDay }: { anchor: DateTime; start
                       <span className="font-semibold">{s.startTime}</span> {s.title}
                     </p>
                   ))}
-                  {list.length > 3 && <p className="text-[11px] font-semibold text-brand-700">+{list.length - 3} more</p>}
+                  {list.length > 3 && <p className="text-[11px] font-semibold text-brand-700">{tr.moreCount(list.length - 3)}</p>}
                   <p className="pt-0.5 text-[11px] text-muted">
-                    {booked}/{capacity} booked
+                    {tr.bookedOfShort(booked, capacity)}
                   </p>
                 </div>
               )}

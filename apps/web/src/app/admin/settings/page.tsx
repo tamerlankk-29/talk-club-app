@@ -14,6 +14,8 @@ import { api, call } from '@/lib/api/client';
 import { adminKeys, useUrlState } from '@/lib/admin-queries';
 import { useCan } from '@/lib/auth';
 import { cn } from '@/lib/utils';
+import { useT } from '@/lib/i18n';
+import { settingsMessages } from '@/lib/i18n/messages/admin/settings';
 
 interface SectionDef {
   id: string;
@@ -159,16 +161,17 @@ const F = {
 } satisfies Record<string, FieldSpec[]>;
 
 function Integrations() {
+  const tr = useT(settingsMessages);
   const { data } = useQuery({ queryKey: ['admin', 'integrations'], queryFn: () => call(api.GET('/api/admin/settings/integrations')) });
   return (
-    <Section title="Messaging channels" description="Providers are configured on the server (environment variables) — secrets never appear here.">
+    <Section title={tr.messagingChannels} description={tr.providersConfiguredServerEnvironment}>
       <Card padded={false} className="divide-y divide-line/70">
         {data?.channels.map((c) => (
           <div key={c.channel} className="flex items-center gap-3 px-5 py-3 text-sm">
             {c.configured ? <CheckCircle2 className="h-4 w-4 text-success-600" /> : <CircleDashed className="h-4 w-4 text-subtle" />}
             <span className="w-28 font-semibold">{c.channel}</span>
             <span className="text-muted">{c.provider}</span>
-            <span className="ml-auto text-xs text-muted">{c.configured ? 'ready' : 'not configured'}</span>
+            <span className="ml-auto text-xs text-muted">{c.configured ? tr.ready : tr.notConfigured}</span>
           </div>
         ))}
       </Card>
@@ -177,6 +180,7 @@ function Integrations() {
 }
 
 function Settings() {
+  const tr = useT(settingsMessages);
   const url = useUrlState();
   const canSettings = useCan('settings.manage');
   const canRooms = useCan('rooms.manage');
@@ -192,17 +196,17 @@ function Settings() {
   const needsSettings = !['location', 'catalog'].includes(section ?? '');
 
   return (
-    <AdminPage title="Settings" description="Business rules, content and resources. Every change is validated and recorded in the audit log.">
+    <AdminPage title={tr.settings} description={tr.businessRulesContentResources}>
       <div className="grid gap-6 lg:grid-cols-[240px_minmax(0,1fr)]">
-        <nav className="flex gap-1 overflow-x-auto lg:flex-col lg:overflow-visible" aria-label="Settings sections">
+        <nav className="flex gap-1 overflow-x-auto lg:flex-col lg:overflow-visible" aria-label={tr.settingsSections}>
           {allowed.map((x) => (
             <button
               key={x.id}
               type="button"
               onClick={() => url.set({ section: x.id })}
-              className={cn('whitespace-nowrap rounded-xl px-3 py-2 text-left text-sm font-medium transition', section === x.id ? 'bg-brand-700 text-white' : 'text-ink hover:bg-brand-50')}
+              className={cn('whitespace-nowrap rounded-xl px-3 py-2 text-left text-sm font-medium transition lg:whitespace-normal', section === x.id ? 'bg-brand-700 text-white' : 'text-ink hover:bg-brand-50')}
             >
-              {x.label}
+              {tr.fieldText[x.label] ?? x.label}
             </button>
           ))}
         </nav>
@@ -213,18 +217,18 @@ function Settings() {
             <Skeleton className="h-96 w-full rounded-3xl" />
           ) : (
             <>
-              {section === 'club' && s && <SettingsGroupForm group="club" value={s.club} fields={F.club} title="Club profile" description="Shown on the contact page and in messages." />}
+              {section === 'club' && s && <SettingsGroupForm group="club" value={s.club} fields={F.club} title={tr.clubProfile} description={tr.shownContactPageMessages} />}
               {section === 'booking' && s && (
                 <>
-                  <SettingsGroupForm group="booking" value={s.booking} fields={F.booking} title="Booking rules" />
-                  <SettingsGroupForm group="cancellation" value={s.cancellation} fields={F.cancellation} title="Cancellation policy" description="Changes apply to future deadlines; clients always see the exact free-cancellation time before booking." />
+                  <SettingsGroupForm group="booking" value={s.booking} fields={F.booking} title={tr.bookingRules} />
+                  <SettingsGroupForm group="cancellation" value={s.cancellation} fields={F.cancellation} title={tr.cancellationPolicy} description={tr.changesApplyFutureDeadlines} />
                 </>
               )}
               {section === 'sessions' && s && (
                 <>
-                  <SettingsGroupForm group="sessions" value={s.sessions} fields={F.sessions} title="Sessions" />
-                  <SettingsGroupForm group="attendance" value={s.attendance} fields={F.attendance} title="Attendance" />
-                  <SettingsGroupForm group="feedback" value={s.feedback} fields={F.feedback} title="Teacher feedback" />
+                  <SettingsGroupForm group="sessions" value={s.sessions} fields={F.sessions} title={tr.sessions} />
+                  <SettingsGroupForm group="attendance" value={s.attendance} fields={F.attendance} title={tr.attendance} />
+                  <SettingsGroupForm group="feedback" value={s.feedback} fields={F.feedback} title={tr.teacherFeedback} />
                 </>
               )}
               {section === 'memberships' && s && (
@@ -233,19 +237,19 @@ function Settings() {
                     group="memberships"
                     value={s.memberships}
                     fields={F.memberships}
-                    title="Memberships"
+                    title={tr.memberships}
                     description={
                       <>
-                        Plans and prices are managed in{' '}
+                        {tr.plansManagedIn}{' '}
                         <Link href="/admin/memberships?tab=plans" className="font-semibold text-brand-700">
-                          Memberships → Plans
+                          {tr.membershipsPlans}
                         </Link>
                         .
                       </>
                     }
                   />
-                  <SettingsGroupForm group="trial" value={s.trial} fields={F.trial} title="Trial sessions" />
-                  <SettingsGroupForm group="waitlist" value={s.waitlist} fields={F.waitlist} title="Waitlist" />
+                  <SettingsGroupForm group="trial" value={s.trial} fields={F.trial} title={tr.trialSessions} />
+                  <SettingsGroupForm group="waitlist" value={s.waitlist} fields={F.waitlist} title={tr.waitlist} />
                 </>
               )}
               {section === 'notifications' && s && (
@@ -254,12 +258,12 @@ function Settings() {
                     group="notifications"
                     value={s.notifications}
                     fields={F.notifications}
-                    title="Notifications"
+                    title={tr.notifications}
                     description={
                       <>
-                        Message texts are edited in{' '}
+                        {tr.textsEditedIn}{' '}
                         <Link href="/admin/notifications" className="font-semibold text-brand-700">
-                          Notifications
+                          {tr.notifications}
                         </Link>
                         .
                       </>
@@ -270,11 +274,11 @@ function Settings() {
               )}
               {section === 'crm' && s && (
                 <>
-                  <SettingsGroupForm group="crm" value={s.crm} fields={F.crm} title="CRM thresholds" description="Used for segments, the pipeline and automations." />
-                  <SettingsGroupForm group="referrals" value={s.referrals} fields={F.referrals} title="Referrals" />
+                  <SettingsGroupForm group="crm" value={s.crm} fields={F.crm} title={tr.crmThresholds} description={tr.usedSegmentsPipelineAutomations} />
+                  <SettingsGroupForm group="referrals" value={s.referrals} fields={F.referrals} title={tr.referrals} />
                 </>
               )}
-              {section === 'branding' && s && <SettingsGroupForm group="branding" value={s.branding} fields={F.branding} title="Branding" description="Colours apply to the client app immediately." />}
+              {section === 'branding' && s && <SettingsGroupForm group="branding" value={s.branding} fields={F.branding} title={tr.branding} description={tr.coloursApplyClientApp} />}
               {section === 'content' && s && <ContentSection value={s.content as never} />}
               {section === 'legal' && <LegalSection />}
               {section === 'location' && <LocationsSection />}

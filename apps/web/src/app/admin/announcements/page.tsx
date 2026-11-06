@@ -14,11 +14,14 @@ import { toast, toastError } from '@/components/ui/toast';
 import { api, call, errorMessage, fieldErrors } from '@/lib/api/client';
 import type { S } from '@/lib/api/types';
 import { clubNow, fmt, fromClubInput, toClubInput } from '@/lib/format';
+import { useT } from '@/lib/i18n';
+import { marketingMessages } from '@/lib/i18n/messages/admin/marketing';
 
 type Announcement = S<'AnnouncementDto'>;
 const KEY = ['admin', 'announcements'];
 
 export default function AnnouncementsPage() {
+  const tr = useT(marketingMessages);
   const qc = useQueryClient();
   const query = useQuery({ queryKey: KEY, queryFn: () => call(api.GET('/api/admin/announcements')) });
   const [editing, setEditing] = useState<Announcement | 'new' | null>(null);
@@ -34,11 +37,11 @@ export default function AnnouncementsPage() {
   const now = Date.now();
   return (
     <AdminPage
-      title="Announcements"
-      description="Cards on the client home screen — news, new groups, holiday hours."
+      title={tr.announcements}
+      description={tr.cardsClientHomeScreen}
       actions={
         <Button size="sm" leftIcon={<Plus className="h-4 w-4" />} onClick={() => setEditing('new')}>
-          New announcement
+          {tr.newAnnouncement}
         </Button>
       }
     >
@@ -47,7 +50,7 @@ export default function AnnouncementsPage() {
       ) : query.error ? (
         <ErrorState error={query.error} onRetry={() => query.refetch()} />
       ) : !query.data?.length ? (
-        <EmptyState icon={<Megaphone className="h-7 w-7" />} title="No announcements" />
+        <EmptyState icon={<Megaphone className="h-7 w-7" />} title={tr.noAnnouncements} />
       ) : (
         <div className="grid gap-3 lg:grid-cols-2">
           {query.data.map((a) => {
@@ -58,19 +61,19 @@ export default function AnnouncementsPage() {
                   <p className="flex items-center gap-1.5 font-semibold">
                     {a.isPinned && <Pin className="h-3.5 w-3.5 text-brand-700" />} {a.title}
                   </p>
-                  {live ? <Badge tone="success">Live</Badge> : a.isActive ? <Badge tone="info">Scheduled / ended</Badge> : <Badge>Hidden</Badge>}
+                  {live ? <Badge tone="success">{tr.live}</Badge> : a.isActive ? <Badge tone="info">{tr.scheduledEnded}</Badge> : <Badge>{tr.hidden}</Badge>}
                 </div>
                 <p className="line-clamp-3 text-sm text-muted">{a.body}</p>
                 <p className="text-xs text-muted">
-                  {fmt.dateShort(a.startsAt)} – {a.endsAt ? fmt.dateShort(a.endsAt) : 'no end'}
-                  {a.audience ? ' · targeted' : ' · everyone'}
+                  {fmt.dateShort(a.startsAt)} – {a.endsAt ? fmt.dateShort(a.endsAt) : tr.noEnd}
+                  {a.audience ? tr.targeted : tr.everyone}
                 </p>
                 <div className="flex gap-2">
                   <Button size="xs" variant="secondary" onClick={() => setEditing(a)}>
-                    Edit
+                    {tr.edit}
                   </Button>
                   <Button size="xs" variant="ghost" className="text-danger-700" leftIcon={<Trash2 className="h-3.5 w-3.5" />} onClick={() => setDeleting(a)}>
-                    Delete
+                    {tr.delete}
                   </Button>
                 </div>
               </Card>
@@ -82,8 +85,8 @@ export default function AnnouncementsPage() {
       <ConfirmDialog
         open={!!deleting}
         onOpenChange={(o) => !o && setDeleting(null)}
-        title="Delete announcement?"
-        confirmLabel="Delete"
+        title={tr.deleteAnnouncement}
+        confirmLabel={tr.delete}
         tone="danger"
         loading={remove.isPending}
         onConfirm={() => deleting && remove.mutate(deleting.id)}
@@ -93,6 +96,7 @@ export default function AnnouncementsPage() {
 }
 
 function AnnouncementDrawer({ announcement, open, onOpenChange }: { announcement?: Announcement; open: boolean; onOpenChange: (o: boolean) => void }) {
+  const tr = useT(marketingMessages);
   const qc = useQueryClient();
   const init = () => ({
     title: announcement?.title ?? '',
@@ -131,7 +135,7 @@ function AnnouncementDrawer({ announcement, open, onOpenChange }: { announcement
     },
     onSuccess: async () => {
       await Promise.all([qc.invalidateQueries({ queryKey: KEY }), qc.invalidateQueries({ queryKey: ['my', 'home'] })]);
-      toast.success('Announcement saved.');
+      toast.success(tr.announcementSaved);
       onOpenChange(false);
     },
   });
@@ -140,44 +144,44 @@ function AnnouncementDrawer({ announcement, open, onOpenChange }: { announcement
     <Drawer
       open={open}
       onOpenChange={onOpenChange}
-      title={announcement ? 'Edit announcement' : 'New announcement'}
+      title={announcement ? tr.editAnnouncement : tr.newAnnouncement}
       width="lg"
       footer={
         <>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
-            Cancel
+            {tr.cancel}
           </Button>
           <Button loading={save.isPending} disabled={!f.title.trim() || !f.body.trim()} onClick={() => save.mutate()}>
-            Save
+            {tr.save}
           </Button>
         </>
       }
     >
       <div className="space-y-4">
-        <Field label="Title" required htmlFor="an-title" error={errors.title}>
+        <Field label={tr.title} required htmlFor="an-title" error={errors.title}>
           <Input id="an-title" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} maxLength={120} />
         </Field>
-        <Field label="Text" required htmlFor="an-body" error={errors.body}>
+        <Field label={tr.text} required htmlFor="an-body" error={errors.body}>
           <Textarea id="an-body" rows={4} value={f.body} onChange={(e) => setF({ ...f, body: e.target.value })} maxLength={1000} />
         </Field>
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Button label" htmlFor="an-bl">
+          <Field label={tr.buttonLabel} htmlFor="an-bl">
             <Input id="an-bl" value={f.buttonLabel} onChange={(e) => setF({ ...f, buttonLabel: e.target.value })} />
           </Field>
-          <Field label="Button link" htmlFor="an-bu">
+          <Field label={tr.buttonLink} htmlFor="an-bu">
             <Input id="an-bu" value={f.buttonUrl} onChange={(e) => setF({ ...f, buttonUrl: e.target.value })} placeholder="/schedule" />
           </Field>
-          <Field label="Show from" htmlFor="an-from">
+          <Field label={tr.show} htmlFor="an-from">
             <Input id="an-from" type="datetime-local" value={f.startsAt} onChange={(e) => setF({ ...f, startsAt: e.target.value })} />
           </Field>
-          <Field label="Until" htmlFor="an-until" hint="Empty = until removed">
+          <Field label={tr.until} htmlFor="an-until" hint={tr.emptyUntilRemoved}>
             <Input id="an-until" type="datetime-local" value={f.endsAt} onChange={(e) => setF({ ...f, endsAt: e.target.value })} />
           </Field>
         </div>
         <div className="space-y-2">
-          <Checkbox checked={f.isActive} onChange={(v) => setF({ ...f, isActive: v })} label="Visible" />
-          <Checkbox checked={f.isPinned} onChange={(v) => setF({ ...f, isPinned: v })} label="Pin to the top" />
-          <Checkbox checked={f.targeted} onChange={(v) => setF({ ...f, targeted: v })} label="Only show to some clients" />
+          <Checkbox checked={f.isActive} onChange={(v) => setF({ ...f, isActive: v })} label={tr.visible} />
+          <Checkbox checked={f.isPinned} onChange={(v) => setF({ ...f, isPinned: v })} label={tr.pinTop} />
+          <Checkbox checked={f.targeted} onChange={(v) => setF({ ...f, targeted: v })} label={tr.onlyShowSomeClients} />
         </div>
         {f.targeted && <RuleBuilder value={f.audience} onChange={(audience) => setF({ ...f, audience })} />}
         {save.error && !Object.keys(errors).length && <InlineAlert tone="danger">{errorMessage(save.error)}</InlineAlert>}

@@ -4,6 +4,8 @@ import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
+import { useT } from '@/lib/i18n';
+import { adminShellMessages } from '@/lib/i18n/messages/admin/shell';
 
 /** Standard admin page header with title, description and actions. */
 export function AdminPage({
@@ -22,13 +24,14 @@ export function AdminPage({
   children: ReactNode;
   className?: string;
 }) {
+  const t = useT(adminShellMessages);
   return (
     <div className={cn('space-y-6', className)}>
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             {back && (
-              <Link href={back} className="-ml-2 rounded-xl p-2 text-ink hover:bg-brand-50" aria-label="Back">
+              <Link href={back} className="-ml-2 rounded-xl p-2 text-ink hover:bg-brand-50" aria-label={t.back}>
                 <ArrowLeft className="h-5 w-5" />
               </Link>
             )}

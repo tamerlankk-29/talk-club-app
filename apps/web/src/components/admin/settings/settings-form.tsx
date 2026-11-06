@@ -9,6 +9,8 @@ import { Card } from '@/components/ui/layout';
 import { toast } from '@/components/ui/toast';
 import { ApiError, api, call, errorMessage } from '@/lib/api/client';
 import { adminKeys } from '@/lib/admin-queries';
+import { useT } from '@/lib/i18n';
+import { settingsMessages } from '@/lib/i18n/messages/admin/settings';
 
 export type SettingsGroups = Record<string, Record<string, unknown>>;
 
@@ -50,6 +52,8 @@ export function SettingsGroupForm({
   description?: ReactNode;
   extra?: ReactNode;
 }) {
+  const tr = useT(settingsMessages);
+  const tx = (text?: string) => (text ? (tr.fieldText[text] ?? text) : text);
   const qc = useQueryClient();
   const [draft, setDraft] = useState(value);
   const [base, setBase] = useState(value);
@@ -63,7 +67,7 @@ export function SettingsGroupForm({
     onSuccess: async (saved) => {
       qc.setQueryData<SettingsGroups>(adminKeys.settings, (all) => (all ? { ...all, [group]: saved as Record<string, unknown> } : all));
       await qc.invalidateQueries({ queryKey: ['public', 'club'] });
-      toast.success('Settings saved.');
+      toast.success(tr.settingsSaved);
     },
   });
   const problems = issues(save.error);
@@ -84,24 +88,24 @@ export function SettingsGroupForm({
           if (f.type === 'boolean') {
             return (
               <div key={f.key} className="md:col-span-2">
-                <Switch checked={!!v} onChange={set} label={f.label} description={f.hint} />
+                <Switch checked={!!v} onChange={set} label={tx(f.label)} description={tx(f.hint)} />
               </div>
             );
           }
           return (
-            <Field key={f.key} label={f.label} hint={f.hint} error={error} htmlFor={`s-${group}-${f.key}`} className={f.type === 'textarea' ? 'md:col-span-2' : undefined}>
+            <Field key={f.key} label={tx(f.label)} hint={tx(f.hint)} error={error} htmlFor={`s-${group}-${f.key}`} className={f.type === 'textarea' ? 'md:col-span-2' : undefined}>
               {f.type === 'select' ? (
                 <Select id={`s-${group}-${f.key}`} value={String(v ?? '')} onChange={(e) => set(e.target.value)}>
                   {f.options.map((o) => (
                     <option key={o.value} value={o.value}>
-                      {o.label}
+                      {tx(o.label)}
                     </option>
                   ))}
                 </Select>
               ) : f.type === 'number' ? (
                 <div className="relative">
                   <Input id={`s-${group}-${f.key}`} type="number" min={f.min} max={f.max} value={String(v ?? '')} onChange={(e) => set(e.target.value === '' ? '' : Number(e.target.value))} className={f.suffix ? 'pr-20' : undefined} />
-                  {f.suffix && <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-sm text-muted">{f.suffix}</span>}
+                  {f.suffix && <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-sm text-muted">{tx(f.suffix)}</span>}
                 </div>
               ) : f.type === 'numbers' ? (
                 <Input
@@ -122,7 +126,7 @@ export function SettingsGroupForm({
                 <Textarea id={`s-${group}-${f.key}`} rows={3} value={String(v ?? '')} onChange={(e) => set(e.target.value)} />
               ) : f.type === 'color' ? (
                 <div className="flex gap-2">
-                  <input type="color" value={String(v ?? '#6d28d9')} onChange={(e) => set(e.target.value)} className="h-12 w-14 cursor-pointer rounded-xl border border-line bg-white p-1" aria-label={f.label} />
+                  <input type="color" value={String(v ?? '#6d28d9')} onChange={(e) => set(e.target.value)} className="h-12 w-14 cursor-pointer rounded-xl border border-line bg-white p-1" aria-label={tx(f.label)} />
                   <Input id={`s-${group}-${f.key}`} value={String(v ?? '')} onChange={(e) => set(e.target.value)} />
                 </div>
               ) : (
@@ -138,11 +142,11 @@ export function SettingsGroupForm({
       <div className="flex justify-end gap-2">
         {dirty && (
           <Button variant="ghost" onClick={() => setDraft(value)}>
-            Discard
+            {tr.discard}
           </Button>
         )}
         <Button loading={save.isPending} disabled={!dirty} onClick={() => save.mutate()}>
-          Save
+          {tr.save}
         </Button>
       </div>
     </Card>

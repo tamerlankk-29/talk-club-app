@@ -13,31 +13,26 @@ import { toast, toastError } from '@/components/ui/toast';
 import { api, call, errorMessage } from '@/lib/api/client';
 import type { S } from '@/lib/api/types';
 import { fmt } from '@/lib/format';
+import { useT } from '@/lib/i18n';
+import { marketingMessages } from '@/lib/i18n/messages/admin/marketing';
 
 type Template = S<'NotificationTemplateDto'>;
 type Channel = S<'NotificationChannel'>;
 const KEY = ['admin', 'notification-templates'];
-const CHANNELS: Array<{ value: Channel; label: string }> = [
-  { value: 'IN_APP', label: 'In-app' },
-  { value: 'PUSH', label: 'Push' },
-  { value: 'WHATSAPP', label: 'WhatsApp' },
-  { value: 'TELEGRAM', label: 'Telegram' },
-  { value: 'SMS', label: 'SMS' },
-  { value: 'EMAIL', label: 'Email' },
-];
-const CATEGORY_LABEL: Record<string, string> = { TRANSACTIONAL: 'Service', REMINDER: 'Reminders', MARKETING: 'Marketing', STAFF: 'Staff alerts' };
+const CHANNELS: Channel[] = ['IN_APP', 'PUSH', 'WHATSAPP', 'TELEGRAM', 'SMS', 'EMAIL'];
 
 export default function NotificationsAdminPage() {
+  const tr = useT(marketingMessages);
   const templates = useQuery({ queryKey: KEY, queryFn: () => call(api.GET('/api/admin/notifications/templates')) });
   const [editing, setEditing] = useState<Template | null>(null);
   const groups = new Map<string, Template[]>();
   for (const t of templates.data ?? []) groups.set(t.category, [...(groups.get(t.category) ?? []), t]);
   return (
-    <AdminPage title="Notifications" description="Every automatic message the club sends. Edit the wording and channels; placeholders are filled in per client.">
+    <AdminPage title={tr.notifications} description={tr.everyAutomaticMessageClub}>
       <Tabs defaultValue="templates">
         <TabsList className="max-w-xs">
-          <TabsTrigger value="templates">Templates</TabsTrigger>
-          <TabsTrigger value="deliveries">Delivery log</TabsTrigger>
+          <TabsTrigger value="templates">{tr.templates}</TabsTrigger>
+          <TabsTrigger value="deliveries">{tr.deliveryLog}</TabsTrigger>
         </TabsList>
         <TabsContent value="templates">
           {templates.isLoading ? (
@@ -48,20 +43,20 @@ export default function NotificationsAdminPage() {
             <div className="space-y-6">
               {[...groups.entries()].map(([category, list]) => (
                 <section key={category} className="space-y-2">
-                  <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">{CATEGORY_LABEL[category] ?? category}</h2>
+                  <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">{tr.categoryLabels[category] ?? category}</h2>
                   <div className="grid gap-3 lg:grid-cols-2">
                     {list.map((t) => (
                       <button key={t.key} type="button" onClick={() => setEditing(t)} className="rounded-3xl bg-white p-4 text-left shadow-card ring-1 ring-line/70 transition hover:ring-brand-200">
                         <div className="flex items-start justify-between gap-2">
-                          <p className="font-semibold">{t.name}</p>
+                          <p className="font-semibold">{tr.templateNames[t.key] ?? t.name}</p>
                           <div className="flex gap-1">
-                            {t.isCustomized && <Badge tone="brand">edited</Badge>}
-                            {!t.isActive && <Badge>off</Badge>}
+                            {t.isCustomized && <Badge tone="brand">{tr.edited}</Badge>}
+                            {!t.isActive && <Badge>{tr.off2}</Badge>}
                           </div>
                         </div>
                         <p className="mt-1 truncate text-sm font-medium">{t.title}</p>
                         <p className="line-clamp-2 text-sm text-muted">{t.body}</p>
-                        <p className="mt-2 text-xs text-subtle">{t.channels.map((c) => CHANNELS.find((x) => x.value === c)?.label ?? c).join(' · ')}</p>
+                        <p className="mt-2 text-xs text-subtle">{t.channels.map((c) => tr.channelNames[c] ?? c).join(' · ')}</p>
                       </button>
                     ))}
                   </div>
@@ -80,6 +75,7 @@ export default function NotificationsAdminPage() {
 }
 
 function Deliveries() {
+  const tr = useT(marketingMessages);
   const [status, setStatus] = useState('');
   const [channel, setChannel] = useState('');
   const { data, isLoading } = useQuery({
@@ -95,18 +91,18 @@ function Deliveries() {
   return (
     <div className="space-y-3">
       <Toolbar>
-        <FilterSelect label="Status" value={status} onChange={setStatus}>
-          <option value="">All statuses</option>
-          <option value="SENT">Sent</option>
-          <option value="PENDING">Pending</option>
-          <option value="FAILED">Failed</option>
-          <option value="SKIPPED">Skipped</option>
+        <FilterSelect label={tr.status} value={status} onChange={setStatus}>
+          <option value="">{tr.allStatuses}</option>
+          <option value="SENT">{tr.sent}</option>
+          <option value="PENDING">{tr.pending}</option>
+          <option value="FAILED">{tr.failed}</option>
+          <option value="SKIPPED">{tr.skipped}</option>
         </FilterSelect>
-        <FilterSelect label="Channel" value={channel} onChange={setChannel}>
-          <option value="">All channels</option>
+        <FilterSelect label={tr.channel} value={channel} onChange={setChannel}>
+          <option value="">{tr.allChannels}</option>
           {CHANNELS.map((c) => (
-            <option key={c.value} value={c.value}>
-              {c.label}
+            <option key={c} value={c}>
+              {tr.channelNames[c] ?? c}
             </option>
           ))}
         </FilterSelect>
@@ -118,7 +114,7 @@ function Deliveries() {
           data.map((d) => (
             <div key={d.id} className="flex flex-wrap items-center gap-3 px-5 py-3 text-sm">
               <StatusBadge status={d.status} />
-              <Badge>{CHANNELS.find((c) => c.value === d.channel)?.label ?? d.channel}</Badge>
+              <Badge>{tr.channelNames[d.channel] ?? d.channel}</Badge>
               <span className="min-w-0 flex-1 truncate font-medium">{d.title}</span>
               <span className="text-muted">{d.recipient ?? '—'}</span>
               {d.error && <span className="w-full text-xs text-danger-700">{d.error}</span>}
@@ -130,7 +126,7 @@ function Deliveries() {
             </div>
           ))
         ) : (
-          <p className="px-5 py-6 text-center text-sm text-muted">No deliveries.</p>
+          <p className="px-5 py-6 text-center text-sm text-muted">{tr.noDeliveries}</p>
         )}
       </Card>
     </div>
@@ -138,6 +134,7 @@ function Deliveries() {
 }
 
 function TemplateDrawer({ template, onClose }: { template: Template; onClose: () => void }) {
+  const tr = useT(marketingMessages);
   const qc = useQueryClient();
   const [f, setF] = useState({
     title: template.title,
@@ -168,7 +165,7 @@ function TemplateDrawer({ template, onClose }: { template: Template; onClose: ()
       ),
     onSuccess: (list) => {
       qc.setQueryData(KEY, list);
-      toast.success('Template saved.');
+      toast.success(tr.templateSaved);
       onClose();
     },
   });
@@ -176,14 +173,14 @@ function TemplateDrawer({ template, onClose }: { template: Template; onClose: ()
     mutationFn: () => call(api.POST('/api/admin/notifications/templates/{key}/reset', { params: { path: { key: template.key } } })),
     onSuccess: (list) => {
       qc.setQueryData(KEY, list);
-      toast.success('Restored the default text.');
+      toast.success(tr.restoredDefaultText);
       onClose();
     },
     onError: toastError,
   });
   const test = useMutation({
     mutationFn: () => call(api.POST('/api/admin/notifications/templates/{key}/test', { params: { path: { key: template.key } } })),
-    onSuccess: () => toast.success('Test sent to your staff inbox.'),
+    onSuccess: () => toast.success(tr.testSentStaffInbox),
     onError: toastError,
   });
   return (
@@ -197,14 +194,14 @@ function TemplateDrawer({ template, onClose }: { template: Template; onClose: ()
         <>
           {template.isCustomized && (
             <Button variant="ghost" className="mr-auto" leftIcon={<RotateCcw className="h-4 w-4" />} loading={reset.isPending} onClick={() => reset.mutate()}>
-              Restore default
+              {tr.restoreDefault}
             </Button>
           )}
           <Button variant="outline" leftIcon={<Send className="h-4 w-4" />} loading={test.isPending} onClick={() => test.mutate()}>
-            Send test
+            {tr.sendTest}
           </Button>
           <Button loading={save.isPending} onClick={() => save.mutate()}>
-            Save
+            {tr.save}
           </Button>
         </>
       }
@@ -213,30 +210,30 @@ function TemplateDrawer({ template, onClose }: { template: Template; onClose: ()
         <InlineAlert tone="info">
           Placeholders: {template.placeholders.map((p) => `{{${p}}}`).join(', ') || 'none'}
         </InlineAlert>
-        <Field label="Title" htmlFor="nt-title">
+        <Field label={tr.title} htmlFor="nt-title">
           <Input id="nt-title" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} />
         </Field>
-        <Field label="Message" htmlFor="nt-body">
+        <Field label={tr.message} htmlFor="nt-body">
           <Textarea id="nt-body" rows={5} value={f.body} onChange={(e) => setF({ ...f, body: e.target.value })} />
         </Field>
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Button label" htmlFor="nt-bl">
+          <Field label={tr.buttonLabel} htmlFor="nt-bl">
             <Input id="nt-bl" value={f.buttonLabel} onChange={(e) => setF({ ...f, buttonLabel: e.target.value })} />
           </Field>
-          <Field label="Button link" htmlFor="nt-bu">
+          <Field label={tr.buttonLink} htmlFor="nt-bu">
             <Input id="nt-bu" value={f.buttonUrl} onChange={(e) => setF({ ...f, buttonUrl: e.target.value })} />
           </Field>
-          <Field label="Second button label" htmlFor="nt-sbl">
+          <Field label={tr.secondButtonLabel} htmlFor="nt-sbl">
             <Input id="nt-sbl" value={f.secondaryButtonLabel} onChange={(e) => setF({ ...f, secondaryButtonLabel: e.target.value })} />
           </Field>
-          <Field label="Second button link" htmlFor="nt-sbu">
+          <Field label={tr.secondButtonLink} htmlFor="nt-sbu">
             <Input id="nt-sbu" value={f.secondaryButtonUrl} onChange={(e) => setF({ ...f, secondaryButtonUrl: e.target.value })} />
           </Field>
         </div>
-        <Field label="Channels" hint="SMS is used only when the client has no push-enabled device.">
-          <ChipGroup size="sm" multiple options={CHANNELS} value={f.channels} onChange={(v) => setF({ ...f, channels: v as Channel[] })} />
+        <Field label={tr.channels} hint={tr.smsUsedOnlyWhen}>
+          <ChipGroup size="sm" multiple options={CHANNELS.map((c) => ({ value: c, label: tr.channelNames[c] ?? c }))} value={f.channels} onChange={(v) => setF({ ...f, channels: v as Channel[] })} />
         </Field>
-        <Checkbox checked={f.isActive} onChange={(v) => setF({ ...f, isActive: v })} label="Send this notification" />
+        <Checkbox checked={f.isActive} onChange={(v) => setF({ ...f, isActive: v })} label={tr.sendNotification2} />
         {save.error && <InlineAlert tone="danger">{errorMessage(save.error)}</InlineAlert>}
       </div>
     </Drawer>

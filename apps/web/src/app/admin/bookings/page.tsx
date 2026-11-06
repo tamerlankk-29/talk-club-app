@@ -16,11 +16,14 @@ import { useUrlState } from '@/lib/admin-queries';
 import { useCan } from '@/lib/auth';
 import { clubNow, CLUB_TZ, fmt } from '@/lib/format';
 import { DateTime } from 'luxon';
+import { useT } from '@/lib/i18n';
+import { scheduleMessages } from '@/lib/i18n/messages/admin/schedule';
 
 type Row = S<'AdminBookingRowDto'>;
 const PAGE_SIZE = 50;
 
 function Bookings() {
+  const tr = useT(scheduleMessages);
   const router = useRouter();
   const url = useUrlState();
   const canExport = useCan('data.export');
@@ -41,7 +44,7 @@ function Bookings() {
   const columns: Column<Row>[] = [
     {
       key: 'when',
-      header: 'Session',
+      header: tr.session,
       cell: (b) => (
         <div>
           <p className="font-semibold">
@@ -55,7 +58,7 @@ function Bookings() {
     },
     {
       key: 'client',
-      header: 'Client',
+      header: tr.client,
       cell: (b) => (
         <div>
           <p className="font-medium">{b.client.name}</p>
@@ -65,21 +68,21 @@ function Bookings() {
     },
     {
       key: 'status',
-      header: 'Status',
+      header: tr.status,
       cell: (b) => (
         <div className="flex flex-wrap items-center gap-1.5">
           <StatusBadge status={b.status} />
-          {b.kind !== 'MEMBERSHIP' && <Badge tone="zest">{b.kind.toLowerCase()}</Badge>}
+          {b.kind !== 'MEMBERSHIP' && <Badge tone="zest">{tr.bookingKinds[b.kind] ?? b.kind.toLowerCase()}</Badge>}
         </div>
       ),
     },
-    { key: 'membership', header: 'Membership', hideOnMobile: true, cell: (b) => <span className="text-sm">{b.membershipName ?? '—'}{b.visitReturned ? ' · returned' : ''}</span> },
-    { key: 'booked', header: 'Booked', hideOnMobile: true, cell: (b) => <span className="text-sm text-muted">{fmt.dateTime(b.bookedAt)} · {b.source.toLowerCase()}</span> },
+    { key: 'membership', header: tr.membership, hideOnMobile: true, cell: (b) => <span className="text-sm">{b.membershipName ?? '—'}{b.visitReturned ? ' · returned' : ''}</span> },
+    { key: 'booked', header: tr.booked, hideOnMobile: true, cell: (b) => <span className="text-sm text-muted">{fmt.dateTime(b.bookedAt)} · {b.source.toLowerCase()}</span> },
   ];
   return (
     <AdminPage
-      title="Bookings"
-      description={query.data ? `${query.data.total} bookings in the selected period` : undefined}
+      title={tr.bookings}
+      description={query.data ? tr.bookingsInPeriod(query.data.total) : undefined}
       actions={
         canExport && (
           <Button
@@ -88,28 +91,28 @@ function Bookings() {
             leftIcon={<Download className="h-4 w-4" />}
             onClick={() => downloadFile(`/api/admin/exports/bookings?format=xlsx&from=${filters.from}&to=${filters.to}`, 'bookings.xlsx').catch(toastError)}
           >
-            Export
+            {tr.export}
           </Button>
         )
       }
     >
       <Toolbar>
-        <Input type="date" value={fromDay} onChange={(e) => url.set({ from: e.target.value })} className="h-10 w-40" aria-label="From" />
+        <Input type="date" value={fromDay} onChange={(e) => url.set({ from: e.target.value })} className="h-10 w-40" aria-label={tr.from} />
         <span className="text-muted">–</span>
-        <Input type="date" value={toDay} onChange={(e) => url.set({ to: e.target.value })} className="h-10 w-40" aria-label="To" />
-        <FilterSelect label="Status" value={url.get('status')} onChange={(v) => url.set({ status: v })}>
-          <option value="">All statuses</option>
-          <option value="BOOKED">Booked</option>
-          <option value="ATTENDED">Attended</option>
-          <option value="NO_SHOW">No-show</option>
-          <option value="CANCELLED">Cancelled</option>
-          <option value="LATE_CANCELLED">Late cancelled</option>
+        <Input type="date" value={toDay} onChange={(e) => url.set({ to: e.target.value })} className="h-10 w-40" aria-label={tr.to} />
+        <FilterSelect label={tr.status} value={url.get('status')} onChange={(v) => url.set({ status: v })}>
+          <option value="">{tr.allStatuses}</option>
+          <option value="BOOKED">{tr.booked}</option>
+          <option value="ATTENDED">{tr.attended}</option>
+          <option value="NO_SHOW">{tr.noShow}</option>
+          <option value="CANCELLED">{tr.cancelled}</option>
+          <option value="LATE_CANCELLED">{tr.lateCancelled}</option>
         </FilterSelect>
-        <FilterSelect label="Type" value={url.get('kind')} onChange={(v) => url.set({ kind: v })}>
-          <option value="">All types</option>
-          <option value="MEMBERSHIP">Membership</option>
-          <option value="TRIAL">Trial</option>
-          <option value="COMPLIMENTARY">Complimentary</option>
+        <FilterSelect label={tr.type} value={url.get('kind')} onChange={(v) => url.set({ kind: v })}>
+          <option value="">{tr.allTypes}</option>
+          <option value="MEMBERSHIP">{tr.membership}</option>
+          <option value="TRIAL">{tr.trial}</option>
+          <option value="COMPLIMENTARY">{tr.complimentary}</option>
         </FilterSelect>
       </Toolbar>
       {query.error ? (

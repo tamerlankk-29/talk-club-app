@@ -16,6 +16,7 @@ import {
   Min,
   NotEquals,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export const MEMBERSHIP_DISPLAY_STATUSES = ['ACTIVE', 'USED_UP', 'EXPIRED', 'CANCELLED', 'NOT_STARTED'] as const;
 
@@ -284,11 +285,13 @@ export class MembershipListQueryDto {
   planId?: string;
 
   @IsOptional()
+  @Type(() => Number)
   @IsInt()
   @Min(1)
   page?: number;
 
   @IsOptional()
+  @Type(() => Number)
   @IsInt()
   @Min(1)
   @Max(100)
