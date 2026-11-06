@@ -5817,6 +5817,12 @@ export interface components {
             visitsUsed: number;
             /** @description Consecutive weeks with at least one attended session */
             currentStreakWeeks: number;
+            /** @description Longest run of consecutive weeks with an attended session */
+            bestStreakWeeks: number;
+            /** @description The streak is still alive but needs a visit this week to continue */
+            streakAtRisk: boolean;
+            /** @description Different teachers the client has had sessions with */
+            teachersMet: number;
             totalMinutesSpeaking: number;
             favoriteTeacher: components["schemas"]["FavoriteTeacherDto"] | null;
             /** @description ISO weekday 1–7 */

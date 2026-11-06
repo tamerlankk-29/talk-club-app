@@ -73,10 +73,26 @@ export class ClientStatsService {
     // Streak: consecutive ISO weeks with a visit, counting back from this (or last) week.
     let streak = 0;
     let cursor = DateTime.fromJSDate(now, { zone: tz });
-    if (!weeks.has(`${cursor.weekYear}-${cursor.weekNumber}`)) cursor = cursor.minus({ weeks: 1 });
+    const visitedThisWeek = weeks.has(`${cursor.weekYear}-${cursor.weekNumber}`);
+    if (!visitedThisWeek) cursor = cursor.minus({ weeks: 1 });
     while (weeks.has(`${cursor.weekYear}-${cursor.weekNumber}`)) {
       streak += 1;
       cursor = cursor.minus({ weeks: 1 });
+    }
+
+    // Best streak: the longest run of consecutive visited weeks ever.
+    const weekStarts = [...weeks]
+      .map((w) => {
+        const [weekYear, weekNumber] = w.split('-').map(Number);
+        return DateTime.fromObject({ weekYear, weekNumber, weekday: 1 }, { zone: tz }).toMillis();
+      })
+      .sort((a, b) => a - b);
+    let bestStreak = 0;
+    let run = 0;
+    for (let i = 0; i < weekStarts.length; i += 1) {
+      const gapDays = i ? Math.round((weekStarts[i] - weekStarts[i - 1]) / 86_400_000) : 0;
+      run = i && gapDays <= 7 ? run + 1 : 1;
+      bestStreak = Math.max(bestStreak, run);
     }
 
     const monthly: MonthlyAttendanceDto[] = [];
@@ -105,6 +121,9 @@ export class ClientStatsService {
       visitsPurchased: credited,
       visitsUsed: Math.max(0, used),
       currentStreakWeeks: streak,
+      bestStreakWeeks: Math.max(bestStreak, streak),
+      streakAtRisk: streak > 0 && !visitedThisWeek,
+      teachersMet: teacherCounts.size,
       totalMinutesSpeaking: totalMinutes,
       favoriteTeacher: [...teacherCounts.values()].sort((a, b) => b.sessions - a.sessions)[0] ?? null,
       mostAttendedWeekday: top(weekdayCounts),
