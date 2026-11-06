@@ -93,6 +93,15 @@ export const membershipMessages = defineMessages({
     pay: (amount: string) => `Pay ${amount}`,
     simulateDecline: 'Simulate a declined payment',
     backToPayment: 'Back to payment',
+    // Payment methods, keyed by code (fall back to the server text for custom ones)
+    methods: {
+      CASH: { name: 'Pay at the club desk', text: 'Pay by cash or card at the Talk Club reception. The administrator activates your membership right away.' },
+      CARD: { name: 'Card at the desk', text: null },
+      KASPI: { name: 'Kaspi invoice', text: 'We will send a Kaspi invoice to your phone number during working hours. Your membership activates as soon as the invoice is paid.' },
+      BANK_TRANSFER: { name: 'Bank transfer', text: null },
+      ONLINE: { name: 'Online card payment', text: 'Pay securely by card. Your membership activates instantly.' },
+      OTHER: { name: 'Other', text: null },
+    } as Record<string, { name: string; text: string | null }>,
   },
   ru: {
     yourMembership: 'Ваш абонемент',
@@ -178,6 +187,14 @@ export const membershipMessages = defineMessages({
     pay: (amount) => `Оплатить ${amount}`,
     simulateDecline: 'Сымитировать отказ',
     backToPayment: 'Назад к платежу',
+    methods: {
+      CASH: { name: 'Оплата на ресепшене', text: 'Оплатите наличными или картой на ресепшене Talk Club. Администратор сразу активирует абонемент.' },
+      CARD: { name: 'Карта на ресепшене', text: null },
+      KASPI: { name: 'Счёт Kaspi', text: 'В рабочее время мы отправим счёт Kaspi на ваш номер. Абонемент активируется сразу после оплаты счёта.' },
+      BANK_TRANSFER: { name: 'Банковский перевод', text: null },
+      ONLINE: { name: 'Онлайн-оплата картой', text: 'Безопасная оплата картой. Абонемент активируется сразу.' },
+      OTHER: { name: 'Другое', text: null },
+    },
   },
   kk: {
     yourMembership: 'Сіздің абонементіңіз',
@@ -263,5 +280,33 @@ export const membershipMessages = defineMessages({
     pay: (amount) => `${amount} төлеу`,
     simulateDecline: 'Бас тартуды имитациялау',
     backToPayment: 'Төлемге оралу',
+    methods: {
+      CASH: { name: 'Ресепшнде төлеу', text: 'Talk Club ресепшнінде қолма-қол немесе картамен төлеңіз. Әкімші абонементті бірден іске қосады.' },
+      CARD: { name: 'Ресепшндегі карта', text: null },
+      KASPI: { name: 'Kaspi шоты', text: 'Жұмыс уақытында нөміріңізге Kaspi шотын жібереміз. Шот төленген соң абонемент бірден іске қосылады.' },
+      BANK_TRANSFER: { name: 'Банк аударымы', text: null },
+      ONLINE: { name: 'Картамен онлайн төлеу', text: 'Картамен қауіпсіз төлеу. Абонемент бірден іске қосылады.' },
+      OTHER: { name: 'Басқа', text: null },
+    },
   },
 });
+
+type MethodText = { name: string; text: string | null };
+
+/**
+ * A payment method's name and instructions in the reader's language. Built-in methods
+ * still showing their default English text are translated; anything the club edited
+ * in the admin panel is shown as written.
+ */
+export function paymentMethodText(
+  local: Record<string, MethodText>,
+  method: { code: string; name: string; instructions?: string | null },
+): { name: string; text: string | null } {
+  const fallback = membershipMessages.en.methods[method.code];
+  const translated = local[method.code];
+  if (!fallback || !translated) return { name: method.name, text: method.instructions ?? null };
+  return {
+    name: method.name === fallback.name ? translated.name : method.name,
+    text: method.instructions && method.instructions !== fallback.text ? method.instructions : method.instructions ? translated.text : null,
+  };
+}

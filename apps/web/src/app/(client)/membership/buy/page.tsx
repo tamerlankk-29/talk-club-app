@@ -16,7 +16,7 @@ import { api, call } from '@/lib/api/client';
 import { fmt } from '@/lib/format';
 import { keys, usePlans } from '@/lib/queries';
 import { Rich, useT } from '@/lib/i18n';
-import { membershipMessages } from '@/lib/i18n/messages/membership';
+import { membershipMessages, paymentMethodText } from '@/lib/i18n/messages/membership';
 import { cn } from '@/lib/utils';
 
 export default function BuyMembershipPage() {
@@ -119,7 +119,9 @@ function Buy() {
       <Section title={t.paymentMethod}>
         {methods.data?.length ? (
           <div className="space-y-2" role="radiogroup" aria-label={t.paymentMethod}>
-            {methods.data.map((m) => (
+            {methods.data.map((m) => {
+              const text = paymentMethodText(t.methods, m);
+              return (
               <button
                 key={m.code}
                 type="button"
@@ -133,11 +135,12 @@ function Buy() {
               >
                 <CreditCard className="mt-0.5 h-5 w-5 text-brand-700" />
                 <div className="min-w-0">
-                  <p className="font-semibold">{m.name}</p>
-                  {m.instructions && <p className="mt-0.5 text-sm text-muted">{m.instructions}</p>}
+                  <p className="font-semibold">{text.name}</p>
+                  {text.text && <p className="mt-0.5 text-sm text-muted">{text.text}</p>}
                 </div>
               </button>
-            ))}
+              );
+            })}
           </div>
         ) : methods.isLoading ? (
           <SkeletonList count={2} />
