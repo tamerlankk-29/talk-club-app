@@ -24,6 +24,12 @@ export class ClientStatsDto {
   visitsUsed: number;
   /** Consecutive weeks with at least one attended session */
   currentStreakWeeks: number;
+  /** Longest run of consecutive weeks with an attended session */
+  bestStreakWeeks: number;
+  /** The streak is still alive but needs a visit this week to continue */
+  streakAtRisk: boolean;
+  /** Different teachers the client has had sessions with */
+  teachersMet: number;
   totalMinutesSpeaking: number;
   favoriteTeacher: FavoriteTeacherDto | null;
   /** ISO weekday 1–7 */

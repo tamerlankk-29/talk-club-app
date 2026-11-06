@@ -1,16 +1,19 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { Flame, MessageSquareQuote, Star, Trophy } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { Flame, GraduationCap, MessageSquareQuote, Share2, Star, Trophy } from 'lucide-react';
+import { useState, type ReactNode } from 'react';
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { RequireAuth } from '@/components/client/require-auth';
+import { Button } from '@/components/ui/button';
 import { Avatar, EmptyState, ErrorState, ProgressBar, SkeletonList } from '@/components/ui/feedback';
 import { Card, PageHeader, Section } from '@/components/ui/layout';
 import { api, call } from '@/lib/api/client';
 import type { S } from '@/lib/api/types';
 import { fmt } from '@/lib/format';
-import { keys, useClub } from '@/lib/queries';
+import { keys, useClub, useProfile } from '@/lib/queries';
+import { renderRecap, shareOrDownload } from '@/lib/recap-image';
+import { toast, toastError } from '@/components/ui/toast';
 import { Rich, useT } from '@/lib/i18n';
 import { profileMessages } from '@/lib/i18n/messages/profile';
 import { WEEKDAYS } from '@/lib/utils';
@@ -62,7 +65,11 @@ function Progress() {
             <Stat icon={<Flame className="h-5 w-5" />} value={t.weeks(s.currentStreakWeeks)} label={t.currentStreak} />
             <Stat icon={<Star className="h-5 w-5" />} value={fmt.minutesAsHours(s.totalMinutesSpeaking)} label={t.speakingEnglish} />
             <Stat icon={<Trophy className="h-5 w-5" />} value={`${s.attendanceRate}%`} label={t.attendanceRate} />
+            <Stat icon={<Flame className="h-5 w-5" />} value={t.weeks(s.bestStreakWeeks)} label={t.bestStreak} />
+            <Stat icon={<GraduationCap className="h-5 w-5" />} value={s.teachersMet} label={t.teachersMet} />
           </div>
+
+          {s.sessionsAttended > 0 && <ShareRecap stats={s} />}
 
           {s.monthly.length > 0 && (
             <Section title={t.sessionsPerMonth}>
@@ -184,6 +191,28 @@ function Progress() {
         </>
       )}
     </div>
+  );
+}
+
+function ShareRecap({ stats }: { stats: S<'ClientStatsDto'> }) {
+  const t = useT(profileMessages);
+  const { data: profile } = useProfile();
+  const [busy, setBusy] = useState(false);
+  const share = async () => {
+    setBusy(true);
+    try {
+      const blob = await renderRecap(stats, profile?.firstName ?? '');
+      if (await shareOrDownload(blob, 'talk-club-recap.png')) toast.success(t.recapSaved);
+    } catch (error) {
+      toastError(error);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Button variant="secondary" block leftIcon={<Share2 className="h-4 w-4" />} loading={busy} onClick={share}>
+      {t.shareRecap}
+    </Button>
   );
 }
 

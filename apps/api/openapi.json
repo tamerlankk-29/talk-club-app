@@ -21177,6 +21177,18 @@
             "type": "number",
             "description": "Consecutive weeks with at least one attended session"
           },
+          "bestStreakWeeks": {
+            "type": "number",
+            "description": "Longest run of consecutive weeks with an attended session"
+          },
+          "streakAtRisk": {
+            "type": "boolean",
+            "description": "The streak is still alive but needs a visit this week to continue"
+          },
+          "teachersMet": {
+            "type": "number",
+            "description": "Different teachers the client has had sessions with"
+          },
           "totalMinutesSpeaking": {
             "type": "number"
           },
@@ -21230,6 +21242,9 @@
           "visitsPurchased",
           "visitsUsed",
           "currentStreakWeeks",
+          "bestStreakWeeks",
+          "streakAtRisk",
+          "teachersMet",
           "totalMinutesSpeaking",
           "favoriteTeacher",
           "mostAttendedWeekday",
