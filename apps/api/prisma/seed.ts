@@ -680,9 +680,9 @@ async function seed(app: INestApplicationContext): Promise<void> {
       await automations.runDue();
     }
   }
-  // Madina started a Kaspi purchase that the admin still has to confirm.
+  // Madina chose a membership in the app and will pay at the desk; the admin still has to confirm it.
   travel(realNow.minus({ hours: 3 }));
-  await payments.purchase(clients.madina.id, clients.madina.userId!, { planId: planId('STANDARD'), methodCode: 'KASPI', acceptOffer: true });
+  await payments.purchase(clients.madina.id, clients.madina.userId!, { planId: planId('STANDARD'), methodCode: 'CASH', acceptOffer: true });
   // Website trial requests and Instagram leads without accounts yet.
   await trials.request({ name: 'Yerkebulan Aliyev', phone: '+77015550201', levelId: L['Pre-Intermediate'], preferredDays: [2, 4], preferredTimes: ['EVENING'], comment: 'Would like to try an evening session', sourceCode: 'WEBSITE' });
   await trials.request({ name: 'Sofia Kim', phone: '+77015550202', levelId: L.Intermediate, preferredDays: [6], preferredTimes: ['AFTERNOON'], sourceCode: 'INSTAGRAM' });
