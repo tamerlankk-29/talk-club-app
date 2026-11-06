@@ -11,11 +11,12 @@ const isProd = process.env.NODE_ENV === 'production';
 const contentSecurityPolicy = [
   "default-src 'self'",
   "img-src 'self' data: blob: https:",
-  "script-src 'self' 'unsafe-inline'",
+  // Cloudflare Turnstile (captcha on sign-in, only when the API asks for it).
+  "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com",
   "style-src 'self' 'unsafe-inline'",
   "font-src 'self' data:",
   "connect-src 'self'",
-  'frame-src https://www.google.com https://maps.google.com https://www.openstreetmap.org https://widgets.2gis.com',
+  'frame-src https://www.google.com https://maps.google.com https://www.openstreetmap.org https://widgets.2gis.com https://challenges.cloudflare.com',
   "worker-src 'self'",
   "manifest-src 'self'",
   "base-uri 'self'",

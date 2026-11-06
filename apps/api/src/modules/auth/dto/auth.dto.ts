@@ -32,6 +32,12 @@ export class RequestOtpDto {
   @IsOptional()
   @IsIn(['sms', 'telegram'])
   channel?: 'sms' | 'telegram';
+
+  /** Cloudflare Turnstile token, required after a few requests from one network (AUTH_CAPTCHA_REQUIRED). */
+  @IsOptional()
+  @IsString()
+  @MaxLength(4096)
+  captchaToken?: string;
 }
 
 export class OtpRequestedDto {
@@ -50,6 +56,8 @@ export class OtpChannelsDto {
   telegram: boolean;
   /** Link that opens the bot, where members share their phone number once. */
   telegramBotUrl: string | null;
+  /** Turnstile site key when a captcha may be asked for, else null. */
+  captchaSiteKey: string | null;
 }
 
 export class VerifyOtpDto {

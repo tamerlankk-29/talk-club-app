@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { OtpPurpose } from '@prisma/client';
 import { createHmac, randomInt, timingSafeEqual } from 'node:crypto';
 import { ClockService } from '../../common/clock/clock.service';
@@ -7,6 +7,7 @@ import { APP_CONFIG, AppConfig } from '../../config/app-config';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ChannelRegistry } from '../messaging/channel-registry';
 import { TelegramService } from '../telegram/telegram.service';
+import { CaptchaService } from './captcha.service';
 
 const CODE_TTL_SECONDS = 5 * 60;
 const RESEND_COOLDOWN_SECONDS = 60;
@@ -18,18 +19,22 @@ export type OtpChannel = 'sms' | 'telegram';
 /** One-time verification codes (login, password reset) sent by SMS or Telegram. Only HMACs are stored. */
 @Injectable()
 export class OtpService {
+  private readonly logger = new Logger(OtpService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly clock: ClockService,
     private readonly channels: ChannelRegistry,
     private readonly telegram: TelegramService,
+    private readonly captcha: CaptchaService,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {}
 
   /** Which delivery channels can carry codes right now. */
-  availableChannels(): { sms: boolean; telegram: boolean; telegramBotUrl: string | null } {
+  availableChannels(): { sms: boolean; telegram: boolean; telegramBotUrl: string | null; captchaSiteKey: string | null } {
     const telegram = this.telegram.isAvailable();
     return {
+      captchaSiteKey: this.captcha.isEnabled() ? this.captcha.siteKey() : null,
       // The console SMS provider only logs codes: fine in development, useless for real members.
       sms: !this.config.isProduction || this.config.notify.sms !== 'console',
       telegram,
@@ -42,11 +47,14 @@ export class OtpService {
     purpose: OtpPurpose,
     ip: string | null,
     requestedChannel?: OtpChannel,
+    captchaToken?: string,
   ): Promise<{ channel: OtpChannel; expiresInSeconds: number; resendInSeconds: number; devCode?: string }> {
     const available = this.availableChannels();
     const channel: OtpChannel = requestedChannel ?? (available.sms || !available.telegram ? 'sms' : 'telegram');
     let telegramChatId: string | null = null;
     if (channel === 'sms' && !available.sms) throw new DomainError('AUTH_SMS_UNAVAILABLE');
+    // SMS abroad costs many times more and is the usual target of SMS-pumping bots.
+    if (channel === 'sms' && !phone.startsWith('+7')) throw new DomainError('AUTH_SMS_COUNTRY_NOT_SUPPORTED');
     if (channel === 'telegram') {
       if (!available.telegram) throw new DomainError('AUTH_TELEGRAM_UNAVAILABLE');
       telegramChatId = await this.telegram.chatIdForPhone(phone);
@@ -54,6 +62,18 @@ export class OtpService {
     }
 
     const now = this.clock.now();
+    const hourAgo = new Date(now.getTime() - 3_600_000);
+    // Password-reset codes go only to registered numbers, so only sign-in codes need a captcha.
+    if (purpose === 'LOGIN' && ip && this.captcha.isEnabled()) {
+      const fromIp = await this.prisma.otpCode.count({ where: { ip, createdAt: { gte: hourAgo } } });
+      if (fromIp >= this.config.captcha.freeRequestsPerHour) {
+        if (!captchaToken) throw new DomainError('AUTH_CAPTCHA_REQUIRED', { details: { siteKey: this.captcha.siteKey() } });
+        if (!(await this.captcha.verify(captchaToken, ip))) {
+          throw new DomainError('AUTH_CAPTCHA_INVALID', { details: { siteKey: this.captcha.siteKey() } });
+        }
+      }
+    }
+
     const last = await this.prisma.otpCode.findFirst({
       where: { phone, purpose },
       orderBy: { createdAt: 'desc' },
@@ -63,9 +83,19 @@ export class OtpService {
       throw new DomainError('AUTH_OTP_COOLDOWN', { details: { retryAfterSeconds: retryAfter } });
     }
     const recent = await this.prisma.otpCode.count({
-      where: { phone, createdAt: { gte: new Date(now.getTime() - 3_600_000) } },
+      where: { phone, createdAt: { gte: hourAgo } },
     });
     if (recent >= MAX_CODES_PER_HOUR) throw new DomainError('RATE_LIMITED');
+
+    if (channel === 'sms') {
+      const smsToday = await this.prisma.otpCode.count({
+        where: { channel: 'sms', createdAt: { gte: new Date(now.getTime() - 24 * 3_600_000) } },
+      });
+      if (smsToday >= this.config.auth.smsDailyLimit) {
+        this.logger.error(`Daily SMS code limit (${this.config.auth.smsDailyLimit}) reached; SMS codes are paused`);
+        throw new DomainError('AUTH_SMS_DAILY_LIMIT');
+      }
+    }
 
     const code = randomInt(0, 1_000_000).toString().padStart(6, '0');
     await this.prisma.otpCode.create({
@@ -73,6 +103,7 @@ export class OtpService {
         phone,
         purpose,
         codeHash: this.hash(phone, code),
+        channel,
         expiresAt: new Date(now.getTime() + CODE_TTL_SECONDS * 1000),
         // Stamped from ClockService (not the DB default) so cooldown and hourly limits compare like with like.
         createdAt: now,

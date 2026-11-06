@@ -3452,6 +3452,8 @@ export interface components {
             channel?: "sms" | "telegram";
             /** @description Phone number in any common format, e.g. +7 701 123 45 67 */
             phone: string;
+            /** @description Cloudflare Turnstile token, required after a few requests from one network (AUTH_CAPTCHA_REQUIRED). */
+            captchaToken?: string;
         };
         OtpRequestedDto: {
             /** @enum {string} */
@@ -3468,6 +3470,8 @@ export interface components {
             telegram: boolean;
             /** @description Link that opens the bot, where members share their phone number once. */
             telegramBotUrl: string | null;
+            /** @description Turnstile site key when a captcha may be asked for, else null. */
+            captchaSiteKey: string | null;
         };
         VerifyOtpDto: {
             phone: string;

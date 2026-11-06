@@ -7,6 +7,7 @@ import { TelegramModule } from '../telegram/telegram.module';
 import { AuthContextService } from './auth-context.service';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { CaptchaService } from './captcha.service';
 import { OtpService } from './otp.service';
 import { TokenService } from './token.service';
 
@@ -26,7 +27,7 @@ import { TokenService } from './token.service';
     TelegramModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, TokenService, OtpService, AuthContextService],
+  providers: [AuthService, TokenService, OtpService, CaptchaService, AuthContextService],
   exports: [AuthService, TokenService, AuthContextService],
 })
 export class AuthModule {}

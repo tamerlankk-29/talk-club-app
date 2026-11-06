@@ -15,6 +15,7 @@ import type { AuthTokens, SessionUser } from '@/lib/api/types';
 import { useAuth } from '@/lib/auth';
 import { phoneDigitsComplete } from '@/lib/format';
 import { RegistrationForm } from './registration-form';
+import { Turnstile } from './turnstile';
 
 /** Where to go after signing in: the requested page, else the area the account can use. */
 export function destinationFor(user: SessionUser, next: string | null): string {
@@ -98,6 +99,8 @@ export function AuthFlow({ mode }: { mode: 'login' | 'register' }) {
   const [devCode, setDevCode] = useState<string | undefined>();
   const [resendAt, setResendAt] = useState(0);
   const [now, setNow] = useState(() => Date.now());
+  // Set when the API asks for a captcha; the pending request is retried with the token.
+  const [captcha, setCaptcha] = useState<{ siteKey: string; retry: { value: string; channel?: OtpChannel } } | null>(null);
 
   // Already signed in → leave the auth screens.
   useEffect(() => {
@@ -122,9 +125,10 @@ export function AuthFlow({ mode }: { mode: 'login' | 'register' }) {
   });
 
   const requestOtp = useMutation({
-    mutationFn: ({ value, channel }: { value: string; channel?: OtpChannel }) =>
-      call(api.POST('/api/auth/otp/request', { body: { phone: value, channel } })),
+    mutationFn: ({ value, channel, captchaToken }: { value: string; channel?: OtpChannel; captchaToken?: string }) =>
+      call(api.POST('/api/auth/otp/request', { body: { phone: value, channel, captchaToken } })),
     onSuccess: (result, { value }) => {
+      setCaptcha(null);
       setDevCode(result.devCode);
       setResendAt(Date.now() + result.resendInSeconds * 1000);
       setNow(Date.now());
@@ -132,8 +136,16 @@ export function AuthFlow({ mode }: { mode: 'login' | 'register' }) {
       setCodeError(null);
       setStep({ name: 'code', phone: value, channel: result.channel });
     },
-    onError: (error, { value }) => {
-      if (errorCode(error) === 'AUTH_TELEGRAM_NOT_LINKED') {
+    onError: (error, { value, channel }) => {
+      const code = errorCode(error);
+      if (code === 'AUTH_CAPTCHA_REQUIRED' || code === 'AUTH_CAPTCHA_INVALID') {
+        const siteKey = (error as { details?: { siteKey?: string | null } }).details?.siteKey ?? channels.data?.captchaSiteKey;
+        if (siteKey) {
+          setCaptcha({ siteKey, retry: { value, channel } });
+          return;
+        }
+      }
+      if (code === 'AUTH_TELEGRAM_NOT_LINKED') {
         const details = (error as { details?: { botUrl?: string | null } }).details;
         setStep({ name: 'telegram-link', phone: value, botUrl: details?.botUrl ?? channels.data?.telegramBotUrl ?? null });
         return;
@@ -183,6 +195,16 @@ export function AuthFlow({ mode }: { mode: 'login' | 'register' }) {
     return <PasswordLogin onBack={() => setStep({ name: 'phone' })} onDone={finish} />;
   }
 
+  const captchaPanel = captcha && (
+    <div className="mb-5 rounded-2xl border border-line bg-white p-4">
+      <p className="mb-3 text-center text-sm font-medium text-ink">Please confirm that you are not a robot</p>
+      <Turnstile
+        siteKey={captcha.siteKey}
+        onToken={(token) => requestOtp.mutate({ ...captcha.retry, captchaToken: token })}
+      />
+    </div>
+  );
+
   if (step.name === 'telegram-link') {
     return (
       <>
@@ -192,6 +214,7 @@ export function AuthFlow({ mode }: { mode: 'login' | 'register' }) {
           <li>Tap <span className="font-semibold">Share my phone number</span> and confirm.</li>
           <li>Come back here and tap <span className="font-semibold">Send code</span>.</li>
         </ol>
+        {captchaPanel}
         <div className="space-y-3">
           {step.botUrl && (
             <a href={step.botUrl} target="_blank" rel="noopener noreferrer" className={buttonClasses('outline', 'lg', 'w-full gap-2')}>
@@ -217,6 +240,7 @@ export function AuthFlow({ mode }: { mode: 'login' | 'register' }) {
     return (
       <>
         <AuthHeader title="Enter the code" subtitle={<>We sent a 6-digit code {via} to <span className="font-semibold text-ink">{step.phone}</span></>} onBack={() => setStep({ name: 'phone' })} />
+        {captchaPanel}
         <form
           className="space-y-5"
           onSubmit={(e) => {
@@ -272,6 +296,7 @@ export function AuthFlow({ mode }: { mode: 'login' | 'register' }) {
           Your referral code <span className="font-semibold">{referralCode}</span> will be applied.
         </InlineAlert>
       )}
+      {captchaPanel}
       <form onSubmit={submitPhone} className="space-y-5">
         <Field label="Phone number" htmlFor="phone">
           <PhoneInput id="phone" value={phone} onChange={setPhone} autoFocus />
