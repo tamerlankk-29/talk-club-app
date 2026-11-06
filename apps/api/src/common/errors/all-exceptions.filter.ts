@@ -2,6 +2,7 @@ import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus, Logge
 import { ThrottlerException } from '@nestjs/throttler';
 import { Prisma } from '@prisma/client';
 import type { Request, Response } from 'express';
+import { reportError } from '../../instrument';
 import { localizeError, localizeFieldError } from '../i18n/error-messages';
 import { localeFromHeader } from '../utils/locale';
 import { DomainError } from './domain-error';
@@ -56,6 +57,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     if (status >= 500) {
       const err = exception instanceof Error ? exception : new Error(String(exception));
       this.logger.error(`[${requestId ?? '-'}] ${request?.method} ${request?.url} → ${status}: ${err.message}`, err.stack);
+      reportError(err, { requestId, route: `${request?.method} ${request?.route?.path ?? request?.path ?? ''}` });
     }
 
     if (!response.headersSent) {

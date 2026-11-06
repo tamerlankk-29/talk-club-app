@@ -134,26 +134,62 @@ problem (missing secret, dev-only flags enabled, …).
 5. Import existing clients from Altegio (Admin → Import & export) — dry run first.
 6. Configure VAPID keys and messaging providers; send a test notification from Admin → Notifications.
 
+## Production server (single VPS)
+
+For one club a single VPS (2 vCPU, 4 GB RAM, Ubuntu 24.04) is enough. Everything runs from this
+repository with the `production` compose profile, which adds two services:
+
+| Service | What it does |
+| --- | --- |
+| `caddy` | HTTPS on ports 80/443 for `APP_DOMAIN`, Let's Encrypt certificates renewed automatically (`deploy/Caddyfile`) |
+| `backup` | Nightly backup at `BACKUP_AT` (Almaty time) into `./backups`, kept `BACKUP_KEEP_DAYS` days, monthly restore test, Telegram alerts (`deploy/backup.sh`) |
+
+First start, as root, from the cloned repository:
+
+```bash
+git clone https://github.com/tamerlankk-29/talk-club-app.git /opt/talkclub
+cd /opt/talkclub && bash scripts/server-setup.sh
+```
+
+The script installs Docker, a firewall (SSH, 80 and 443 only), fail2ban and automatic security
+updates, generates `AUTH_SECRET`, the database password, the Telegram webhook secret and the push
+keys, asks for the rest (bot token, alert chat id, Turnstile, Mobizon, Sentry), writes `.env` with
+permissions 600 and starts everything. Secrets are typed on the server only.
+
+Updates: `bash scripts/deploy.sh` (pull, rebuild, migrate, restart).
+
 ## Backups
 
-- **Database:** daily automated backups with point-in-time recovery (managed PostgreSQL), or a
-  nightly `pg_dump -Fc` from the `db` container to off-site storage, kept for at least 30 days:
+- **Nightly** (`backup` service): `pg_dump -Fc` of the database and a tarball of the `uploads`
+  volume into `./backups/db` and `./backups/uploads`, older than 30 days removed.
+- **Off-site copy:** set `BACKUP_S3_BUCKET`, `BACKUP_S3_ENDPOINT`, `BACKUP_S3_ACCESS_KEY` and
+  `BACKUP_S3_SECRET_KEY` (any S3-compatible storage, e.g. PS.kz Object Storage) and each backup is
+  uploaded too. Without it the backups live on the same server, which does not protect against
+  losing the server.
+- **Restore test:** on the 1st of each month the newest dump is restored into a scratch database
+  and checked; the result goes to Telegram. Run it any time:
+  `docker compose exec backup sh /usr/local/bin/backup.sh restore-test`.
+- **Backup now:** `docker compose exec backup sh /usr/local/bin/backup.sh now`.
+- **Restore for real** (stops the app, replaces the database):
 
   ```bash
-  docker compose exec -T db pg_dump -U talkclub -Fc talkclub > backup-$(date +%F).dump
-  # restore: pg_restore -U talkclub -d talkclub --clean backup-YYYY-MM-DD.dump
+  docker compose stop api web
+  docker compose exec -T db pg_restore -U talkclub -d talkclub --clean --if-exists < backups/db/talkclub-YYYY-MM-DD.dump
+  docker compose start api web
   ```
-
-- **Uploads:** back up the `uploads` volume (or use object storage with versioning).
-- Test a restore on staging regularly.
 
 ## Monitoring
 
-- `GET /api/health` — 200 when the API and database respond (used by the container health checks).
-- Logs are JSON-friendly Nest logs on stdout; every request has an id echoed in error responses
-  (`requestId`) to find the matching log line.
-- Watch: job failures (`Job … failed`), delivery failures (Admin → Notifications → Delivery log),
-  pending payments and unmarked attendance (dashboard alerts).
+- `GET /api/health` returns 200 when the API and database respond. It is used by the container
+  health checks; point an uptime monitor at `https://<domain>/api/health` (e.g. UptimeRobot, free,
+  with Telegram alerts).
+- **Errors:** set `SENTRY_DSN` and every 5xx response and failed background job is reported to
+  Sentry, tagged with the request id or job name. Request bodies, headers, cookies and user data are
+  not sent.
+- Logs are Nest logs on stdout (`docker compose logs -f api`); every request has an id echoed in
+  error responses (`requestId`) to find the matching log line.
+- Watch: delivery failures (Admin → Notifications → Delivery log), pending payments and unmarked
+  attendance (dashboard alerts).
 
 ## Go-live checklist
 

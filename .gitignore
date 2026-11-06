@@ -32,3 +32,6 @@ Thumbs.db
 
 # promo materials
 brag-output/
+
+# server backups (deploy/backup.sh)
+backups/
