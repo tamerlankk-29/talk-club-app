@@ -1,0 +1,1628 @@
+// Talk Club — relational data model (PostgreSQL)
+//
+// Conventions
+// - Tables and columns are snake_case (@@map / @map); Prisma fields are camelCase.
+// - Money is stored as whole tenge in Int columns together with a currency code.
+// - All timestamps are timestamptz (UTC). Club-local time is derived from Location.timezone.
+// - Visit balances are driven by the MembershipTransaction ledger. Membership.visitsRemaining
+//   is a cache that only MembershipLedgerService writes, in the same transaction as the ledger
+//   row (see docs/ARCHITECTURE.md → "Visit ledger").
+// - Constraints Prisma cannot express (CHECKs, exclusion constraints against room/teacher
+//   double-booking) live in prisma/migrations/*_constraints/migration.sql.
+
+generator client {
+  provider      = "prisma-client-js"
+  // native for local development, debian-openssl-3.0.x for the Docker images (node:22-bookworm-slim)
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ───────────────────────────── Enums ─────────────────────────────
+
+enum UserStatus {
+  ACTIVE
+  BLOCKED
+  DELETED
+}
+
+enum OtpPurpose {
+  LOGIN
+  RESET_PASSWORD
+}
+
+enum ClientCategory {
+  ADULT
+  TEEN
+  CHILD
+  BUSINESS
+  INDIVIDUAL
+}
+
+enum ClientStatus {
+  ACTIVE
+  ARCHIVED
+  ANONYMIZED
+}
+
+enum FormatPreference {
+  OFFLINE
+  ONLINE
+  ANY
+}
+
+enum TimeOfDay {
+  MORNING
+  AFTERNOON
+  EVENING
+}
+
+enum SessionFormat {
+  OFFLINE
+  ONLINE
+}
+
+enum SessionStatus {
+  SCHEDULED
+  CANCELLED
+}
+
+enum MembershipStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
+}
+
+enum MembershipTxType {
+  PURCHASE
+  GRANT
+  BOOKING
+  CANCELLATION_REFUND
+  SESSION_CANCELLED_REFUND
+  ADMIN_RETURN
+  ADMIN_ADJUSTMENT
+  EXTENSION
+}
+
+enum BookingStatus {
+  BOOKED
+  ATTENDED
+  NO_SHOW
+  CANCELLED
+  LATE_CANCELLED
+}
+
+enum BookingKind {
+  MEMBERSHIP
+  TRIAL
+  COMPLIMENTARY
+}
+
+enum BookingSource {
+  CLIENT
+  ADMIN
+  WAITLIST
+  TRIAL_REQUEST
+  IMPORT
+}
+
+enum ActorSource {
+  CLIENT
+  ADMIN
+  TEACHER
+  SYSTEM
+}
+
+enum AttendanceStatus {
+  PRESENT
+  LATE
+  ABSENT
+}
+
+enum AttendanceMethod {
+  MANUAL
+  QR
+  AUTO
+}
+
+enum WaitlistStatus {
+  WAITING
+  OFFERED
+  BOOKED
+  EXPIRED
+  CANCELLED
+  REMOVED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  CANCELLED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+enum ProductType {
+  MEMBERSHIP
+  TRIAL
+  OTHER
+}
+
+enum TrialStatus {
+  REQUESTED
+  SCHEDULED
+  ATTENDED
+  NO_SHOW
+  CANCELLED
+}
+
+enum TrialOutcome {
+  PENDING
+  INTERESTED
+  NOT_INTERESTED
+  PURCHASED
+}
+
+enum LeadStage {
+  NEW_LEAD
+  CONTACTED
+  INTERESTED
+  TRIAL_BOOKED
+  TRIAL_ATTENDED
+  MEMBERSHIP_PURCHASED
+  ACTIVE_CLIENT
+  MEMBERSHIP_EXPIRING
+  RENEWED
+  INACTIVE
+  LOST
+}
+
+enum TaskStatus {
+  OPEN
+  IN_PROGRESS
+  DONE
+  CANCELLED
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum CommunicationChannel {
+  WHATSAPP
+  PHONE
+  SMS
+  EMAIL
+  TELEGRAM
+  INSTAGRAM
+  IN_PERSON
+  OTHER
+}
+
+enum CommunicationDirection {
+  OUTBOUND
+  INBOUND
+}
+
+enum NotificationChannel {
+  IN_APP
+  PUSH
+  EMAIL
+  SMS
+  WHATSAPP
+  TELEGRAM
+}
+
+enum NotificationCategory {
+  TRANSACTIONAL
+  REMINDER
+  MARKETING
+  STAFF
+}
+
+enum DeliveryStatus {
+  PENDING
+  SENT
+  FAILED
+  SKIPPED
+}
+
+enum BroadcastStatus {
+  DRAFT
+  SCHEDULED
+  SENDING
+  SENT
+  CANCELLED
+  FAILED
+}
+
+enum BroadcastKind {
+  MARKETING
+  SERVICE
+}
+
+enum AutomationTrigger {
+  CLIENT_REGISTERED
+  TRIAL_ATTENDED
+  TRIAL_NO_SHOW
+  MEMBERSHIP_ACTIVATED
+  MEMBERSHIP_EXPIRING
+  MEMBERSHIP_EXPIRED
+  LOW_VISITS
+  NO_VISIT_FOR_DAYS
+  BOOKING_CREATED
+  BOOKING_CANCELLED
+  NO_SHOW
+  PAYMENT_CONFIRMED
+}
+
+enum AutomationRunStatus {
+  SCHEDULED
+  COMPLETED
+  SKIPPED
+  FAILED
+}
+
+enum LegalDocumentType {
+  TERMS
+  PRIVACY_POLICY
+  PUBLIC_OFFER
+}
+
+enum ReferralStatus {
+  REGISTERED
+  TRIAL_COMPLETED
+  CONVERTED
+  REWARDED
+  CANCELLED
+}
+
+enum DataRequestType {
+  EXPORT
+  DELETION
+}
+
+enum DataRequestStatus {
+  PENDING
+  COMPLETED
+  REJECTED
+}
+
+enum ImportStatus {
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+// ─────────────────────── Organisation structure ───────────────────────
+
+/// A product line run on the platform (Talk Club, later Math Club, …).
+model Program {
+  id                 String   @id @default(uuid()) @db.Uuid
+  slug               String   @unique
+  name               String
+  description        String?
+  color              String?
+  isActive           Boolean  @default(true) @map("is_active")
+  isVisibleToClients Boolean  @default(true) @map("is_visible_to_clients")
+  sortOrder          Int      @default(0) @map("sort_order")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  levels        Level[]
+  groupTypes    GroupType[]
+  plans         MembershipPlan[]
+  sessions      Session[]
+  templates     SessionTemplate[]
+  memberships   Membership[]
+  announcements Announcement[]
+
+  @@map("programs")
+}
+
+model Location {
+  id             String   @id @default(uuid()) @db.Uuid
+  name           String
+  address        String
+  addressDetails String?  @map("address_details")
+  city           String   @default("Almaty")
+  country        String   @default("Kazakhstan")
+  timezone       String   @default("Asia/Almaty")
+  latitude       Float?
+  longitude      Float?
+  phone          String?
+  email          String?
+  directions     String?
+  /// { "1": { "open": "12:30", "close": "20:00" }, …, "7": null } — ISO weekday keys, null = closed
+  workingHours   Json     @map("working_hours")
+  isActive       Boolean  @default(true) @map("is_active")
+  sortOrder      Int      @default(0) @map("sort_order")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  rooms     Room[]
+  sessions  Session[]
+  templates SessionTemplate[]
+
+  @@map("locations")
+}
+
+model Room {
+  id          String   @id @default(uuid()) @db.Uuid
+  locationId  String   @map("location_id") @db.Uuid
+  name        String
+  capacity    Int      @default(8)
+  description String?
+  isActive    Boolean  @default(true) @map("is_active")
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  location  Location          @relation(fields: [locationId], references: [id])
+  sessions  Session[]
+  templates SessionTemplate[]
+
+  @@unique([locationId, name])
+  @@map("rooms")
+}
+
+model Level {
+  id          String   @id @default(uuid()) @db.Uuid
+  programId   String   @map("program_id") @db.Uuid
+  name        String
+  code        String?
+  /// Ordering used for level matching (Beginner = 10, Elementary = 20, …).
+  rank        Int
+  description String?
+  color       String?
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  program      Program           @relation(fields: [programId], references: [id])
+  clients      Client[]
+  levelHistory ClientLevel[]
+  sessionsMin  Session[]         @relation("SessionLevelMin")
+  sessionsMax  Session[]         @relation("SessionLevelMax")
+  templatesMin SessionTemplate[] @relation("TemplateLevelMin")
+  templatesMax SessionTemplate[] @relation("TemplateLevelMax")
+  teachersFrom Teacher[]         @relation("TeacherLevelFrom")
+  teachersTo   Teacher[]         @relation("TeacherLevelTo")
+  leads        Lead[]
+  trials       Trial[]
+
+  @@unique([programId, name])
+  @@map("levels")
+}
+
+/// Kind of group a session belongs to: Speaking Club, Business Club, Teens, Kids, Online…
+model GroupType {
+  id               String           @id @default(uuid()) @db.Uuid
+  programId        String           @map("program_id") @db.Uuid
+  name             String
+  description      String?
+  color            String?
+  /// Client categories allowed to book; empty = everyone.
+  clientCategories ClientCategory[] @map("client_categories")
+  isActive         Boolean          @default(true) @map("is_active")
+  sortOrder        Int              @default(0) @map("sort_order")
+  createdAt        DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  program   Program                   @relation(fields: [programId], references: [id])
+  sessions  Session[]
+  templates SessionTemplate[]
+  plans     MembershipPlanGroupType[]
+
+  @@unique([programId, name])
+  @@map("group_types")
+}
+
+// ─────────────────────── Identity & access ───────────────────────
+
+model User {
+  id                String     @id @default(uuid()) @db.Uuid
+  phone             String?    @unique
+  email             String?    @unique
+  passwordHash      String?    @map("password_hash")
+  displayName       String?    @map("display_name")
+  status            UserStatus @default(ACTIVE)
+  phoneVerifiedAt   DateTime?  @map("phone_verified_at") @db.Timestamptz(3)
+  lastLoginAt       DateTime?  @map("last_login_at") @db.Timestamptz(3)
+  /// { reminders: { push, email, sms, whatsapp, telegram }, marketing: { … } }
+  notificationPrefs Json       @default("{}") @map("notification_prefs")
+  createdAt         DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt         DateTime?  @map("deleted_at") @db.Timestamptz(3)
+
+  roles                UserRole[]
+  client               Client?
+  teacher              Teacher?
+  guardianOf           ClientGuardian[]
+  authSessions         AuthSession[]
+  pushSubscriptions    PushSubscription[]
+  notifications        Notification[]
+  auditLogs            AuditLog[]
+  agreementAcceptances AgreementAcceptance[]
+  assignedLeads        Lead[]                @relation("LeadAssignee")
+  assignedTasks        CrmTask[]             @relation("TaskAssignee")
+  createdTasks         CrmTask[]             @relation("TaskCreator")
+  communications       Communication[]
+  paymentsCreated      Payment[]             @relation("PaymentCreator")
+  paymentsConfirmed    Payment[]             @relation("PaymentConfirmer")
+  attendanceMarked     Attendance[]
+  feedbackAuthored     TeacherFeedback[]
+  dataRequests         DataRequest[]
+
+  @@map("users")
+}
+
+model Role {
+  id          String   @id @default(uuid()) @db.Uuid
+  key         String   @unique
+  name        String
+  description String?
+  isSystem    Boolean  @default(false) @map("is_system")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  permissions RolePermission[]
+  users       UserRole[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id          String @id @default(uuid()) @db.Uuid
+  key         String @unique
+  group       String
+  description String
+
+  roles RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String @map("role_id") @db.Uuid
+  permissionId String @map("permission_id") @db.Uuid
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model UserRole {
+  userId     String   @map("user_id") @db.Uuid
+  roleId     String   @map("role_id") @db.Uuid
+  assignedAt DateTime @default(now()) @map("assigned_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@map("user_roles")
+}
+
+/// Refresh-token session. Only a SHA-256 hash of the token is stored; tokens rotate on use.
+model AuthSession {
+  id                String    @id @default(uuid()) @db.Uuid
+  userId            String    @map("user_id") @db.Uuid
+  refreshTokenHash  String    @unique @map("refresh_token_hash")
+  /// The token replaced by the last rotation stays usable for a few seconds, so a
+  /// refresh whose response never reached the browser doesn't sign the user out.
+  previousTokenHash String?   @unique @map("previous_token_hash")
+  rotatedAt         DateTime? @map("rotated_at") @db.Timestamptz(3)
+  userAgent         String?   @map("user_agent")
+  ip                String?
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  lastUsedAt        DateTime  @default(now()) @map("last_used_at") @db.Timestamptz(3)
+  expiresAt         DateTime  @map("expires_at") @db.Timestamptz(3)
+  revokedAt         DateTime? @map("revoked_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("auth_sessions")
+}
+
+model OtpCode {
+  id         String     @id @default(uuid()) @db.Uuid
+  phone      String
+  codeHash   String     @map("code_hash")
+  purpose    OtpPurpose
+  attempts   Int        @default(0)
+  expiresAt  DateTime   @map("expires_at") @db.Timestamptz(3)
+  consumedAt DateTime?  @map("consumed_at") @db.Timestamptz(3)
+  ip         String?
+  createdAt  DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([phone, createdAt])
+  @@map("otp_codes")
+}
+
+model PushSubscription {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  endpoint   String    @unique
+  p256dh     String
+  auth       String
+  userAgent  String?   @map("user_agent")
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  lastUsedAt DateTime? @map("last_used_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("push_subscriptions")
+}
+
+// ─────────────────────────── Clients ───────────────────────────
+
+model Client {
+  id                  String           @id @default(uuid()) @db.Uuid
+  userId              String?          @unique @map("user_id") @db.Uuid
+  firstName           String           @map("first_name")
+  lastName            String?          @map("last_name")
+  /// E.164, e.g. +77011234567. Primary matching key for imports and registration.
+  phone               String?          @unique
+  email               String?
+  birthDate           DateTime?        @map("birth_date") @db.Date
+  category            ClientCategory   @default(ADULT)
+  levelId             String?          @map("level_id") @db.Uuid
+  photoUrl            String?          @map("photo_url")
+  /// ISO weekdays 1 (Mon) … 7 (Sun)
+  preferredDays       Int[]            @map("preferred_days")
+  preferredTimes      TimeOfDay[]      @map("preferred_times")
+  formatPreference    FormatPreference @default(ANY) @map("format_preference")
+  marketingConsent    Boolean          @default(false) @map("marketing_consent")
+  marketingConsentAt  DateTime?        @map("marketing_consent_at") @db.Timestamptz(3)
+  sourceId            String?          @map("source_id") @db.Uuid
+  notes               String?
+  status              ClientStatus     @default(ACTIVE)
+  lastVisitAt         DateTime?        @map("last_visit_at") @db.Timestamptz(3)
+  deletionRequestedAt DateTime?        @map("deletion_requested_at") @db.Timestamptz(3)
+  externalRef         String?          @map("external_ref")
+  createdAt           DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user                 User?                    @relation(fields: [userId], references: [id])
+  level                Level?                   @relation(fields: [levelId], references: [id])
+  source               LeadSource?              @relation(fields: [sourceId], references: [id])
+  guardians            ClientGuardian[]
+  preferredTeachers    ClientPreferredTeacher[]
+  memberships          Membership[]
+  bookings             Booking[]
+  attendance           Attendance[]
+  waitlistEntries      WaitlistEntry[]
+  payments             Payment[]
+  trials               Trial[]
+  lead                 Lead?
+  tags                 ClientTag[]
+  tasks                CrmTask[]
+  communications       Communication[]
+  activities           ClientActivity[]
+  levelHistory         ClientLevel[]
+  feedback             TeacherFeedback[]
+  notifications        Notification[]
+  broadcastRecipients  BroadcastRecipient[]
+  referralCode         ReferralCode?
+  referralsMade        Referral[]               @relation("Referrer")
+  referredBy           Referral?                @relation("Referee")
+  automationRuns       AutomationRun[]
+  agreementAcceptances AgreementAcceptance[]
+
+  @@index([lastName, firstName])
+  @@index([email])
+  @@index([category])
+  @@index([lastVisitAt])
+  @@map("clients")
+}
+
+/// A user (parent / guardian) who manages a child's client profile.
+model ClientGuardian {
+  guardianUserId String   @map("guardian_user_id") @db.Uuid
+  clientId       String   @map("client_id") @db.Uuid
+  relationship   String?
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  guardian User   @relation(fields: [guardianUserId], references: [id], onDelete: Cascade)
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@id([guardianUserId, clientId])
+  @@map("client_guardians")
+}
+
+model ClientPreferredTeacher {
+  clientId  String @map("client_id") @db.Uuid
+  teacherId String @map("teacher_id") @db.Uuid
+
+  client  Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  teacher Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+
+  @@id([clientId, teacherId])
+  @@map("client_preferred_teachers")
+}
+
+/// History of level assignments (placement, teacher re-assessment, admin correction).
+model ClientLevel {
+  id          String   @id @default(uuid()) @db.Uuid
+  clientId    String   @map("client_id") @db.Uuid
+  levelId     String   @map("level_id") @db.Uuid
+  reason      String?
+  changedById String?  @map("changed_by_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  level  Level  @relation(fields: [levelId], references: [id])
+
+  @@index([clientId, createdAt])
+  @@map("client_levels")
+}
+
+// ─────────────────────────── Teachers ───────────────────────────
+
+model Teacher {
+  id             String   @id @default(uuid()) @db.Uuid
+  userId         String?  @unique @map("user_id") @db.Uuid
+  firstName      String   @map("first_name")
+  lastName       String?  @map("last_name")
+  photoUrl       String?  @map("photo_url")
+  country        String?
+  nativeLanguage String?  @map("native_language")
+  englishLevel   String?  @map("english_level")
+  headline       String?
+  bio            String?
+  specialization String?
+  levelFromId    String?  @map("level_from_id") @db.Uuid
+  levelToId      String?  @map("level_to_id") @db.Uuid
+  /// [{ "day": 1, "from": "12:30", "to": "20:00" }, …]
+  availability   Json     @default("[]")
+  /// Teacher pay per session (KZT). Financial data — hidden without finance permission.
+  sessionRate    Int?     @map("session_rate")
+  isActive       Boolean  @default(true) @map("is_active")
+  sortOrder      Int      @default(0) @map("sort_order")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user        User?                    @relation(fields: [userId], references: [id])
+  levelFrom   Level?                   @relation("TeacherLevelFrom", fields: [levelFromId], references: [id])
+  levelTo     Level?                   @relation("TeacherLevelTo", fields: [levelToId], references: [id])
+  sessions    Session[]
+  templates   SessionTemplate[]
+  feedback    TeacherFeedback[]
+  preferredBy ClientPreferredTeacher[]
+
+  @@map("teachers")
+}
+
+// ─────────────────────── Memberships & visit ledger ───────────────────────
+
+model MembershipPlan {
+  id               String           @id @default(uuid()) @db.Uuid
+  programId        String           @map("program_id") @db.Uuid
+  code             String
+  name             String
+  description      String?
+  visits           Int
+  price            Int
+  currency         String           @default("KZT")
+  validityDays     Int              @default(35) @map("validity_days")
+  /// Available for sale at all (admin toggle).
+  isActive         Boolean          @default(true) @map("is_active")
+  /// Visible for self-service purchase in the client app.
+  isPublic         Boolean          @default(true) @map("is_public")
+  isFeatured       Boolean          @default(false) @map("is_featured")
+  /// Client categories allowed to buy; empty = everyone.
+  clientCategories ClientCategory[] @map("client_categories")
+  /// Session formats this plan can be used for; empty = all.
+  formats          SessionFormat[]
+  sortOrder        Int              @default(0) @map("sort_order")
+  createdAt        DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  program     Program                   @relation(fields: [programId], references: [id])
+  groupTypes  MembershipPlanGroupType[]
+  memberships Membership[]
+  payments    Payment[]
+
+  @@unique([programId, code])
+  @@map("membership_plans")
+}
+
+/// Restricts a plan to specific group types (e.g. Business Club). No rows = all group types.
+model MembershipPlanGroupType {
+  planId      String @map("plan_id") @db.Uuid
+  groupTypeId String @map("group_type_id") @db.Uuid
+
+  plan      MembershipPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  groupType GroupType      @relation(fields: [groupTypeId], references: [id], onDelete: Cascade)
+
+  @@id([planId, groupTypeId])
+  @@map("membership_plan_group_types")
+}
+
+model Membership {
+  id                String           @id @default(uuid()) @db.Uuid
+  clientId          String           @map("client_id") @db.Uuid
+  planId            String           @map("plan_id") @db.Uuid
+  programId         String           @map("program_id") @db.Uuid
+  status            MembershipStatus @default(ACTIVE)
+  /// Snapshots taken at activation so later plan edits never change sold memberships.
+  planName          String           @map("plan_name")
+  visitsTotal       Int              @map("visits_total")
+  price             Int
+  /// Cache of SUM(membership_transactions.delta). Written only by MembershipLedgerService.
+  visitsRemaining   Int              @map("visits_remaining")
+  startsAt          DateTime         @map("starts_at") @db.Timestamptz(3)
+  expiresAt         DateTime         @map("expires_at") @db.Timestamptz(3)
+  originalExpiresAt DateTime         @map("original_expires_at") @db.Timestamptz(3)
+  paymentId         String?          @unique @map("payment_id") @db.Uuid
+  isRenewal         Boolean          @default(false) @map("is_renewal")
+  activatedById     String?          @map("activated_by_id") @db.Uuid
+  cancelledAt       DateTime?        @map("cancelled_at") @db.Timestamptz(3)
+  cancelReason      String?          @map("cancel_reason")
+  notes             String?
+  createdAt         DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  client       Client                  @relation(fields: [clientId], references: [id])
+  plan         MembershipPlan          @relation(fields: [planId], references: [id])
+  program      Program                 @relation(fields: [programId], references: [id])
+  payment      Payment?                @relation(fields: [paymentId], references: [id])
+  transactions MembershipTransaction[]
+  bookings     Booking[]
+
+  @@index([clientId, status, expiresAt])
+  @@index([status, expiresAt])
+  @@map("memberships")
+}
+
+/// Visit ledger. Every change to a membership's visit balance is one row here.
+model MembershipTransaction {
+  id              String           @id @default(uuid()) @db.Uuid
+  membershipId    String           @map("membership_id") @db.Uuid
+  type            MembershipTxType
+  delta           Int
+  balanceAfter    Int              @map("balance_after")
+  bookingId       String?          @map("booking_id") @db.Uuid
+  reason          String?
+  expiresAtBefore DateTime?        @map("expires_at_before") @db.Timestamptz(3)
+  expiresAtAfter  DateTime?        @map("expires_at_after") @db.Timestamptz(3)
+  createdById     String?          @map("created_by_id") @db.Uuid
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  membership Membership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  booking    Booking?   @relation(fields: [bookingId], references: [id])
+
+  @@index([membershipId, createdAt])
+  @@index([bookingId])
+  @@map("membership_transactions")
+}
+
+// ─────────────────────── Schedule & sessions ───────────────────────
+
+model Session {
+  id                    String        @id @default(uuid()) @db.Uuid
+  programId             String        @map("program_id") @db.Uuid
+  locationId            String        @map("location_id") @db.Uuid
+  roomId                String?       @map("room_id") @db.Uuid
+  teacherId             String?       @map("teacher_id") @db.Uuid
+  groupTypeId           String?       @map("group_type_id") @db.Uuid
+  levelMinId            String?       @map("level_min_id") @db.Uuid
+  levelMaxId            String?       @map("level_max_id") @db.Uuid
+  title                 String?
+  topic                 String?
+  description           String?
+  startsAt              DateTime      @map("starts_at") @db.Timestamptz(3)
+  endsAt                DateTime      @map("ends_at") @db.Timestamptz(3)
+  capacity              Int
+  format                SessionFormat @default(OFFLINE)
+  onlineUrl             String?       @map("online_url")
+  status                SessionStatus @default(SCHEDULED)
+  bookingClosed         Boolean       @default(false) @map("booking_closed")
+  trialsAllowed         Boolean       @default(true) @map("trials_allowed")
+  templateId            String?       @map("template_id") @db.Uuid
+  /// True once an occurrence generated from a template is edited individually.
+  isDetached            Boolean       @default(false) @map("is_detached")
+  cancelledAt           DateTime?     @map("cancelled_at") @db.Timestamptz(3)
+  cancelReason          String?       @map("cancel_reason")
+  attendanceFinalizedAt DateTime?     @map("attendance_finalized_at") @db.Timestamptz(3)
+  createdById           String?       @map("created_by_id") @db.Uuid
+  createdAt             DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  program    Program           @relation(fields: [programId], references: [id])
+  location   Location          @relation(fields: [locationId], references: [id])
+  room       Room?             @relation(fields: [roomId], references: [id])
+  teacher    Teacher?          @relation(fields: [teacherId], references: [id])
+  groupType  GroupType?        @relation(fields: [groupTypeId], references: [id])
+  levelMin   Level?            @relation("SessionLevelMin", fields: [levelMinId], references: [id])
+  levelMax   Level?            @relation("SessionLevelMax", fields: [levelMaxId], references: [id])
+  template   SessionTemplate?  @relation(fields: [templateId], references: [id])
+  bookings   Booking[]
+  attendance Attendance[]
+  waitlist   WaitlistEntry[]
+  feedback   TeacherFeedback[]
+  trials     Trial[]
+
+  @@unique([templateId, startsAt])
+  @@index([startsAt])
+  @@index([teacherId, startsAt])
+  @@index([roomId, startsAt])
+  @@index([status, startsAt])
+  @@map("sessions")
+}
+
+/// Recurring schedule rule; occurrences are materialised into Session rows.
+model SessionTemplate {
+  id              String        @id @default(uuid()) @db.Uuid
+  programId       String        @map("program_id") @db.Uuid
+  locationId      String        @map("location_id") @db.Uuid
+  roomId          String?       @map("room_id") @db.Uuid
+  teacherId       String?       @map("teacher_id") @db.Uuid
+  groupTypeId     String?       @map("group_type_id") @db.Uuid
+  levelMinId      String?       @map("level_min_id") @db.Uuid
+  levelMaxId      String?       @map("level_max_id") @db.Uuid
+  title           String?
+  description     String?
+  /// ISO weekdays 1 (Mon) … 7 (Sun)
+  daysOfWeek      Int[]         @map("days_of_week")
+  /// Club-local start time, "HH:mm"
+  startTime       String        @map("start_time")
+  durationMinutes Int           @map("duration_minutes")
+  capacity        Int
+  format          SessionFormat @default(OFFLINE)
+  onlineUrl       String?       @map("online_url")
+  validFrom       DateTime      @map("valid_from") @db.Date
+  validUntil      DateTime?     @map("valid_until") @db.Date
+  isActive        Boolean       @default(true) @map("is_active")
+  generatedUntil  DateTime?     @map("generated_until") @db.Date
+  createdById     String?       @map("created_by_id") @db.Uuid
+  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  program   Program    @relation(fields: [programId], references: [id])
+  location  Location   @relation(fields: [locationId], references: [id])
+  room      Room?      @relation(fields: [roomId], references: [id])
+  teacher   Teacher?   @relation(fields: [teacherId], references: [id])
+  groupType GroupType? @relation(fields: [groupTypeId], references: [id])
+  levelMin  Level?     @relation("TemplateLevelMin", fields: [levelMinId], references: [id])
+  levelMax  Level?     @relation("TemplateLevelMax", fields: [levelMaxId], references: [id])
+  sessions  Session[]
+
+  @@map("session_templates")
+}
+
+// ─────────────────────── Bookings, attendance, waitlist ───────────────────────
+
+model Booking {
+  id                 String        @id @default(uuid()) @db.Uuid
+  sessionId          String        @map("session_id") @db.Uuid
+  clientId           String        @map("client_id") @db.Uuid
+  membershipId       String?       @map("membership_id") @db.Uuid
+  kind               BookingKind   @default(MEMBERSHIP)
+  status             BookingStatus @default(BOOKED)
+  /// TRUE while the booking occupies a seat (BOOKED / ATTENDED / NO_SHOW), NULL otherwise.
+  /// Together with the unique index below this prevents double-booking at database level.
+  activeSlot         Boolean?      @default(true) @map("active_slot")
+  source             BookingSource @default(CLIENT)
+  bookedById         String?       @map("booked_by_id") @db.Uuid
+  bookedAt           DateTime      @default(now()) @map("booked_at") @db.Timestamptz(3)
+  visitDeducted      Boolean       @default(false) @map("visit_deducted")
+  visitReturned      Boolean       @default(false) @map("visit_returned")
+  capacityOverride   Boolean       @default(false) @map("capacity_override")
+  cancelledAt        DateTime?     @map("cancelled_at") @db.Timestamptz(3)
+  cancelledById      String?       @map("cancelled_by_id") @db.Uuid
+  cancellationSource ActorSource?  @map("cancellation_source")
+  cancelReason       String?       @map("cancel_reason")
+  notes              String?
+  createdAt          DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  session       Session                 @relation(fields: [sessionId], references: [id])
+  client        Client                  @relation(fields: [clientId], references: [id])
+  membership    Membership?             @relation(fields: [membershipId], references: [id])
+  attendance    Attendance?
+  feedback      TeacherFeedback?
+  ledger        MembershipTransaction[]
+  reminders     BookingReminder[]
+  trial         Trial?
+  waitlistEntry WaitlistEntry?
+
+  @@unique([sessionId, clientId, activeSlot])
+  @@index([clientId, status])
+  @@index([sessionId, status])
+  @@map("bookings")
+}
+
+model BookingReminder {
+  bookingId     String   @map("booking_id") @db.Uuid
+  offsetMinutes Int      @map("offset_minutes")
+  sentAt        DateTime @default(now()) @map("sent_at") @db.Timestamptz(3)
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@id([bookingId, offsetMinutes])
+  @@map("booking_reminders")
+}
+
+model Attendance {
+  id         String           @id @default(uuid()) @db.Uuid
+  bookingId  String           @unique @map("booking_id") @db.Uuid
+  sessionId  String           @map("session_id") @db.Uuid
+  clientId   String           @map("client_id") @db.Uuid
+  status     AttendanceStatus
+  method     AttendanceMethod @default(MANUAL)
+  markedById String?          @map("marked_by_id") @db.Uuid
+  markedAt   DateTime         @default(now()) @map("marked_at") @db.Timestamptz(3)
+  note       String?
+  createdAt  DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  booking  Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  session  Session @relation(fields: [sessionId], references: [id])
+  client   Client  @relation(fields: [clientId], references: [id])
+  markedBy User?   @relation(fields: [markedById], references: [id])
+
+  @@index([clientId])
+  @@index([sessionId])
+  @@map("attendance")
+}
+
+model WaitlistEntry {
+  id             String         @id @default(uuid()) @db.Uuid
+  sessionId      String         @map("session_id") @db.Uuid
+  clientId       String         @map("client_id") @db.Uuid
+  status         WaitlistStatus @default(WAITING)
+  /// TRUE while WAITING / OFFERED, NULL otherwise (one active entry per client and session).
+  activeSlot     Boolean?       @default(true) @map("active_slot")
+  offeredAt      DateTime?      @map("offered_at") @db.Timestamptz(3)
+  offerExpiresAt DateTime?      @map("offer_expires_at") @db.Timestamptz(3)
+  bookingId      String?        @unique @map("booking_id") @db.Uuid
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  session Session  @relation(fields: [sessionId], references: [id])
+  client  Client   @relation(fields: [clientId], references: [id])
+  booking Booking? @relation(fields: [bookingId], references: [id])
+
+  @@unique([sessionId, clientId, activeSlot])
+  @@index([sessionId, status, createdAt])
+  @@index([status, offerExpiresAt])
+  @@map("waitlist_entries")
+}
+
+// ─────────────────────────── Payments ───────────────────────────
+
+model PaymentMethod {
+  id                 String   @id @default(uuid()) @db.Uuid
+  code               String   @unique
+  name               String
+  /// Adapter that processes this method: "manual", "mock_online", "kaspi", …
+  provider           String   @default("manual")
+  instructions       String?
+  isActive           Boolean  @default(true) @map("is_active")
+  availableToClients Boolean  @default(false) @map("available_to_clients")
+  sortOrder          Int      @default(0) @map("sort_order")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  payments Payment[]
+
+  @@map("payment_methods")
+}
+
+model Payment {
+  id                String        @id @default(uuid()) @db.Uuid
+  clientId          String        @map("client_id") @db.Uuid
+  amount            Int
+  currency          String        @default("KZT")
+  productType       ProductType   @map("product_type")
+  membershipPlanId  String?       @map("membership_plan_id") @db.Uuid
+  trialId           String?       @unique @map("trial_id") @db.Uuid
+  description       String?
+  methodId          String        @map("method_id") @db.Uuid
+  status            PaymentStatus @default(PENDING)
+  provider          String        @default("manual")
+  providerPaymentId String?       @map("provider_payment_id")
+  /// Kaspi invoice number / bank reference entered by the admin.
+  reference         String?
+  checkoutUrl       String?       @map("checkout_url")
+  termsAcceptanceId String?       @map("terms_acceptance_id") @db.Uuid
+  createdById       String?       @map("created_by_id") @db.Uuid
+  confirmedById     String?       @map("confirmed_by_id") @db.Uuid
+  paidAt            DateTime?     @map("paid_at") @db.Timestamptz(3)
+  cancelledAt       DateTime?     @map("cancelled_at") @db.Timestamptz(3)
+  failureReason     String?       @map("failure_reason")
+  refundedAmount    Int           @default(0) @map("refunded_amount")
+  refundedAt        DateTime?     @map("refunded_at") @db.Timestamptz(3)
+  refundReason      String?       @map("refund_reason")
+  notes             String?
+  metadata          Json?
+  createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  client      Client          @relation(fields: [clientId], references: [id])
+  plan        MembershipPlan? @relation(fields: [membershipPlanId], references: [id])
+  trial       Trial?          @relation(fields: [trialId], references: [id])
+  method      PaymentMethod   @relation(fields: [methodId], references: [id])
+  createdBy   User?           @relation("PaymentCreator", fields: [createdById], references: [id])
+  confirmedBy User?           @relation("PaymentConfirmer", fields: [confirmedById], references: [id])
+  membership  Membership?
+
+  @@unique([provider, providerPaymentId])
+  @@index([status, createdAt])
+  @@index([clientId, createdAt])
+  @@index([paidAt])
+  @@map("payments")
+}
+
+// ─────────────────────────── Trials & CRM ───────────────────────────
+
+model Trial {
+  id             String       @id @default(uuid()) @db.Uuid
+  leadId         String?      @map("lead_id") @db.Uuid
+  clientId       String?      @map("client_id") @db.Uuid
+  name           String
+  phone          String
+  levelId        String?      @map("level_id") @db.Uuid
+  preferredDays  Int[]        @map("preferred_days")
+  preferredTimes TimeOfDay[]  @map("preferred_times")
+  comment        String?
+  status         TrialStatus  @default(REQUESTED)
+  outcome        TrialOutcome @default(PENDING)
+  sessionId      String?      @map("session_id") @db.Uuid
+  bookingId      String?      @unique @map("booking_id") @db.Uuid
+  price          Int
+  source         String       @default("app")
+  attendedAt     DateTime?    @map("attended_at") @db.Timestamptz(3)
+  followUpSentAt DateTime?    @map("follow_up_sent_at") @db.Timestamptz(3)
+  notes          String?
+  createdById    String?      @map("created_by_id") @db.Uuid
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  lead    Lead?    @relation(fields: [leadId], references: [id])
+  client  Client?  @relation(fields: [clientId], references: [id])
+  level   Level?   @relation(fields: [levelId], references: [id])
+  session Session? @relation(fields: [sessionId], references: [id])
+  booking Booking? @relation(fields: [bookingId], references: [id])
+  payment Payment?
+
+  @@index([status, createdAt])
+  @@index([phone])
+  @@map("trials")
+}
+
+model LeadSource {
+  id        String   @id @default(uuid()) @db.Uuid
+  code      String   @unique
+  name      String
+  isActive  Boolean  @default(true) @map("is_active")
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  leads   Lead[]
+  clients Client[]
+
+  @@map("lead_sources")
+}
+
+/// CRM pipeline card for a person — from first contact through renewals.
+/// Stages after MEMBERSHIP_PURCHASED are moved automatically by the pipeline service.
+model Lead {
+  id             String      @id @default(uuid()) @db.Uuid
+  clientId       String?     @unique @map("client_id") @db.Uuid
+  name           String
+  phone          String?
+  email          String?
+  sourceId       String?     @map("source_id") @db.Uuid
+  stage          LeadStage   @default(NEW_LEAD)
+  stageChangedAt DateTime    @default(now()) @map("stage_changed_at") @db.Timestamptz(3)
+  assignedToId   String?     @map("assigned_to_id") @db.Uuid
+  levelId        String?     @map("level_id") @db.Uuid
+  preferredDays  Int[]       @map("preferred_days")
+  preferredTimes TimeOfDay[] @map("preferred_times")
+  notes          String?
+  lostReason     String?     @map("lost_reason")
+  createdAt      DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  client         Client?         @relation(fields: [clientId], references: [id])
+  source         LeadSource?     @relation(fields: [sourceId], references: [id])
+  assignedTo     User?           @relation("LeadAssignee", fields: [assignedToId], references: [id])
+  level          Level?          @relation(fields: [levelId], references: [id])
+  trials         Trial[]
+  tasks          CrmTask[]
+  communications Communication[]
+
+  @@index([stage, stageChangedAt])
+  @@index([phone])
+  @@map("leads")
+}
+
+model CrmTag {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @unique
+  color     String?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  clients ClientTag[]
+
+  @@map("crm_tags")
+}
+
+model ClientTag {
+  clientId  String   @map("client_id") @db.Uuid
+  tagId     String   @map("tag_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  tag    CrmTag @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([clientId, tagId])
+  @@map("client_tags")
+}
+
+model CrmTask {
+  id               String       @id @default(uuid()) @db.Uuid
+  title            String
+  description      String?
+  clientId         String?      @map("client_id") @db.Uuid
+  leadId           String?      @map("lead_id") @db.Uuid
+  assignedToId     String?      @map("assigned_to_id") @db.Uuid
+  createdById      String?      @map("created_by_id") @db.Uuid
+  dueAt            DateTime?    @map("due_at") @db.Timestamptz(3)
+  priority         TaskPriority @default(MEDIUM)
+  status           TaskStatus   @default(OPEN)
+  completedAt      DateTime?    @map("completed_at") @db.Timestamptz(3)
+  automationRuleId String?      @map("automation_rule_id") @db.Uuid
+  createdAt        DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  client     Client? @relation(fields: [clientId], references: [id])
+  lead       Lead?   @relation(fields: [leadId], references: [id])
+  assignedTo User?   @relation("TaskAssignee", fields: [assignedToId], references: [id])
+  createdBy  User?   @relation("TaskCreator", fields: [createdById], references: [id])
+
+  @@index([status, dueAt])
+  @@index([assignedToId, status])
+  @@map("crm_tasks")
+}
+
+/// Communication history (WhatsApp, calls, …) — manual log now, provider sync later.
+model Communication {
+  id          String                 @id @default(uuid()) @db.Uuid
+  clientId    String?                @map("client_id") @db.Uuid
+  leadId      String?                @map("lead_id") @db.Uuid
+  channel     CommunicationChannel
+  direction   CommunicationDirection @default(OUTBOUND)
+  subject     String?
+  content     String
+  occurredAt  DateTime               @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  externalId  String?                @map("external_id")
+  createdById String?                @map("created_by_id") @db.Uuid
+  createdAt   DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  client    Client? @relation(fields: [clientId], references: [id])
+  lead      Lead?   @relation(fields: [leadId], references: [id])
+  createdBy User?   @relation(fields: [createdById], references: [id])
+
+  @@index([clientId, occurredAt])
+  @@index([leadId, occurredAt])
+  @@map("communications")
+}
+
+/// Client activity timeline (membership purchased, attended, cancelled, note added, …).
+model ClientActivity {
+  id        String   @id @default(uuid()) @db.Uuid
+  clientId  String   @map("client_id") @db.Uuid
+  type      String
+  title     String
+  data      Json?
+  actorId   String?  @map("actor_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId, createdAt])
+  @@map("client_activities")
+}
+
+// ─────────────────────── Notifications & marketing ───────────────────────
+
+model NotificationTemplate {
+  id                   String                @id @default(uuid()) @db.Uuid
+  key                  String                @unique
+  name                 String
+  description          String?
+  category             NotificationCategory
+  title                String
+  body                 String
+  buttonLabel          String?               @map("button_label")
+  buttonUrl            String?               @map("button_url")
+  secondaryButtonLabel String?               @map("secondary_button_label")
+  secondaryButtonUrl   String?               @map("secondary_button_url")
+  channels             NotificationChannel[]
+  isActive             Boolean               @default(true) @map("is_active")
+  createdAt            DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt            DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("notification_templates")
+}
+
+model Notification {
+  id                   String               @id @default(uuid()) @db.Uuid
+  userId               String?              @map("user_id") @db.Uuid
+  clientId             String?              @map("client_id") @db.Uuid
+  category             NotificationCategory
+  templateKey          String?              @map("template_key")
+  title                String
+  body                 String
+  imageUrl             String?              @map("image_url")
+  buttonLabel          String?              @map("button_label")
+  buttonUrl            String?              @map("button_url")
+  secondaryButtonLabel String?              @map("secondary_button_label")
+  secondaryButtonUrl   String?              @map("secondary_button_url")
+  data                 Json?
+  broadcastId          String?              @map("broadcast_id") @db.Uuid
+  readAt               DateTime?            @map("read_at") @db.Timestamptz(3)
+  createdAt            DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user       User?                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  client     Client?                @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  broadcast  Broadcast?             @relation(fields: [broadcastId], references: [id])
+  deliveries NotificationDelivery[]
+
+  @@index([userId, createdAt])
+  @@index([userId, readAt])
+  @@index([clientId, createdAt])
+  @@map("notifications")
+}
+
+model NotificationDelivery {
+  id                String              @id @default(uuid()) @db.Uuid
+  notificationId    String              @map("notification_id") @db.Uuid
+  channel           NotificationChannel
+  status            DeliveryStatus      @default(PENDING)
+  provider          String?
+  providerMessageId String?             @map("provider_message_id")
+  error             String?
+  attempts          Int                 @default(0)
+  sentAt            DateTime?           @map("sent_at") @db.Timestamptz(3)
+  createdAt         DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  notification Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+  @@map("notification_deliveries")
+}
+
+model Segment {
+  id          String   @id @default(uuid()) @db.Uuid
+  /// Stable key for built-in segments (ACTIVE, EXPIRING_SOON, …); NULL for custom segments.
+  key         String?  @unique
+  name        String
+  description String?
+  /// { match: "all" | "any", rules: [{ field, op, value }] }
+  definition  Json
+  isSystem    Boolean  @default(false) @map("is_system")
+  createdById String?  @map("created_by_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  broadcasts Broadcast[]
+
+  @@map("segments")
+}
+
+model Broadcast {
+  id             String                @id @default(uuid()) @db.Uuid
+  title          String
+  body           String
+  imageUrl       String?               @map("image_url")
+  buttonLabel    String?               @map("button_label")
+  buttonUrl      String?               @map("button_url")
+  kind           BroadcastKind         @default(MARKETING)
+  channels       NotificationChannel[]
+  segmentId      String?               @map("segment_id") @db.Uuid
+  /// Ad-hoc audience definition (same shape as Segment.definition) when no saved segment is used.
+  audience       Json?
+  scheduledAt    DateTime?             @map("scheduled_at") @db.Timestamptz(3)
+  status         BroadcastStatus       @default(DRAFT)
+  sentAt         DateTime?             @map("sent_at") @db.Timestamptz(3)
+  recipientCount Int                   @default(0) @map("recipient_count")
+  createdById    String?               @map("created_by_id") @db.Uuid
+  createdAt      DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  segment       Segment?             @relation(fields: [segmentId], references: [id])
+  recipients    BroadcastRecipient[]
+  notifications Notification[]
+
+  @@index([status, scheduledAt])
+  @@map("broadcasts")
+}
+
+model BroadcastRecipient {
+  id             String         @id @default(uuid()) @db.Uuid
+  broadcastId    String         @map("broadcast_id") @db.Uuid
+  clientId       String         @map("client_id") @db.Uuid
+  notificationId String?        @map("notification_id") @db.Uuid
+  status         DeliveryStatus @default(PENDING)
+  error          String?
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  broadcast Broadcast @relation(fields: [broadcastId], references: [id], onDelete: Cascade)
+  client    Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@unique([broadcastId, clientId])
+  @@map("broadcast_recipients")
+}
+
+model Announcement {
+  id          String    @id @default(uuid()) @db.Uuid
+  programId   String?   @map("program_id") @db.Uuid
+  title       String
+  body        String
+  imageUrl    String?   @map("image_url")
+  buttonLabel String?   @map("button_label")
+  buttonUrl   String?   @map("button_url")
+  startsAt    DateTime  @default(now()) @map("starts_at") @db.Timestamptz(3)
+  endsAt      DateTime? @map("ends_at") @db.Timestamptz(3)
+  /// Optional audience (segment definition); NULL = everyone.
+  audience    Json?
+  isPinned    Boolean   @default(false) @map("is_pinned")
+  isActive    Boolean   @default(true) @map("is_active")
+  createdById String?   @map("created_by_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  program Program? @relation(fields: [programId], references: [id])
+
+  @@index([isActive, startsAt])
+  @@map("announcements")
+}
+
+// ─────────────────────────── Automation ───────────────────────────
+
+model AutomationRule {
+  id            String            @id @default(uuid()) @db.Uuid
+  key           String?           @unique
+  name          String
+  description   String?
+  trigger       AutomationTrigger
+  /// Trigger parameters, e.g. { "daysBefore": 3 } or { "days": 14 } or { "remaining": 2 }
+  triggerConfig Json              @default("{}") @map("trigger_config")
+  /// [{ "field": "hasActiveMembership", "op": "eq", "value": false }, …]
+  conditions    Json              @default("[]")
+  /// [{ "type": "SEND_NOTIFICATION", "templateKey": "…" }, { "type": "CREATE_TASK", … }]
+  actions       Json              @default("[]")
+  delayMinutes  Int               @default(0) @map("delay_minutes")
+  isActive      Boolean           @default(true) @map("is_active")
+  isSystem      Boolean           @default(false) @map("is_system")
+  runCount      Int               @default(0) @map("run_count")
+  lastRunAt     DateTime?         @map("last_run_at") @db.Timestamptz(3)
+  createdById   String?           @map("created_by_id") @db.Uuid
+  createdAt     DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  runs AutomationRun[]
+
+  @@map("automation_rules")
+}
+
+model AutomationRun {
+  id           String              @id @default(uuid()) @db.Uuid
+  ruleId       String              @map("rule_id") @db.Uuid
+  clientId     String?             @map("client_id") @db.Uuid
+  /// Idempotency key: the same rule never fires twice for the same event.
+  dedupeKey    String              @map("dedupe_key")
+  status       AutomationRunStatus @default(SCHEDULED)
+  scheduledFor DateTime            @map("scheduled_for") @db.Timestamptz(3)
+  executedAt   DateTime?           @map("executed_at") @db.Timestamptz(3)
+  context      Json?
+  result       Json?
+  error        String?
+  createdAt    DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  rule   AutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  client Client?        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@unique([ruleId, dedupeKey])
+  @@index([status, scheduledFor])
+  @@map("automation_runs")
+}
+
+// ─────────────────────── Feedback & referrals ───────────────────────
+
+model TeacherFeedback {
+  id                String   @id @default(uuid()) @db.Uuid
+  bookingId         String   @unique @map("booking_id") @db.Uuid
+  sessionId         String   @map("session_id") @db.Uuid
+  clientId          String   @map("client_id") @db.Uuid
+  teacherId         String?  @map("teacher_id") @db.Uuid
+  authorId          String?  @map("author_id") @db.Uuid
+  participation     Int?
+  fluency           Int?
+  vocabulary        Int?
+  confidence        Int?
+  pronunciation     Int?
+  conversation      Int?
+  comment           String?
+  isVisibleToClient Boolean  @default(true) @map("is_visible_to_client")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  booking Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  session Session  @relation(fields: [sessionId], references: [id])
+  client  Client   @relation(fields: [clientId], references: [id])
+  teacher Teacher? @relation(fields: [teacherId], references: [id])
+  author  User?    @relation(fields: [authorId], references: [id])
+
+  @@index([clientId, createdAt])
+  @@map("teacher_feedback")
+}
+
+model ReferralCode {
+  id        String   @id @default(uuid()) @db.Uuid
+  clientId  String   @unique @map("client_id") @db.Uuid
+  code      String   @unique
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  client    Client     @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  referrals Referral[]
+
+  @@map("referral_codes")
+}
+
+model Referral {
+  id               String         @id @default(uuid()) @db.Uuid
+  codeId           String         @map("code_id") @db.Uuid
+  referrerClientId String         @map("referrer_client_id") @db.Uuid
+  referredClientId String         @unique @map("referred_client_id") @db.Uuid
+  status           ReferralStatus @default(REGISTERED)
+  rewardNote       String?        @map("reward_note")
+  rewardedAt       DateTime?      @map("rewarded_at") @db.Timestamptz(3)
+  createdAt        DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  code     ReferralCode @relation(fields: [codeId], references: [id])
+  referrer Client       @relation("Referrer", fields: [referrerClientId], references: [id])
+  referred Client       @relation("Referee", fields: [referredClientId], references: [id])
+
+  @@map("referrals")
+}
+
+// ─────────────────────── Legal, audit, settings, data ───────────────────────
+
+/// Versioned legal texts: terms, privacy policy, public offer.
+model LegalDocument {
+  id          String            @id @default(uuid()) @db.Uuid
+  type        LegalDocumentType
+  version     Int
+  title       String
+  content     String
+  isCurrent   Boolean           @default(false) @map("is_current")
+  publishedAt DateTime          @default(now()) @map("published_at") @db.Timestamptz(3)
+  createdById String?           @map("created_by_id") @db.Uuid
+
+  acceptances AgreementAcceptance[]
+
+  @@unique([type, version])
+  @@map("legal_documents")
+}
+
+model AgreementAcceptance {
+  id              String            @id @default(uuid()) @db.Uuid
+  userId          String?           @map("user_id") @db.Uuid
+  clientId        String?           @map("client_id") @db.Uuid
+  documentId      String            @map("document_id") @db.Uuid
+  documentType    LegalDocumentType @map("document_type")
+  documentVersion Int               @map("document_version")
+  /// Where it was accepted: REGISTRATION, PURCHASE, …
+  context         String
+  ip              String?
+  userAgent       String?           @map("user_agent")
+  acceptedAt      DateTime          @default(now()) @map("accepted_at") @db.Timestamptz(3)
+
+  user     User?         @relation(fields: [userId], references: [id])
+  client   Client?       @relation(fields: [clientId], references: [id])
+  document LegalDocument @relation(fields: [documentId], references: [id])
+
+  @@index([userId])
+  @@index([clientId])
+  @@map("agreement_acceptances")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  actorId    String?  @map("actor_id") @db.Uuid
+  actorLabel String?  @map("actor_label")
+  action     String
+  entityType String   @map("entity_type")
+  entityId   String?  @map("entity_id")
+  oldValue   Json?    @map("old_value")
+  newValue   Json?    @map("new_value")
+  reason     String?
+  ip         String?
+  userAgent  String?  @map("user_agent")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  actor User? @relation(fields: [actorId], references: [id])
+
+  @@index([entityType, entityId])
+  @@index([actorId, createdAt])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+/// Admin-editable configuration (working rules, content, branding…). Typed defaults live in code.
+model Setting {
+  key         String   @id
+  value       Json
+  updatedById String?  @map("updated_by_id") @db.Uuid
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("settings")
+}
+
+model DataRequest {
+  id            String            @id @default(uuid()) @db.Uuid
+  userId        String            @map("user_id") @db.Uuid
+  clientId      String?           @map("client_id") @db.Uuid
+  type          DataRequestType
+  status        DataRequestStatus @default(PENDING)
+  reason        String?
+  processedById String?           @map("processed_by_id") @db.Uuid
+  processedAt   DateTime?         @map("processed_at") @db.Timestamptz(3)
+  createdAt     DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([status, createdAt])
+  @@map("data_requests")
+}
+
+model ImportJob {
+  id           String       @id @default(uuid()) @db.Uuid
+  source       String
+  fileName     String?      @map("file_name")
+  status       ImportStatus @default(RUNNING)
+  dryRun       Boolean      @default(false) @map("dry_run")
+  totalRows    Int          @default(0) @map("total_rows")
+  createdCount Int          @default(0) @map("created_count")
+  updatedCount Int          @default(0) @map("updated_count")
+  skippedCount Int          @default(0) @map("skipped_count")
+  errors       Json         @default("[]")
+  createdById  String?      @map("created_by_id") @db.Uuid
+  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  finishedAt   DateTime?    @map("finished_at") @db.Timestamptz(3)
+
+  @@map("import_jobs")
+}
+
+/// Uploaded files (photos, marketing images, documents). Bytes live in the storage provider.
+model FileAsset {
+  id           String   @id @default(uuid()) @db.Uuid
+  storageKey   String   @unique @map("storage_key")
+  originalName String?  @map("original_name")
+  mimeType     String   @map("mime_type")
+  size         Int
+  purpose      String
+  uploadedById String?  @map("uploaded_by_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@map("file_assets")
+}

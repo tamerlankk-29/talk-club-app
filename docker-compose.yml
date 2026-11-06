@@ -1,0 +1,109 @@
+# Talk Club — full stack in containers (PostgreSQL 17, API, web).
+#
+#   cp .env.compose.example .env      # then set AUTH_SECRET and VAPID keys
+#   docker compose up -d --build
+#   docker compose --profile demo run --rm seed   # optional: demo data (never in production)
+#
+# Web: http://localhost:3000 · API docs: http://localhost:4000/api/docs
+# For a public deployment put a TLS reverse proxy in front of "web" (see docs/DEPLOYMENT.md).
+
+name: talkclub
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-talkclub}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-talkclub}
+      POSTGRES_DB: ${POSTGRES_DB:-talkclub}
+      POSTGRES_INITDB_ARGS: --encoding=UTF8 --locale=C
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-talkclub} -d ${POSTGRES_DB:-talkclub}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  migrate:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: migrate
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-talkclub}:${POSTGRES_PASSWORD:-talkclub}@db:5432/${POSTGRES_DB:-talkclub}?schema=public
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: runtime
+    restart: unless-stopped
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: 4000
+      APP_URL: ${APP_URL:-http://localhost:3000}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-talkclub}:${POSTGRES_PASSWORD:-talkclub}@db:5432/${POSTGRES_DB:-talkclub}?schema=public
+      AUTH_SECRET: ${AUTH_SECRET:?Set AUTH_SECRET in .env (at least 32 random characters)}
+      AUTH_OTP_DEV_ECHO: ${AUTH_OTP_DEV_ECHO:-false}
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      PUSH_VAPID_PUBLIC_KEY: ${PUSH_VAPID_PUBLIC_KEY:-}
+      PUSH_VAPID_PRIVATE_KEY: ${PUSH_VAPID_PRIVATE_KEY:-}
+      PUSH_VAPID_SUBJECT: ${PUSH_VAPID_SUBJECT:-mailto:hello@talkclub.kz}
+      NOTIFY_EMAIL_PROVIDER: ${NOTIFY_EMAIL_PROVIDER:-console}
+      NOTIFY_SMS_PROVIDER: ${NOTIFY_SMS_PROVIDER:-console}
+      NOTIFY_WHATSAPP_PROVIDER: ${NOTIFY_WHATSAPP_PROVIDER:-console}
+      NOTIFY_TELEGRAM_PROVIDER: ${NOTIFY_TELEGRAM_PROVIDER:-console}
+      PAYMENT_MOCK_ONLINE_ENABLED: ${PAYMENT_MOCK_ONLINE_ENABLED:-false}
+      PAYMENT_WEBHOOK_SECRET: ${PAYMENT_WEBHOOK_SECRET:-}
+      KASPI_MERCHANT_ID: ${KASPI_MERCHANT_ID:-}
+      KASPI_API_KEY: ${KASPI_API_KEY:-}
+      JOBS_ENABLED: "true"
+    volumes:
+      - uploads:/app/apps/api/uploads
+    ports:
+      - "${API_PORT:-4000}:4000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        API_INTERNAL_URL: http://api:4000
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+
+  # Demo data for a local or staging trial run — refuses to run with NODE_ENV=production.
+  seed:
+    profiles: ["demo"]
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: tools
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://${POSTGRES_USER:-talkclub}:${POSTGRES_PASSWORD:-talkclub}@db:5432/${POSTGRES_DB:-talkclub}?schema=public
+      AUTH_SECRET: ${AUTH_SECRET:-demo-only-secret-demo-only-secret-0000}
+    command: ["npx", "ts-node", "--transpile-only", "prisma/seed.ts", "--reset"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+volumes:
+  pgdata:
+  uploads:

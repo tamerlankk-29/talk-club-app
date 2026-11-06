@@ -1,0 +1,186 @@
+@import 'tailwindcss';
+
+/*
+ * Talk Club design tokens. Every colour used in the UI comes from here;
+ * brand-600/700 and the accent can be overridden at runtime from
+ * Settings → Branding (see BrandingSync).
+ */
+@theme {
+  --font-sans: var(--font-body), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: var(--font-heading), var(--font-body), ui-sans-serif, system-ui, sans-serif;
+
+  --color-brand-50: #f5f3ff;
+  --color-brand-100: #ede9fe;
+  --color-brand-200: #ddd6fe;
+  --color-brand-300: #c4b5fd;
+  --color-brand-400: #a78bfa;
+  --color-brand-500: #8b5cf6;
+  --color-brand-600: #7c3aed;
+  --color-brand-700: #6d28d9;
+  --color-brand-800: #5b21b6;
+  --color-brand-900: #4c1d95;
+  --color-brand-950: #2e1065;
+
+  --color-zest: #c6f432;
+  --color-zest-dark: #4d6b00;
+  --color-ink: #1b1530;
+  --color-muted: #6e6787;
+  --color-subtle: #9a94ad;
+  --color-line: #ebe7f3;
+  --color-canvas: #f7f5fb;
+  --color-surface: #ffffff;
+
+  --color-success-50: #ecfdf3;
+  --color-success-600: #079455;
+  --color-success-700: #067647;
+  --color-warning-50: #fffaeb;
+  --color-warning-600: #dc6803;
+  --color-warning-700: #b54708;
+  --color-danger-50: #fef3f2;
+  --color-danger-600: #d92d20;
+  --color-danger-700: #b42318;
+
+  --shadow-card: 0 1px 2px rgb(27 21 48 / 0.04), 0 10px 28px -14px rgb(76 29 149 / 0.22);
+  --shadow-float: 0 12px 40px -12px rgb(46 16 101 / 0.35);
+
+  --animate-fade-in: fade-in 0.25s ease-out;
+  --animate-slide-up: slide-up 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+  --animate-pop: pop 0.4s cubic-bezier(0.2, 1.4, 0.4, 1);
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes slide-up {
+    from {
+      opacity: 0;
+      transform: translateY(16px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  @keyframes pop {
+    0% {
+      transform: scale(0.6);
+      opacity: 0;
+    }
+    100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+}
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+    text-size-adjust: 100%;
+  }
+  body {
+    background: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-brand-500);
+    outline-offset: 2px;
+    border-radius: 0.5rem;
+  }
+  button,
+  [role='button'] {
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: not-allowed;
+  }
+  input[type='date']::-webkit-calendar-picker-indicator,
+  input[type='time']::-webkit-calendar-picker-indicator,
+  input[type='datetime-local']::-webkit-calendar-picker-indicator {
+    opacity: 0.6;
+    cursor: pointer;
+  }
+}
+
+@utility pb-safe {
+  padding-bottom: max(env(safe-area-inset-bottom), 0.5rem);
+}
+
+@utility pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+
+/* Sticky action bars sit just above the client bottom navigation. */
+@utility bottom-above-nav {
+  bottom: calc(5.25rem + env(safe-area-inset-bottom));
+}
+
+@utility scrollbar-none {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Markdown content (rules, about, legal texts) */
+.prose-club h1,
+.prose-club h2,
+.prose-club h3 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  line-height: 1.25;
+  margin: 1.4em 0 0.5em;
+}
+.prose-club h1 {
+  font-size: 1.5rem;
+}
+.prose-club h2 {
+  font-size: 1.25rem;
+}
+.prose-club h3 {
+  font-size: 1.05rem;
+}
+.prose-club p {
+  margin: 0.6em 0;
+  line-height: 1.65;
+}
+.prose-club ul,
+.prose-club ol {
+  margin: 0.6em 0;
+  padding-left: 1.25rem;
+  line-height: 1.65;
+}
+.prose-club ul {
+  list-style: disc;
+}
+.prose-club ol {
+  list-style: decimal;
+}
+.prose-club li {
+  margin: 0.25em 0;
+}
+.prose-club strong {
+  font-weight: 700;
+  color: var(--color-ink);
+}
+.prose-club a {
+  color: var(--color-brand-700);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.prose-club blockquote {
+  border-left: 3px solid var(--color-brand-300);
+  padding: 0.25em 0 0.25em 0.9em;
+  color: var(--color-muted);
+  margin: 0.8em 0;
+}
+.prose-club > :first-child {
+  margin-top: 0;
+}
