@@ -6,27 +6,53 @@ import { DomainError } from '../../common/errors/domain-error';
 import { APP_CONFIG, AppConfig } from '../../config/app-config';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ChannelRegistry } from '../messaging/channel-registry';
+import { TelegramService } from '../telegram/telegram.service';
 
 const CODE_TTL_SECONDS = 5 * 60;
 const RESEND_COOLDOWN_SECONDS = 60;
 const MAX_CODES_PER_HOUR = 5;
 const MAX_ATTEMPTS = 5;
 
-/** One-time SMS verification codes (login, password reset). Only HMACs are stored. */
+export type OtpChannel = 'sms' | 'telegram';
+
+/** One-time verification codes (login, password reset) sent by SMS or Telegram. Only HMACs are stored. */
 @Injectable()
 export class OtpService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly clock: ClockService,
     private readonly channels: ChannelRegistry,
+    private readonly telegram: TelegramService,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {}
+
+  /** Which delivery channels can carry codes right now. */
+  availableChannels(): { sms: boolean; telegram: boolean; telegramBotUrl: string | null } {
+    const telegram = this.telegram.isAvailable();
+    return {
+      // The console SMS provider only logs codes: fine in development, useless for real members.
+      sms: !this.config.isProduction || this.config.notify.sms !== 'console',
+      telegram,
+      telegramBotUrl: telegram ? this.telegram.botUrl() : null,
+    };
+  }
 
   async request(
     phone: string,
     purpose: OtpPurpose,
     ip: string | null,
-  ): Promise<{ expiresInSeconds: number; resendInSeconds: number; devCode?: string }> {
+    requestedChannel?: OtpChannel,
+  ): Promise<{ channel: OtpChannel; expiresInSeconds: number; resendInSeconds: number; devCode?: string }> {
+    const available = this.availableChannels();
+    const channel: OtpChannel = requestedChannel ?? (available.sms || !available.telegram ? 'sms' : 'telegram');
+    let telegramChatId: string | null = null;
+    if (channel === 'sms' && !available.sms) throw new DomainError('AUTH_SMS_UNAVAILABLE');
+    if (channel === 'telegram') {
+      if (!available.telegram) throw new DomainError('AUTH_TELEGRAM_UNAVAILABLE');
+      telegramChatId = await this.telegram.chatIdForPhone(phone);
+      if (!telegramChatId) throw new DomainError('AUTH_TELEGRAM_NOT_LINKED', { details: { botUrl: available.telegramBotUrl } });
+    }
+
     const now = this.clock.now();
     const last = await this.prisma.otpCode.findFirst({
       where: { phone, purpose },
@@ -54,13 +80,18 @@ export class OtpService {
       },
     });
 
-    await this.channels.get('SMS')?.send({
-      to: { phone },
-      title: '',
-      body: `Talk Club code: ${code}. It is valid for 5 minutes. Do not share it with anyone.`,
-    });
+    if (telegramChatId) {
+      await this.telegram.sendCode(telegramChatId, code);
+    } else {
+      await this.channels.get('SMS')?.send({
+        to: { phone },
+        title: '',
+        body: `Talk Club code: ${code}. It is valid for 5 minutes. Do not share it with anyone.`,
+      });
+    }
 
     return {
+      channel,
       expiresInSeconds: CODE_TTL_SECONDS,
       resendInSeconds: RESEND_COOLDOWN_SECONDS,
       ...(this.config.auth.otpDevEcho ? { devCode: code } : {}),

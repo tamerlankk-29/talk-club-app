@@ -97,6 +97,7 @@ API variables (see `apps/api/.env.example` for all of them):
 | `COOKIE_SECURE` | default true in production | Must stay true behind HTTPS |
 | `PUSH_VAPID_PUBLIC_KEY` / `PRIVATE_KEY` / `SUBJECT` | for push | `npx web-push generate-vapid-keys` |
 | `NOTIFY_*_PROVIDER` + credentials | per channel | See [INTEGRATIONS.md](INTEGRATIONS.md) |
+| `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME`, `TELEGRAM_WEBHOOK_SECRET` | for codes in Telegram | Secret ≥ 24 characters in production; the webhook is registered on start |
 | `PAYMENT_WEBHOOK_SECRET`, `KASPI_*` | when online payments are connected | |
 | `STORAGE_LOCAL_DIR` | yes (persistent volume) | Uploaded photos and images |
 | `JOBS_ENABLED` | default true | Jobs are safe with several instances (advisory locks) |

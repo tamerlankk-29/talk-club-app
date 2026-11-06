@@ -3,6 +3,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { APP_CONFIG, AppConfig } from '../../config/app-config';
 import { LegalModule } from '../legal/legal.module';
 import { ReferralsModule } from '../referrals/referrals.module';
+import { TelegramModule } from '../telegram/telegram.module';
 import { AuthContextService } from './auth-context.service';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
@@ -22,6 +23,7 @@ import { TokenService } from './token.service';
     }),
     LegalModule,
     ReferralsModule,
+    TelegramModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, TokenService, OtpService, AuthContextService],
