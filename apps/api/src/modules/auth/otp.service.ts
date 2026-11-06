@@ -3,6 +3,8 @@ import type { OtpPurpose } from '@prisma/client';
 import { createHmac, randomInt, timingSafeEqual } from 'node:crypto';
 import { ClockService } from '../../common/clock/clock.service';
 import { DomainError } from '../../common/errors/domain-error';
+import { RequestContext } from '../../common/request-context';
+import type { Locale } from '../../common/utils/locale';
 import { APP_CONFIG, AppConfig } from '../../config/app-config';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ChannelRegistry } from '../messaging/channel-registry';
@@ -13,6 +15,13 @@ const CODE_TTL_SECONDS = 5 * 60;
 const RESEND_COOLDOWN_SECONDS = 60;
 const MAX_CODES_PER_HOUR = 5;
 const MAX_ATTEMPTS = 5;
+
+/** Sign-in code SMS in the language of the screen it was requested from; each fits one SMS. */
+const SMS_CODE_TEXT: Record<Locale, (code: string) => string> = {
+  en: (code) => `Talk Club code: ${code}. It is valid for 5 minutes. Do not share it with anyone.`,
+  ru: (code) => `Код Talk Club: ${code}. Действует 5 минут. Никому не сообщайте.`,
+  kk: (code) => `Talk Club коды: ${code}. 5 минут жарамды. Ешкімге айтпаңыз.`,
+};
 
 export type OtpChannel = 'sms' | 'telegram';
 
@@ -119,7 +128,7 @@ export class OtpService {
         ?.send({
           to: { phone },
           title: '',
-          body: `Talk Club code: ${code}. It is valid for 5 minutes. Do not share it with anyone.`,
+          body: SMS_CODE_TEXT[RequestContext.get()?.locale ?? 'en'](code),
         })
         .catch((error: Error) => ({ status: 'FAILED' as const, error: error.message }));
       if (result && result.status !== 'SENT') {

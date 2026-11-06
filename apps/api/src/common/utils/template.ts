@@ -1,17 +1,21 @@
+import { isLocalizedText, type LocalizedText } from '../i18n/localized';
+import type { Locale } from './locale';
+
 /**
  * Minimal, safe placeholder rendering for notification templates:
  *   "Hi {{firstName}}! Your session with {{teacher}} starts at {{time}}."
  * Unknown placeholders render as an empty string. No code execution, no HTML.
  */
-export type TemplateVars = Record<string, string | number | null | undefined>;
+export type TemplateVars = Record<string, string | number | null | undefined | LocalizedText>;
 
 const PLACEHOLDER = /\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}/g;
 
-export function renderTemplate(template: string | null | undefined, vars: TemplateVars): string {
+export function renderTemplate(template: string | null | undefined, vars: TemplateVars, locale: Locale = 'en'): string {
   if (!template) return '';
   return template.replace(PLACEHOLDER, (_, key: string) => {
     const value = vars[key];
-    return value === null || value === undefined ? '' : String(value);
+    if (value === null || value === undefined) return '';
+    return isLocalizedText(value) ? value[locale] : String(value);
   });
 }
 
