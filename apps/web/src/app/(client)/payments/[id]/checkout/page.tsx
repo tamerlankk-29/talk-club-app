@@ -13,6 +13,8 @@ import { toastError } from '@/components/ui/toast';
 import { api, call } from '@/lib/api/client';
 import { fmt } from '@/lib/format';
 import { keys } from '@/lib/queries';
+import { useT } from '@/lib/i18n';
+import { membershipMessages } from '@/lib/i18n/messages/membership';
 
 /**
  * Test checkout for the development "mock_online" provider. A real provider
@@ -30,6 +32,7 @@ function Checkout() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const refresh = useRefreshClientData();
+  const t = useT(membershipMessages);
   const query = useQuery({ queryKey: keys.payment(id), queryFn: () => call(api.GET('/api/my/payments/{id}', { params: { path: { id } } })) });
   const complete = useMutation({
     mutationFn: (result: 'success' | 'fail') => call(api.POST('/api/payments/mock/{id}/complete', { params: { path: { id } }, body: { result } })),
@@ -45,10 +48,10 @@ function Checkout() {
   return (
     <div className="space-y-5 pt-10">
       <div className="flex items-center justify-center gap-2 text-sm font-semibold text-muted">
-        <Lock className="h-4 w-4" /> Secure checkout
+        <Lock className="h-4 w-4" /> {t.secureCheckout}
       </div>
-      <InlineAlert tone="warning" icon={<FlaskConical className="h-5 w-5" />} title="Test mode">
-        This is a development checkout. No real money is charged.
+      <InlineAlert tone="warning" icon={<FlaskConical className="h-5 w-5" />} title={t.testMode}>
+        {t.testModeText}
       </InlineAlert>
       <Card className="space-y-5 text-center">
         <LogoMark className="mx-auto h-12 w-12" />
@@ -62,15 +65,15 @@ function Checkout() {
             {p.status === 'PENDING' ? (
               <div className="grid gap-2">
                 <Button size="lg" block loading={complete.isPending && complete.variables === 'success'} onClick={() => complete.mutate('success')}>
-                  Pay {fmt.money(p.amount)}
+                  {t.pay(fmt.money(p.amount))}
                 </Button>
                 <Button variant="ghost" block loading={complete.isPending && complete.variables === 'fail'} onClick={() => complete.mutate('fail')}>
-                  Simulate a declined payment
+                  {t.simulateDecline}
                 </Button>
               </div>
             ) : (
               <Button variant="outline" block onClick={() => router.replace(`/payments/${id}`)}>
-                Back to payment
+                {t.backToPayment}
               </Button>
             )}
           </>

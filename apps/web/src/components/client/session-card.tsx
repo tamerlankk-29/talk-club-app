@@ -10,10 +10,13 @@ import { Button } from '@/components/ui/button';
 import type { ClientSession, Session } from '@/lib/api/types';
 import { useAuth } from '@/lib/auth';
 import { fmt } from '@/lib/format';
-import { cn, plural } from '@/lib/utils';
+import { useT } from '@/lib/i18n';
+import { sessionMessages } from '@/lib/i18n/messages/sessions';
+import { cn } from '@/lib/utils';
 import { useBookSession, useJoinWaitlist } from './session-actions';
 
 export function SeatsIndicator({ session, compact }: { session: Session; compact?: boolean }) {
+  const t = useT(sessionMessages);
   const ratio = session.capacity ? session.booked / session.capacity : 0;
   const tone = session.available === 0 ? 'bg-danger-600' : session.available <= 2 ? 'bg-warning-600' : 'bg-success-600';
   return (
@@ -24,10 +27,10 @@ export function SeatsIndicator({ session, compact }: { session: Session; compact
         ))}
       </div>
       <span className="font-medium text-muted">
-        {session.booked} / {session.capacity} booked
-        {session.available > 0 && session.status !== 'COMPLETED' ? ` · ${plural(session.available, 'seat')} left` : ''}
+        {t.bookedOf(session.booked, session.capacity)}
+        {session.available > 0 && session.status !== 'COMPLETED' ? ` · ${t.seatsLeft(session.available)}` : ''}
       </span>
-      <span className="sr-only">{Math.round(ratio * 100)}% full</span>
+      <span className="sr-only">{t.percentFull(Math.round(ratio * 100))}</span>
     </div>
   );
 }
@@ -39,6 +42,7 @@ export function SessionAction({ session, size = 'sm', block }: { session: Client
   const book = useBookSession();
   const waitlist = useJoinWaitlist();
   const [pending, setPending] = useState<{ trial: boolean } | null>(null);
+  const t = useT(sessionMessages);
   const b = session.bookability;
   // One tap books — unless the client should know something first.
   const needsConfirm = !!b && (!b.freeCancellationAvailable || !!b.levelWarning);
@@ -47,10 +51,10 @@ export function SessionAction({ session, size = 'sm', block }: { session: Client
     <ConfirmDialog
       open={!!pending}
       onOpenChange={(open) => !open && setPending(null)}
-      title="Book this session?"
+      title={t.bookConfirmTitle}
       description={`${session.title} · ${fmt.sessionWhen(session.startsAt)}`}
-      confirmLabel={pending?.trial ? `Book trial · ${fmt.money(b.trialPrice)}` : 'Book anyway'}
-      cancelLabel="Not now"
+      confirmLabel={pending?.trial ? t.bookTrial(fmt.money(b.trialPrice)) : t.bookAnyway}
+      cancelLabel={t.notNow}
       loading={book.isPending}
       onConfirm={() => pending && book.mutate({ sessionId: session.id, trial: pending.trial }, { onSettled: () => setPending(null) })}
     >
@@ -61,8 +65,8 @@ export function SessionAction({ session, size = 'sm', block }: { session: Client
           </InlineAlert>
         )}
         {!b.freeCancellationAvailable && (
-          <InlineAlert tone="warning" icon={<TriangleAlert className="h-5 w-5" />} title="No free cancellation">
-            The free-cancellation deadline for this session has passed. If you cancel or don&apos;t come, the visit will not be returned.
+          <InlineAlert tone="warning" icon={<TriangleAlert className="h-5 w-5" />} title={t.noFreeCancel}>
+            {t.noFreeCancelText}
           </InlineAlert>
         )}
       </div>
@@ -72,14 +76,14 @@ export function SessionAction({ session, size = 'sm', block }: { session: Client
   if (session.myBooking?.status === 'BOOKED') {
     return (
       <Button size={size} variant="secondary" block={block} leftIcon={<CircleCheck className="h-4 w-4" />} onClick={() => router.push(`/bookings/${session.myBooking!.id}`)}>
-        Booked
+        {t.booked}
       </Button>
     );
   }
   if (session.myWaitlist) {
     return (
       <Button size={size} variant="outline" block={block} onClick={() => router.push(`/sessions/${session.id}`)}>
-        {session.myWaitlist.status === 'OFFERED' ? 'Book the place' : `Waitlist #${session.myWaitlist.position}`}
+        {session.myWaitlist.status === 'OFFERED' ? t.bookThePlace : t.waitlistPosition(session.myWaitlist.position)}
       </Button>
     );
   }
@@ -87,7 +91,7 @@ export function SessionAction({ session, size = 'sm', block }: { session: Client
   if (status !== 'authenticated') {
     return (
       <Button size={size} block={block} onClick={() => router.push(`/login?next=${encodeURIComponent(`/sessions/${session.id}`)}`)}>
-        Book
+        {t.book}
       </Button>
     );
   }
@@ -95,7 +99,7 @@ export function SessionAction({ session, size = 'sm', block }: { session: Client
     return (
       <>
         <Button size={size} block={block} loading={book.isPending && !pending} onClick={() => start(false)}>
-          Book
+          {t.book}
         </Button>
         {confirmDialog}
       </>
@@ -105,7 +109,7 @@ export function SessionAction({ session, size = 'sm', block }: { session: Client
     return (
       <>
         <Button size={size} variant="accent" block={block} loading={book.isPending && !pending} onClick={() => start(true)}>
-          Trial · {fmt.money(b.trialPrice)}
+          {t.trial(fmt.money(b.trialPrice))}
         </Button>
         {confirmDialog}
       </>
@@ -114,25 +118,26 @@ export function SessionAction({ session, size = 'sm', block }: { session: Client
   if (b?.canJoinWaitlist) {
     return (
       <Button size={size} variant="outline" block={block} loading={waitlist.isPending} onClick={() => waitlist.mutate(session.id)}>
-        Join waitlist
+        {t.joinWaitlist}
       </Button>
     );
   }
   if (b?.reason === 'BOOKING_NO_ACTIVE_MEMBERSHIP' || b?.reason === 'BOOKING_NO_VISITS_LEFT' || b?.reason === 'BOOKING_MEMBERSHIP_EXPIRES_BEFORE_SESSION') {
     return (
       <Button size={size} variant="secondary" block={block} onClick={() => router.push('/membership/buy')}>
-        Get membership
+        {t.getMembership}
       </Button>
     );
   }
   return (
     <Button size={size} variant="outline" block={block} onClick={() => router.push(`/sessions/${session.id}`)}>
-      Details
+      {t.details}
     </Button>
   );
 }
 
 export function SessionCard({ session, showDate }: { session: ClientSession; showDate?: boolean }) {
+  const t = useT(sessionMessages);
   return (
     <article
       className={cn(
@@ -151,13 +156,13 @@ export function SessionCard({ session, showDate }: { session: ClientSession; sho
           <div className="flex flex-wrap items-center gap-1.5">
             <h3 className="font-semibold text-ink">{session.title}</h3>
             {session.status !== 'OPEN' && session.status !== 'SCHEDULED' && <StatusBadge status={session.status} />}
-            {session.myWaitlist?.status === 'OFFERED' && <Badge tone="zest">Place reserved for you</Badge>}
+            {session.myWaitlist?.status === 'OFFERED' && <Badge tone="zest">{t.placeReservedForYou}</Badge>}
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
             <span className="font-medium text-brand-800">{session.levelLabel}</span>
             <span className="inline-flex items-center gap-1">
               {session.format === 'ONLINE' ? <Video className="h-3.5 w-3.5" /> : <MapPin className="h-3.5 w-3.5" />}
-              {session.format === 'ONLINE' ? 'Online' : (session.room?.name ?? session.location.name)}
+              {session.format === 'ONLINE' ? t.online : (session.room?.name ?? session.location.name)}
             </span>
           </div>
           {session.teacher && (
@@ -180,6 +185,7 @@ export function SessionCard({ session, showDate }: { session: ClientSession; sho
 
 /** Small horizontal card for "today / tomorrow" strips on the home screen. */
 export function SessionMiniCard({ session }: { session: ClientSession }) {
+  const t = useT(sessionMessages);
   return (
     <Link
       href={`/sessions/${session.id}`}
@@ -189,7 +195,7 @@ export function SessionMiniCard({ session }: { session: ClientSession }) {
         <span className="inline-flex items-center gap-1 text-sm font-semibold text-ink">
           <Clock className="h-4 w-4 text-brand-600" /> {session.startTime}–{session.endTime}
         </span>
-        {session.status === 'ALMOST_FULL' && <span className="text-xs font-semibold text-warning-700">{session.available} left</span>}
+        {session.status === 'ALMOST_FULL' && <span className="text-xs font-semibold text-warning-700">{t.left(session.available)}</span>}
       </div>
       <p className="mt-2 truncate font-semibold">{session.title}</p>
       <p className="truncate text-sm text-muted">

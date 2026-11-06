@@ -10,6 +10,8 @@ import { ErrorState, Skeleton, StatusBadge } from '@/components/ui/feedback';
 import { Card, Section } from '@/components/ui/layout';
 import { fmt } from '@/lib/format';
 import { useClub, useMyMembership, useMyPayments } from '@/lib/queries';
+import { useT } from '@/lib/i18n';
+import { membershipMessages } from '@/lib/i18n/messages/membership';
 
 export default function MembershipPage() {
   return (
@@ -23,12 +25,13 @@ function Membership() {
   const { data, isLoading, error, refetch } = useMyMembership();
   const { data: payments } = useMyPayments();
   const { data: club } = useClub();
+  const t = useT(membershipMessages);
   const pending = payments?.filter((p) => p.status === 'PENDING') ?? [];
   const others = data ? data.active.filter((m) => m.id !== data.current?.id) : [];
 
   return (
     <div className="space-y-6">
-      <ClientTopBar title="Membership" />
+      <ClientTopBar title={t.membership} />
       {isLoading ? (
         <Skeleton className="h-60 w-full rounded-[28px]" />
       ) : error ? (
@@ -40,7 +43,7 @@ function Membership() {
       )}
 
       {pending.length > 0 && (
-        <Section title="Awaiting payment">
+        <Section title={t.awaitingPayment}>
           <div className="space-y-2">
             {pending.map((p) => (
               <Link key={p.id} href={`/payments/${p.id}`} className="flex items-center gap-3 rounded-2xl bg-warning-50 p-4 text-sm ring-1 ring-warning-600/15">
@@ -59,21 +62,21 @@ function Membership() {
       )}
 
       {others.length > 0 && (
-        <Section title="Also active">
+        <Section title={t.alsoActive}>
           <div className="space-y-2">
             {others.map((m) => (
-              <MembershipRow key={m.id} id={m.id} name={m.planName} status={m.status} detail={`${m.visitsRemaining} of ${m.visitsCredited} visits · until ${fmt.dayMonth(m.expiresAt)}`} />
+              <MembershipRow key={m.id} id={m.id} name={m.planName} status={m.status} detail={t.activeDetail(m.visitsRemaining, m.visitsCredited, fmt.dayMonth(m.expiresAt))} />
             ))}
           </div>
         </Section>
       )}
 
       <Link href="/membership/buy" className={buttonClasses(data?.current ? 'secondary' : 'primary', 'lg', 'w-full')}>
-        <Sparkles className="h-5 w-5" /> {data?.current ? 'Buy another membership' : 'Choose a membership'}
+        <Sparkles className="h-5 w-5" /> {data?.current ? t.buyAnother : t.choose}
       </Link>
 
       {data && data.past.length > 0 && (
-        <Section title="History">
+        <Section title={t.history}>
           <div className="space-y-2">
             {data.past.map((m) => (
               <MembershipRow
@@ -81,7 +84,7 @@ function Membership() {
                 id={m.id}
                 name={m.planName}
                 status={m.status}
-                detail={`${m.visitsUsed} of ${m.visitsCredited} visits used · ${fmt.dateShort(m.startsAt)} – ${fmt.dateShort(m.expiresAt)}`}
+                detail={t.pastDetail(m.visitsUsed, m.visitsCredited, fmt.dateShort(m.startsAt), fmt.dateShort(m.expiresAt))}
               />
             ))}
           </div>
@@ -89,7 +92,7 @@ function Membership() {
       )}
 
       {payments && payments.some((p) => p.status !== 'PENDING') && (
-        <Section title="Payments">
+        <Section title={t.payments}>
           <Card padded={false} className="divide-y divide-line/70">
             {payments
               .filter((p) => p.status !== 'PENDING')
@@ -97,7 +100,7 @@ function Membership() {
               .map((p) => (
                 <Link key={p.id} href={`/payments/${p.id}`} className="flex items-center gap-3 px-5 py-3.5 text-sm hover:bg-brand-50/40">
                   <div className="min-w-0 flex-1">
-                    <p className="truncate font-semibold">{p.plan?.name ?? p.description ?? 'Payment'}</p>
+                    <p className="truncate font-semibold">{p.plan?.name ?? p.description ?? t.payment}</p>
                     <p className="text-muted">
                       {fmt.date(p.paidAt ?? p.createdAt)} · {p.method.name}
                     </p>

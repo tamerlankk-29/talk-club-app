@@ -5,33 +5,36 @@ import type { ReactNode } from 'react';
 import { Skeleton } from '@/components/ui/feedback';
 import { Card, PageHeader, Section } from '@/components/ui/layout';
 import { Markdown } from '@/components/ui/markdown';
+import { useT } from '@/lib/i18n';
+import { clubMessages } from '@/lib/i18n/messages/club';
 import { useClub } from '@/lib/queries';
 
 export default function RulesPage() {
+  const m = useT(clubMessages);
   const { data: club } = useClub();
   const p = club?.policies;
   const cancellation =
     p?.cancellation.mode === 'HOURS_BEFORE'
-      ? `Cancel at least ${p.cancellation.hoursBefore} hours before the session to get your visit back.`
-      : `Cancel until ${p?.cancellation.previousDayTime ?? '20:00'} the day before the session to get your visit back.`;
+      ? m.cancelHours(p.cancellation.hoursBefore)
+      : m.cancelDayBefore(p?.cancellation.previousDayTime ?? '20:00');
 
   return (
     <div className="space-y-6 pt-5">
-      <PageHeader back title="Club rules" />
+      <PageHeader back title={m.rulesTitle} />
       {p ? (
         <div className="grid gap-3">
-          <Rule icon={<Clock />} title={`${p.sessionDurationMinutes}-minute sessions`} text="Please arrive a few minutes early — sessions start on time." />
-          <Rule icon={<Users />} title={`Up to ${p.groupSize} people per group`} text="Small groups so everyone gets to speak." />
-          <Rule icon={<Ticket />} title={`Memberships are valid for ${p.membershipValidityDays} days`} text="One visit = one session. Unused visits expire at the end of the period." />
-          <Rule icon={<CalendarClock />} title="Free cancellation" text={cancellation} />
-          <Rule icon={<UserX />} title="Late cancellation or no-show" text="The visit is used and not returned." />
-          {p.waitlist.enabled && <Rule icon={<Hourglass />} title="Waitlist" text={`When a place opens we offer it to the first person in line for ${p.waitlist.offerMinutes} minutes.`} />}
+          <Rule icon={<Clock />} title={m.sessionLength(p.sessionDurationMinutes)} text={m.arriveEarly} />
+          <Rule icon={<Users />} title={m.groupSize(p.groupSize)} text={m.groupSizeText} />
+          <Rule icon={<Ticket />} title={m.validity(p.membershipValidityDays)} text={m.validityText} />
+          <Rule icon={<CalendarClock />} title={m.freeCancellation} text={cancellation} />
+          <Rule icon={<UserX />} title={m.lateCancellation} text={m.lateCancellationText} />
+          {p.waitlist.enabled && <Rule icon={<Hourglass />} title={m.waitlist} text={m.waitlistText(p.waitlist.offerMinutes)} />}
         </div>
       ) : (
         <Skeleton className="h-60 w-full rounded-3xl" />
       )}
       {club?.content.rules && (
-        <Section title="Full rules">
+        <Section title={m.fullRules}>
           <Card>
             <Markdown className="prose-club text-[15px]">{club.content.rules}</Markdown>
           </Card>

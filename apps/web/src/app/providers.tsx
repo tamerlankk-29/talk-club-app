@@ -5,6 +5,8 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { Toaster } from 'sonner';
 import { ApiError, api, call } from '@/lib/api/client';
 import { AuthProvider } from '@/lib/auth';
+import { I18nProvider, type Locale } from '@/lib/i18n';
+import { LocaleSync } from '@/lib/locale';
 
 function makeQueryClient() {
   return new QueryClient({
@@ -53,15 +55,18 @@ function ServiceWorkerRegistrar() {
   return null;
 }
 
-export function Providers({ children }: { children: ReactNode }) {
+export function Providers({ locale, children }: { locale: Locale; children: ReactNode }) {
   const [queryClient] = useState(makeQueryClient);
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <BrandingSync />
-        <ServiceWorkerRegistrar />
-        {children}
-        <Toaster position="top-center" richColors closeButton toastOptions={{ className: 'font-sans' }} />
+        <I18nProvider initialLocale={locale}>
+          <LocaleSync />
+          <BrandingSync />
+          <ServiceWorkerRegistrar />
+          {children}
+          <Toaster position="top-center" richColors closeButton toastOptions={{ className: 'font-sans' }} />
+        </I18nProvider>
       </AuthProvider>
     </QueryClientProvider>
   );

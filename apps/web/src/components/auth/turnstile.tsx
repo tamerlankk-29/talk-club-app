@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useT } from '@/lib/i18n';
+import { authMessages } from '@/lib/i18n/messages/auth';
 
 interface TurnstileApi {
   render: (el: HTMLElement, options: { sitekey: string; callback: (token: string) => void; 'error-callback'?: () => void; theme?: 'auto' | 'light' | 'dark' }) => string;
@@ -38,6 +40,7 @@ export function Turnstile({ siteKey, onToken }: { siteKey: string; onToken: (tok
   const onTokenRef = useRef(onToken);
   onTokenRef.current = onToken;
   const [failed, setFailed] = useState(false);
+  const t = useT(authMessages);
 
   useEffect(() => {
     let widgetId: string | null = null;
@@ -57,7 +60,7 @@ export function Turnstile({ siteKey, onToken }: { siteKey: string; onToken: (tok
   }, [siteKey]);
 
   if (failed) {
-    return <p className="text-center text-sm text-danger-600">The check could not load. Check your connection and try again.</p>;
+    return <p className="text-center text-sm text-danger-600">{t.captchaFailed}</p>;
   }
   return <div ref={ref} className="flex min-h-[65px] justify-center" />;
 }

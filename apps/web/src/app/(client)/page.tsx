@@ -13,6 +13,8 @@ import { Card, Section } from '@/components/ui/layout';
 import { useAuth } from '@/lib/auth';
 import { clubNow, fmt } from '@/lib/format';
 import { useHome } from '@/lib/queries';
+import { messagesFor, useT } from '@/lib/i18n';
+import { homeMessages } from '@/lib/i18n/messages/home';
 
 export default function HomePage() {
   const { status, user, actingClientId } = useAuth();
@@ -28,11 +30,13 @@ export default function HomePage() {
 
 function greeting(): string {
   const h = clubNow().hour;
-  return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
+  const t = messagesFor(homeMessages);
+  return h < 12 ? t.goodMorning : h < 18 ? t.goodAfternoon : t.goodEvening;
 }
 
 function Dashboard() {
   const { data, isLoading, error, refetch } = useHome();
+  const t = useT(homeMessages);
 
   if (error) return <ErrorState error={error} onRetry={() => refetch()} className="mt-10" />;
   return (
@@ -43,7 +47,7 @@ function Dashboard() {
           {isLoading ? (
             <Skeleton className="mt-1 h-8 w-44" />
           ) : (
-            <h1 className="truncate font-display text-[26px] font-semibold leading-tight">Hello, {data?.greetingName} 👋</h1>
+            <h1 className="truncate font-display text-[26px] font-semibold leading-tight">{t.hello(data?.greetingName ?? '')}</h1>
           )}
         </div>
         <BellLink />
@@ -62,10 +66,10 @@ function Dashboard() {
           key={p.id}
           tone="warning"
           icon={<Wallet className="h-5 w-5" />}
-          title={`Payment pending · ${fmt.money(p.amount)}`}
+          title={t.paymentPending(fmt.money(p.amount))}
           action={
             <Link href={`/payments/${p.id}`} className="text-sm font-semibold underline underline-offset-2">
-              View payment
+              {t.viewPayment}
             </Link>
           }
         >
@@ -79,23 +83,23 @@ function Dashboard() {
           <InlineAlert
             key={w.id}
             tone="zest"
-            title="A place has become available!"
+            title={t.placeAvailable}
             action={
               <Link href={`/sessions/${w.session.id}`} className={buttonClasses('primary', 'sm')}>
-                Book the place
+                {t.bookThePlace}
               </Link>
             }
           >
-            {w.session.title} with {w.session.teacher?.name}, {fmt.sessionWhen(w.session.startsAt)}. Reserved until {w.offerExpiresAt ? fmt.time(w.offerExpiresAt) : 'soon'}.
+            {t.placeText(w.session.title, w.session.teacher?.name ?? '', fmt.sessionWhen(w.session.startsAt), w.offerExpiresAt ? fmt.time(w.offerExpiresAt) : t.soon)}
           </InlineAlert>
         ))}
 
       <Section
-        title="Next session"
+        title={t.nextSession}
         action={
           data?.nextBooking && (
             <Link href="/bookings" className="text-sm font-semibold text-brand-700">
-              All bookings
+              {t.allBookings}
             </Link>
           )
         }
@@ -125,9 +129,9 @@ function Dashboard() {
           </Link>
         ) : (
           <Card className="text-center">
-            <p className="text-sm text-muted">No upcoming sessions yet.</p>
+            <p className="text-sm text-muted">{t.noUpcoming}</p>
             <Link href="/schedule" className={buttonClasses('primary', 'sm', 'mt-3')}>
-              Find a session
+              {t.findSession}
             </Link>
           </Card>
         )}
@@ -135,10 +139,10 @@ function Dashboard() {
 
       <div className="grid grid-cols-4 gap-2.5">
         {[
-          { href: '/schedule', label: 'Book', icon: CalendarDays },
-          { href: '/membership', label: 'Membership', icon: CreditCard },
-          { href: '/attendance', label: 'History', icon: History },
-          { href: '/profile', label: 'Profile', icon: UserRound },
+          { href: '/schedule', label: t.quick.book, icon: CalendarDays },
+          { href: '/membership', label: t.quick.membership, icon: CreditCard },
+          { href: '/attendance', label: t.quick.history, icon: History },
+          { href: '/profile', label: t.quick.profile, icon: UserRound },
         ].map(({ href, label, icon: Icon }) => (
           <Link key={href} href={href} className="flex flex-col items-center gap-2 rounded-3xl bg-white py-4 shadow-card ring-1 ring-line/70 transition hover:ring-brand-200">
             <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-brand-50 text-brand-700">
@@ -150,21 +154,21 @@ function Dashboard() {
       </div>
 
       {data?.recommended && (
-        <Section title="Recommended for you">
+        <Section title={t.recommended}>
           <Card className="space-y-3">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">{fmt.sessionWhen(data.recommended.startsAt)}</p>
                 <p className="mt-1 font-semibold">{data.recommended.title}</p>
                 <p className="text-sm text-muted">
-                  {data.recommended.levelLabel} · {data.recommended.available} seats left
+                  {data.recommended.levelLabel} · {t.seatsLeft(data.recommended.available)}
                 </p>
               </div>
               {data.recommended.teacher && <Avatar name={data.recommended.teacher.name} src={data.recommended.teacher.photoUrl} />}
             </div>
             <div className="flex items-center justify-between gap-3">
               <Link href={`/sessions/${data.recommended.id}`} className="text-sm font-semibold text-brand-700">
-                Details
+                {t.details}
               </Link>
               <SessionAction session={data.recommended} />
             </div>
@@ -176,10 +180,10 @@ function Dashboard() {
         data && data[day].length > 0 ? (
           <Section
             key={day}
-            title={day === 'today' ? 'Available today' : 'Available tomorrow'}
+            title={day === 'today' ? t.availableToday : t.availableTomorrow}
             action={
               <Link href="/schedule" className="text-sm font-semibold text-brand-700">
-                Schedule
+                {t.schedule}
               </Link>
             }
           >
@@ -193,7 +197,7 @@ function Dashboard() {
       )}
 
       {data && data.announcements.length > 0 && (
-        <Section title="News">
+        <Section title={t.news}>
           <div className="space-y-3">
             {data.announcements.map((a) => (
               <Card key={a.id} className="flex gap-3">
@@ -219,17 +223,17 @@ function Dashboard() {
         <Card className="grid grid-cols-3 divide-x divide-line text-center">
           <div>
             <p className="font-display text-xl font-semibold">{data.stats.attendedThisMonth}</p>
-            <p className="text-xs text-muted">sessions this month</p>
+            <p className="text-xs text-muted">{t.sessionsThisMonth}</p>
           </div>
           <div>
-            <p className="font-display text-xl font-semibold">{Math.round(data.stats.minutesThisMonth / 6) / 10} h</p>
-            <p className="text-xs text-muted">speaking English</p>
+            <p className="font-display text-xl font-semibold">{t.hours(Math.round(data.stats.minutesThisMonth / 6) / 10)}</p>
+            <p className="text-xs text-muted">{t.speakingEnglish}</p>
           </div>
           <div>
             <p className="inline-flex items-center gap-1 font-display text-xl font-semibold">
               {data.stats.streakWeeks} <Flame className="h-4 w-4 text-orange-500" />
             </p>
-            <p className="text-xs text-muted">week streak</p>
+            <p className="text-xs text-muted">{t.weekStreak}</p>
           </div>
         </Card>
       )}
@@ -239,9 +243,10 @@ function Dashboard() {
 
 function PickProfile() {
   const { user, setActingClient } = useAuth();
+  const t = useT(homeMessages);
   return (
     <div className="space-y-5 pt-10">
-      <h1 className="font-display text-2xl font-semibold">Who is booking today?</h1>
+      <h1 className="font-display text-2xl font-semibold">{t.whoIsBooking}</h1>
       <div className="space-y-3">
         {user?.managedClients.map((c) => (
           <button key={c.id} type="button" onClick={() => setActingClient(c.id)} className="flex w-full items-center gap-3 rounded-3xl bg-white p-4 text-left shadow-card ring-1 ring-line/70">
@@ -256,20 +261,21 @@ function PickProfile() {
 
 function StaffNotice() {
   const { user } = useAuth();
+  const t = useT(homeMessages);
   return (
     <div className="space-y-4 pt-16 text-center">
       <Ticket className="mx-auto h-10 w-10 text-brand-700" />
-      <h1 className="font-display text-xl font-semibold">Welcome, {user?.displayName}</h1>
-      <p className="text-sm text-muted">Your account is a staff account.</p>
+      <h1 className="font-display text-xl font-semibold">{t.welcome(user?.displayName ?? '')}</h1>
+      <p className="text-sm text-muted">{t.staffAccount}</p>
       <div className="flex justify-center gap-3">
         {user?.areas.admin && (
           <Link href="/admin" className={buttonClasses('primary')}>
-            Admin panel
+            {t.adminPanel}
           </Link>
         )}
         {user?.areas.teacher && (
           <Link href="/teacher" className={buttonClasses('outline')}>
-            Teacher panel
+            {t.teacherPanel}
           </Link>
         )}
       </div>

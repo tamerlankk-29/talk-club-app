@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { toastError } from '@/components/ui/toast';
 import { downloadFile } from '@/lib/api/client';
 import type { Booking } from '@/lib/api/types';
+import { useT } from '@/lib/i18n';
+import { sessionMessages } from '@/lib/i18n/messages/sessions';
 
 function utcStamp(iso: string): string {
   return new Date(iso).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
@@ -14,9 +16,10 @@ function utcStamp(iso: string): string {
 /** Add to Google / Apple / Outlook calendar (ICS download for Apple & Outlook desktop). */
 export function AddToCalendar({ booking, block }: { booking: Booking; block?: boolean }) {
   const s = booking.session;
-  const title = `Talk Club: ${s.title}${s.teacher ? ` with ${s.teacher.name}` : ''}`;
-  const location = s.format === 'ONLINE' ? (booking.onlineUrl ?? 'Online') : [s.location.name, s.location.address, s.location.addressDetails, 'Almaty'].filter(Boolean).join(', ');
-  const details = `Level: ${s.levelLabel}${s.room ? `\nRoom: ${s.room.name}` : ''}`;
+  const t = useT(sessionMessages);
+  const title = t.calendarTitle(s.title, s.teacher?.name ?? null);
+  const location = s.format === 'ONLINE' ? (booking.onlineUrl ?? t.online) : [s.location.name, s.location.address, s.location.addressDetails, 'Almaty'].filter(Boolean).join(', ');
+  const details = t.calendarDetails(s.levelLabel, s.room?.name ?? null);
   const google = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&dates=${utcStamp(s.startsAt)}/${utcStamp(s.endsAt)}&details=${encodeURIComponent(details)}&location=${encodeURIComponent(location)}`;
   const outlook = `https://outlook.live.com/calendar/0/deeplink/compose?subject=${encodeURIComponent(title)}&startdt=${encodeURIComponent(s.startsAt)}&enddt=${encodeURIComponent(s.endsAt)}&location=${encodeURIComponent(location)}&body=${encodeURIComponent(details)}`;
   const ics = () => downloadFile(`/api/bookings/${booking.id}/calendar.ics`, 'talk-club.ics').catch(toastError);
@@ -26,7 +29,7 @@ export function AddToCalendar({ booking, block }: { booking: Booking; block?: bo
     <DropdownMenu.Root>
       <DropdownMenu.Trigger asChild>
         <Button variant="outline" block={block} leftIcon={<CalendarPlus className="h-4 w-4" />}>
-          Add to calendar
+          {t.addToCalendar}
         </Button>
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>

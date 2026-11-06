@@ -4,13 +4,16 @@ import { ChevronDown } from 'lucide-react';
 import Link from 'next/link';
 import { SkeletonList } from '@/components/ui/feedback';
 import { PageHeader } from '@/components/ui/layout';
+import { useT } from '@/lib/i18n';
+import { clubMessages } from '@/lib/i18n/messages/club';
 import { useClub } from '@/lib/queries';
 
 export default function FaqPage() {
+  const m = useT(clubMessages);
   const { data: club } = useClub();
   return (
     <div className="space-y-5 pt-5">
-      <PageHeader back title="FAQ" />
+      <PageHeader back title={m.faq} />
       {!club ? (
         <SkeletonList count={5} />
       ) : (
@@ -27,9 +30,9 @@ export default function FaqPage() {
         </div>
       )}
       <p className="text-center text-sm text-muted">
-        Still have questions?{' '}
+        {m.stillQuestions}{' '}
         <Link href="/contact" className="font-semibold text-brand-700">
-          Contact us
+          {m.contactUs}
         </Link>
       </p>
     </div>

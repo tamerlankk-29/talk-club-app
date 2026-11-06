@@ -1,6 +1,8 @@
 import createClient from 'openapi-fetch';
 import type { paths } from './schema';
 import type { AuthTokens } from './types';
+import { activeLocale, messagesFor } from '../i18n/active';
+import { commonMessages } from '../i18n/messages/common';
 
 /** Error raised for any failed API call; `message` is always safe to show to users. */
 export class ApiError extends Error {
@@ -16,7 +18,8 @@ export class ApiError extends Error {
   }
 }
 
-export const GENERIC_ERROR = 'Something went wrong. Please try again.';
+/** Generic error text in the current language. */
+export const genericError = () => messagesFor(commonMessages).genericError;
 
 // ─── Session state (memory only — never localStorage) ───
 
@@ -80,7 +83,7 @@ export function refreshSession(): Promise<AuthTokens | null> {
           accessToken = null;
           return null;
         }
-        if (attempt >= backoff.length) throw new ApiError(0, 'NETWORK', 'Cannot reach Talk Club right now. Check your connection.');
+        if (attempt >= backoff.length) throw new ApiError(0, 'NETWORK', messagesFor(commonMessages).unreachable);
         await sleep(backoff[attempt]);
       }
     })().finally(() => {
@@ -94,6 +97,7 @@ function withAuth(request: Request): Request {
   const headers = new Headers(request.headers);
   if (accessToken) headers.set('Authorization', `Bearer ${accessToken}`);
   if (actingClientId) headers.set('X-Acting-Client', actingClientId);
+  headers.set('Accept-Language', activeLocale());
   return new Request(request, { headers, credentials: 'same-origin' });
 }
 
@@ -123,7 +127,7 @@ interface ErrorEnvelope {
 
 export function toApiError(status: number, body: unknown): ApiError {
   const e = (body as ErrorEnvelope | undefined)?.error;
-  return new ApiError(status, e?.code ?? (status >= 500 ? 'INTERNAL' : 'UNKNOWN'), e?.message ?? GENERIC_ERROR, e?.details, e?.requestId);
+  return new ApiError(status, e?.code ?? (status >= 500 ? 'INTERNAL' : 'UNKNOWN'), e?.message ?? genericError(), e?.details, e?.requestId);
 }
 
 /** Unwraps an openapi-fetch call: returns data or throws ApiError. */
@@ -132,7 +136,7 @@ export async function call<T>(promise: Promise<{ data?: T; error?: unknown; resp
   try {
     result = await promise;
   } catch {
-    throw new ApiError(0, 'NETWORK', 'No connection. Check your internet and try again.');
+    throw new ApiError(0, 'NETWORK', messagesFor(commonMessages).offline);
   }
   if (!result.response.ok || result.error !== undefined) throw toApiError(result.response.status, result.error);
   return result.data as T;
@@ -173,7 +177,7 @@ export async function uploadFile<T>(path: string, file: File): Promise<T> {
 }
 
 export function errorMessage(error: unknown): string {
-  return error instanceof ApiError ? error.message : GENERIC_ERROR;
+  return error instanceof ApiError ? error.message : genericError();
 }
 
 export function errorCode(error: unknown): string | null {

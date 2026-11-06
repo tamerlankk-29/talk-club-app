@@ -14,10 +14,14 @@ import { toastError } from '@/components/ui/toast';
 import { api, call, errorMessage, fieldErrors } from '@/lib/api/client';
 import { useAuth } from '@/lib/auth';
 import { phoneDigitsComplete } from '@/lib/format';
+import { useT } from '@/lib/i18n';
+import { authMessages } from '@/lib/i18n/messages/auth';
+import { LanguageSwitcher } from '@/components/ui/language-switcher';
 
 export default function ResetPasswordPage() {
   const router = useRouter();
   const { applySession } = useAuth();
+  const t = useT(authMessages);
   const [phone, setPhone] = useState('');
   const [sent, setSent] = useState(false);
   const [devCode, setDevCode] = useState<string | undefined>();
@@ -51,11 +55,14 @@ export default function ResetPasswordPage() {
 
   return (
     <div className="pt-5">
-      <Link href="/login" className="-ml-2 inline-flex rounded-xl p-2 hover:bg-brand-50" aria-label="Back to sign in">
-        <ArrowLeft className="h-5 w-5" />
-      </Link>
-      <h1 className="mt-6 font-display text-[28px] font-semibold">Reset password</h1>
-      <p className="mt-2 text-[15px] text-muted">{sent ? `Enter the code we sent to ${phone} and choose a new password.` : 'We will send a code to your phone number.'}</p>
+      <div className="flex h-11 items-center justify-between">
+        <Link href="/login" className="-ml-2 inline-flex rounded-xl p-2 hover:bg-brand-50" aria-label={t.backToSignIn}>
+          <ArrowLeft className="h-5 w-5" />
+        </Link>
+        <LanguageSwitcher />
+      </div>
+      <h1 className="mt-6 font-display text-[28px] font-semibold">{t.resetTitle}</h1>
+      <p className="mt-2 text-[15px] text-muted">{sent ? t.resetSent(phone) : t.resetSubtitle}</p>
       {!sent ? (
         <form
           className="mt-6 space-y-5"
@@ -64,11 +71,11 @@ export default function ResetPasswordPage() {
             request.mutate();
           }}
         >
-          <Field label="Phone number" htmlFor="phone">
+          <Field label={t.phone} htmlFor="phone">
             <PhoneInput id="phone" value={phone} onChange={setPhone} autoFocus />
           </Field>
           <Button type="submit" size="lg" block loading={request.isPending} disabled={!phoneDigitsComplete(phone)}>
-            Send code
+            {t.sendCode}
           </Button>
         </form>
       ) : (
@@ -81,19 +88,19 @@ export default function ResetPasswordPage() {
         >
           <OtpInput value={code} onChange={setCode} autoFocus />
           {devCode && (
-            <InlineAlert tone="info" icon={<MessageSquareText className="h-5 w-5" />} title="Development mode">
-              Your code is{' '}
+            <InlineAlert tone="info" icon={<MessageSquareText className="h-5 w-5" />} title={t.devMode}>
+              {t.devCodeShort}{' '}
               <button type="button" className="font-mono font-bold underline" onClick={() => setCode(devCode)}>
                 {devCode}
               </button>
             </InlineAlert>
           )}
-          <Field label="New password" hint="At least 8 characters" htmlFor="password" error={errors.newPassword}>
+          <Field label={t.newPassword} hint={t.newPasswordHint} htmlFor="password" error={errors.newPassword}>
             <Input id="password" type="password" autoComplete="new-password" leftIcon={<Lock className="h-4 w-4" />} value={password} onChange={(e) => setPassword(e.target.value)} minLength={8} required />
           </Field>
           {reset.error && !Object.keys(errors).length && <InlineAlert tone="danger">{errorMessage(reset.error)}</InlineAlert>}
           <Button type="submit" size="lg" block loading={reset.isPending} disabled={code.length !== 6 || password.length < 8}>
-            Save and sign in
+            {t.saveAndSignIn}
           </Button>
         </form>
       )}

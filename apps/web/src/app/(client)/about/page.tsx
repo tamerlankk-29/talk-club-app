@@ -7,19 +7,22 @@ import { Card, PageHeader, Section } from '@/components/ui/layout';
 import { Markdown } from '@/components/ui/markdown';
 import { useAuth } from '@/lib/auth';
 import { fmt } from '@/lib/format';
+import { useT } from '@/lib/i18n';
+import { clubMessages } from '@/lib/i18n/messages/club';
 import { useClub, useTeachers } from '@/lib/queries';
 
 export default function AboutPage() {
+  const m = useT(clubMessages);
   const { status } = useAuth();
   const { data: club } = useClub();
   const { data: teachers } = useTeachers();
   return (
     <div className="space-y-6 pt-5">
-      <PageHeader back title="About Talk Club" />
+      <PageHeader back title={m.aboutTitle} />
       <Card>{club ? <Markdown className="prose-club text-[15px]">{club.content.about}</Markdown> : <Skeleton className="h-40 w-full" />}</Card>
 
       {club && club.content.howItWorks.length > 0 && (
-        <Section title="How it works">
+        <Section title={m.howItWorks}>
           <ol className="space-y-3">
             {club.content.howItWorks.map((step, i) => (
               <li key={step.title} className="flex gap-4 rounded-3xl bg-white p-4 shadow-card ring-1 ring-line/70">
@@ -35,24 +38,24 @@ export default function AboutPage() {
       )}
 
       {club && club.plans.length > 0 && (
-        <Section title="Memberships">
+        <Section title={m.memberships}>
           <div className="grid grid-cols-2 gap-3">
             {club.plans.map((p) => (
               <div key={p.id} className="rounded-3xl bg-white p-4 shadow-card ring-1 ring-line/70">
                 <p className="font-display font-semibold tracking-wide">{p.name}</p>
                 <p className="text-sm text-muted">
-                  {p.visits} visits · {p.validityDays} days
+                  {m.planTerms(p.visits, p.validityDays)}
                 </p>
                 <p className="mt-2 font-display text-lg font-semibold">{fmt.money(p.price)}</p>
               </div>
             ))}
           </div>
-          {club.policies.trial.enabled && <p className="text-sm text-muted">Trial session: {fmt.money(club.policies.trial.price)}</p>}
+          {club.policies.trial.enabled && <p className="text-sm text-muted">{m.trialPrice(fmt.money(club.policies.trial.price))}</p>}
         </Section>
       )}
 
       {teachers && teachers.length > 0 && (
-        <Section title="Teachers" action={<Link href="/teachers" className="text-sm font-semibold text-brand-700">All</Link>}>
+        <Section title={m.teachers} action={<Link href="/teachers" className="text-sm font-semibold text-brand-700">{m.all}</Link>}>
           <div className="grid grid-cols-2 gap-3">
             {teachers.map((t) => (
               <Link key={t.id} href={`/teachers/${t.id}`} className="rounded-3xl bg-white p-4 text-center shadow-card ring-1 ring-line/70">
@@ -67,7 +70,7 @@ export default function AboutPage() {
 
       {status === 'anonymous' && (
         <Link href="/register" className={buttonClasses('primary', 'lg', 'w-full')}>
-          Join Talk Club
+          {m.join}
         </Link>
       )}
     </div>

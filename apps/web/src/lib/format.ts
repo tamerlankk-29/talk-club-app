@@ -1,39 +1,81 @@
 import { DateTime } from 'luxon';
+import { activeLocale, intlLocale, messagesFor } from './i18n/active';
+import { commonMessages } from './i18n/messages/common';
 
 /** All times are shown in club time, whatever the device timezone is. */
 export const CLUB_TZ = 'Asia/Almaty';
 
 export function clubTime(iso: string | Date): DateTime {
-  return (typeof iso === 'string' ? DateTime.fromISO(iso) : DateTime.fromJSDate(iso)).setZone(CLUB_TZ).setLocale('en-GB');
+  return (typeof iso === 'string' ? DateTime.fromISO(iso) : DateTime.fromJSDate(iso)).setZone(CLUB_TZ).setLocale(intlLocale());
 }
 
 export function clubNow(): DateTime {
-  return DateTime.now().setZone(CLUB_TZ).setLocale('en-GB');
+  return DateTime.now().setZone(CLUB_TZ).setLocale(intlLocale());
+}
+
+// Many browsers (and Chromium builds) ship without Kazakh date names and silently fall back
+// to English, which also breaks hydration against the server. Kazakh names are kept here.
+const KK_MONTHS = ['қаңтар', 'ақпан', 'наурыз', 'сәуір', 'мамыр', 'маусым', 'шілде', 'тамыз', 'қыркүйек', 'қазан', 'қараша', 'желтоқсан'];
+const KK_MONTHS_SHORT = ['қаң', 'ақп', 'нау', 'сәу', 'мам', 'мау', 'шіл', 'там', 'қыр', 'қаз', 'қар', 'жел'];
+const KK_WEEKDAYS = ['дүйсенбі', 'сейсенбі', 'сәрсенбі', 'бейсенбі', 'жұма', 'сенбі', 'жексенбі'];
+const KK_WEEKDAYS_SHORT = ['дс', 'сс', 'ср', 'бс', 'жм', 'сб', 'жс'];
+
+/** Luxon toFormat that also works for Kazakh month and weekday names (MMMM, MMM, cccc, ccc). */
+export function formatDate(dt: DateTime, pattern: string): string {
+  if (activeLocale() !== 'kk') return dt.setLocale(intlLocale()).toFormat(pattern);
+  const quoted = pattern.replace(/MMMM|MMM|cccc|ccc/g, (token) => {
+    const name =
+      token === 'MMMM' ? KK_MONTHS[dt.month - 1] : token === 'MMM' ? KK_MONTHS_SHORT[dt.month - 1] : token === 'cccc' ? KK_WEEKDAYS[dt.weekday - 1] : KK_WEEKDAYS_SHORT[dt.weekday - 1];
+    return `'${name}'`;
+  });
+  return dt.setLocale('en-GB').toFormat(quoted);
+}
+
+/** Number formatting locale; Kazakh uses the same digit grouping as Russian. */
+function numberLocale(): string {
+  return activeLocale() === 'kk' ? 'ru-RU' : intlLocale();
+}
+
+const KK_UNITS: [seconds: number, past: string, future: string][] = [
+  [31_536_000, 'жыл бұрын', 'жылдан кейін'],
+  [2_592_000, 'ай бұрын', 'айдан кейін'],
+  [86_400, 'күн бұрын', 'күннен кейін'],
+  [3600, 'сағат бұрын', 'сағаттан кейін'],
+  [60, 'минут бұрын', 'минуттан кейін'],
+];
+
+function kkRelative(dt: DateTime): string {
+  const seconds = dt.diffNow('seconds').seconds;
+  const unit = KK_UNITS.find(([size]) => Math.abs(seconds) >= size);
+  if (!unit) return 'қазір';
+  return `${Math.round(Math.abs(seconds) / unit[0])} ${seconds < 0 ? unit[1] : unit[2]}`;
 }
 
 export const fmt = {
   time: (iso: string) => clubTime(iso).toFormat('HH:mm'),
-  date: (iso: string) => clubTime(iso).toFormat('d MMMM yyyy'),
-  dateShort: (iso: string) => clubTime(iso).toFormat('d MMM'),
-  dayMonth: (iso: string) => clubTime(iso).toFormat('d MMMM'),
-  weekdayDate: (iso: string) => clubTime(iso).toFormat('ccc, d MMM'),
-  weekdayLong: (iso: string) => clubTime(iso).toFormat('cccc'),
-  dateTime: (iso: string) => clubTime(iso).toFormat('d MMM yyyy, HH:mm'),
+  date: (iso: string) => formatDate(clubTime(iso), 'd MMMM yyyy'),
+  dateShort: (iso: string) => formatDate(clubTime(iso), 'd MMM'),
+  dayMonth: (iso: string) => formatDate(clubTime(iso), 'd MMMM'),
+  weekdayDate: (iso: string) => formatDate(clubTime(iso), 'ccc, d MMM'),
+  weekdayLong: (iso: string) => formatDate(clubTime(iso), 'cccc'),
+  dateTime: (iso: string) => formatDate(clubTime(iso), 'd MMM yyyy, HH:mm'),
   sessionWhen: (iso: string) => `${dayLabel(iso)}, ${clubTime(iso).toFormat('HH:mm')}`,
   /** Local calendar date string (yyyy-MM-dd) → "Wednesday, 7 October" */
-  localDate: (date: string) => DateTime.fromISO(date, { zone: CLUB_TZ }).setLocale('en-GB').toFormat('cccc, d MMMM'),
+  localDate: (date: string) => formatDate(DateTime.fromISO(date, { zone: CLUB_TZ }), 'cccc, d MMMM'),
+  number: (value: number) => value.toLocaleString(numberLocale()),
   money: (amount: number | null | undefined, currency = '₸') =>
-    amount === null || amount === undefined ? '—' : `${Math.round(amount).toLocaleString('en-US')} ${currency}`,
-  relative: (iso: string) => clubTime(iso).toRelative({ locale: 'en' }) ?? '',
+    amount === null || amount === undefined ? '—' : `${Math.round(amount).toLocaleString(numberLocale())} ${currency}`,
+  relative: (iso: string) => (activeLocale() === 'kk' ? kkRelative(clubTime(iso)) : (clubTime(iso).toRelative({ locale: activeLocale() }) ?? '')),
   phone: (e164: string | null | undefined) => {
     if (!e164) return '';
     const m = /^\+7(\d{3})(\d{3})(\d{2})(\d{2})$/.exec(e164);
     return m ? `+7 ${m[1]} ${m[2]} ${m[3]} ${m[4]}` : e164;
   },
   minutesAsHours: (minutes: number) => {
+    const t = messagesFor(commonMessages);
     const h = Math.floor(minutes / 60);
     const m = minutes % 60;
-    return h ? (m ? `${h} h ${m} min` : `${h} h`) : `${m} min`;
+    return h ? (m ? `${t.hours(h)} ${t.minutes(m)}` : t.hours(h)) : t.minutes(m);
   },
 };
 
@@ -42,19 +84,21 @@ export function dayLabel(iso: string): string {
   const d = clubTime(iso).startOf('day');
   const today = clubNow().startOf('day');
   const diff = Math.round(d.diff(today, 'days').days);
-  if (diff === 0) return 'Today';
-  if (diff === 1) return 'Tomorrow';
-  if (diff === -1) return 'Yesterday';
-  return d.toFormat('ccc, d MMM');
+  const t = messagesFor(commonMessages);
+  if (diff === 0) return t.today;
+  if (diff === 1) return t.tomorrow;
+  if (diff === -1) return t.yesterday;
+  return formatDate(d, 'ccc, d MMM');
 }
 
 export function localDayLabel(date: string): string {
   const d = DateTime.fromISO(date, { zone: CLUB_TZ });
   const today = clubNow().startOf('day');
   const diff = Math.round(d.diff(today, 'days').days);
-  if (diff === 0) return 'Today';
-  if (diff === 1) return 'Tomorrow';
-  return d.setLocale('en-GB').toFormat('cccc, d MMMM');
+  const t = messagesFor(commonMessages);
+  if (diff === 0) return t.today;
+  if (diff === 1) return t.tomorrow;
+  return formatDate(d, 'cccc, d MMMM');
 }
 
 /**

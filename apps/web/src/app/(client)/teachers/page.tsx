@@ -4,13 +4,16 @@ import { ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import { Avatar, ErrorState, SkeletonList } from '@/components/ui/feedback';
 import { PageHeader } from '@/components/ui/layout';
+import { useT } from '@/lib/i18n';
+import { clubMessages } from '@/lib/i18n/messages/club';
 import { useTeachers } from '@/lib/queries';
 
 export default function TeachersPage() {
+  const m = useT(clubMessages);
   const { data, isLoading, error, refetch } = useTeachers();
   return (
     <div className="space-y-5 pt-5">
-      <PageHeader back title="Our teachers" subtitle="Native speakers who make speaking easy." />
+      <PageHeader back title={m.ourTeachers} subtitle={m.ourTeachersText} />
       {isLoading ? (
         <SkeletonList count={4} />
       ) : error ? (

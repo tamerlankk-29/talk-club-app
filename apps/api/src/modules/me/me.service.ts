@@ -22,6 +22,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { PaymentsService } from '../payments/payments.service';
 import { ReferralsService } from '../referrals/referrals.service';
 import { SettingsService } from '../settings/settings.service';
+import type { Locale } from '../../common/utils/locale';
 
 export interface ProfilePatch {
   firstName?: string;
@@ -73,6 +74,11 @@ export class MeService {
     const session = await this.auth.sessionUser(user.id, user.sessionId);
     const profile = user.clientId ? await this.profile(user.clientId) : null;
     return { user: session, profile };
+  }
+
+  async setLocale(user: AuthUser, locale: Locale) {
+    await this.prisma.user.update({ where: { id: user.id }, data: { locale } });
+    return this.auth.sessionUser(user.id, user.sessionId);
   }
 
   async profile(clientId: string) {

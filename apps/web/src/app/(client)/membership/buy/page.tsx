@@ -15,6 +15,8 @@ import { toastError } from '@/components/ui/toast';
 import { api, call } from '@/lib/api/client';
 import { fmt } from '@/lib/format';
 import { keys, usePlans } from '@/lib/queries';
+import { Rich, useT } from '@/lib/i18n';
+import { membershipMessages } from '@/lib/i18n/messages/membership';
 import { cn } from '@/lib/utils';
 
 export default function BuyMembershipPage() {
@@ -32,6 +34,7 @@ function Buy() {
   const [planId, setPlanId] = useState<string | null>(null);
   const [methodCode, setMethodCode] = useState<string | null>(null);
   const [accept, setAccept] = useState(false);
+  const t = useT(membershipMessages);
 
   const visible = (plans.data ?? []).filter((p) => p.isActive && p.isPublic).sort((a, b) => a.sortOrder - b.sortOrder);
   useEffect(() => {
@@ -60,12 +63,12 @@ function Buy() {
 
   return (
     <div className="space-y-6 pt-5">
-      <PageHeader back="/membership" title="Choose a membership" subtitle="Each visit is one 90-minute speaking session." />
+      <PageHeader back="/membership" title={t.choose} subtitle={t.chooseSubtitle} />
 
       {plans.isLoading ? (
         <SkeletonList count={4} />
       ) : (
-        <div className="space-y-3" role="radiogroup" aria-label="Membership plans">
+        <div className="space-y-3" role="radiogroup" aria-label={t.plans}>
           {visible.map((p) => {
             const active = p.id === planId;
             return (
@@ -82,19 +85,19 @@ function Buy() {
               >
                 {p.isFeatured && (
                   <span className="absolute -top-2.5 right-5 inline-flex items-center gap-1 rounded-full bg-zest px-2.5 py-0.5 text-[11px] font-bold text-brand-950">
-                    <Star className="h-3 w-3" /> Most popular
+                    <Star className="h-3 w-3" /> {t.mostPopular}
                   </span>
                 )}
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="font-display text-lg font-semibold tracking-wide">{p.name}</p>
                     <p className="text-sm text-muted">
-                      {p.visits} visits · {p.validityDays} days
+                      {t.planVisitsDays(p.visits, p.validityDays)}
                     </p>
                   </div>
                   <div className="text-right">
                     <p className="font-display text-xl font-semibold">{fmt.money(p.price)}</p>
-                    <p className="text-xs text-muted">{fmt.money(p.pricePerVisit)} / visit</p>
+                    <p className="text-xs text-muted">{t.perVisit(fmt.money(p.pricePerVisit))}</p>
                   </div>
                 </div>
                 {p.description && <p className="mt-3 text-sm text-muted">{p.description}</p>}
@@ -113,9 +116,9 @@ function Buy() {
         </div>
       )}
 
-      <Section title="Payment method">
+      <Section title={t.paymentMethod}>
         {methods.data?.length ? (
-          <div className="space-y-2" role="radiogroup" aria-label="Payment method">
+          <div className="space-y-2" role="radiogroup" aria-label={t.paymentMethod}>
             {methods.data.map((m) => (
               <button
                 key={m.code}
@@ -139,13 +142,13 @@ function Buy() {
         ) : methods.isLoading ? (
           <SkeletonList count={2} />
         ) : (
-          <InlineAlert tone="info">Online payment is not available yet. Please pay at the club reception — the administrator will activate your membership.</InlineAlert>
+          <InlineAlert tone="info">{t.noOnlinePayment}</InlineAlert>
         )}
       </Section>
 
       {plan && (
         <InlineAlert tone="brand">
-          Your membership starts when the payment is confirmed and is valid for {plan.validityDays} days. Unused visits expire at the end of the period.
+          {t.startsWhenPaid(plan.validityDays)}
         </InlineAlert>
       )}
 
@@ -153,19 +156,22 @@ function Buy() {
         checked={accept}
         onChange={setAccept}
         label={
-          <>
-            I accept the{' '}
-            <Link href="/legal/PUBLIC_OFFER" target="_blank" className="font-semibold text-brand-700 underline">
-              public offer
-            </Link>{' '}
-            and the club rules
-          </>
+          <Rich
+            text={t.acceptOffer}
+            tags={{
+              offer: (c) => (
+                <Link href="/legal/PUBLIC_OFFER" target="_blank" className="font-semibold text-brand-700 underline">
+                  {c}
+                </Link>
+              ),
+            }}
+          />
         }
       />
 
       <StickyActions>
         <Button size="lg" block disabled={!plan || !methodCode || !accept} loading={purchase.isPending} onClick={() => purchase.mutate()}>
-          {plan ? `Continue · ${fmt.money(plan.price)}` : 'Continue'}
+          {plan ? t.continuePrice(fmt.money(plan.price)) : t.continue}
         </Button>
       </StickyActions>
     </div>

@@ -28,6 +28,9 @@ import { Avatar, Badge, Skeleton } from '@/components/ui/feedback';
 import { useAuth } from '@/lib/auth';
 import { fmt } from '@/lib/format';
 import { useClub, useProfile } from '@/lib/queries';
+import { useT } from '@/lib/i18n';
+import { profileMessages } from '@/lib/i18n/messages/profile';
+import { LanguageSwitcher } from '@/components/ui/language-switcher';
 import { cn } from '@/lib/utils';
 
 export default function ProfilePage() {
@@ -43,12 +46,13 @@ function Profile() {
   const { user, actingClientId, setActingClient, logout } = useAuth();
   const { data: profile, isLoading } = useProfile();
   const { data: club } = useClub();
+  const t = useT(profileMessages);
   const acting = !!actingClientId;
   const profiles = user ? [...(user.client ? [{ ...user.client, self: true }] : []), ...user.managedClients.map((c) => ({ ...c, self: false }))] : [];
 
   return (
     <div className="space-y-6">
-      <ClientTopBar title="Profile" />
+      <ClientTopBar title={t.profile} />
 
       <div className="flex items-center gap-4 rounded-3xl bg-white p-5 shadow-card ring-1 ring-line/70">
         {isLoading || !profile ? (
@@ -66,8 +70,8 @@ function Profile() {
               <p className="truncate font-display text-xl font-semibold">{profile.fullName}</p>
               {profile.phone && <p className="text-sm text-muted">{fmt.phone(profile.phone)}</p>}
               <div className="mt-2 flex flex-wrap gap-1.5">
-                <Badge tone="brand">{profile.level?.name ?? 'Level not set'}</Badge>
-                <Badge>Since {fmt.dateShort(profile.registeredAt)}</Badge>
+                <Badge tone="brand">{profile.level?.name ?? t.levelNotSet}</Badge>
+                <Badge>{t.since(fmt.dateShort(profile.registeredAt))}</Badge>
               </div>
             </div>
           </>
@@ -76,7 +80,7 @@ function Profile() {
 
       {profiles.length > 1 && (
         <section>
-          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted">Profiles</h2>
+          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted">{t.profiles}</h2>
           <div className="-mx-4 flex gap-2 overflow-x-auto px-4 scrollbar-none">
             {profiles.map((p) => {
               const active = p.self ? !actingClientId : actingClientId === p.id;
@@ -91,7 +95,7 @@ function Profile() {
                   )}
                 >
                   <Avatar name={`${p.firstName} ${p.lastName ?? ''}`} src={p.photoUrl} size="sm" />
-                  {p.self ? 'Me' : p.firstName}
+                  {p.self ? t.me : p.firstName}
                 </button>
               );
             })}
@@ -100,37 +104,42 @@ function Profile() {
       )}
 
       <MenuGroup>
-        <MenuItem href="/profile/edit" icon={<UserPen />} label="Edit profile" />
-        <MenuItem href="/profile/progress" icon={<BarChart3 />} label="My progress" hint="Teacher feedback and stats" />
-        <MenuItem href="/attendance" icon={<History />} label="Attendance history" />
-        {club?.policies.qrCheckinEnabled && <MenuItem href="/profile/check-in" icon={<QrCode />} label="Check-in QR code" />}
+        <MenuItem href="/profile/edit" icon={<UserPen />} label={t.menu.edit} />
+        <MenuItem href="/profile/progress" icon={<BarChart3 />} label={t.menu.progress} hint={t.menu.progressHint} />
+        <MenuItem href="/attendance" icon={<History />} label={t.menu.attendance} />
+        {club?.policies.qrCheckinEnabled && <MenuItem href="/profile/check-in" icon={<QrCode />} label={t.menu.checkIn} />}
       </MenuGroup>
 
       {!acting && (
         <MenuGroup>
-          <MenuItem href="/profile/family" icon={<Users />} label="Family" hint="Manage your children's profiles" />
-          {club?.policies.referralsEnabled && <MenuItem href="/profile/referral" icon={<Gift />} label="Invite a friend" hint={club.policies.referralReward || undefined} />}
+          <MenuItem href="/profile/family" icon={<Users />} label={t.menu.family} hint={t.menu.familyHint} />
+          {club?.policies.referralsEnabled && <MenuItem href="/profile/referral" icon={<Gift />} label={t.menu.invite} hint={club.policies.referralReward || undefined} />}
         </MenuGroup>
       )}
 
+      <div className="rounded-3xl bg-white p-4 shadow-card ring-1 ring-line/70">
+        <p className="mb-2 text-sm font-semibold">{t.language}</p>
+        <LanguageSwitcher full />
+      </div>
+
       <MenuGroup>
-        <MenuItem href="/profile/notifications" icon={<Bell />} label="Notifications" />
-        {!acting && <MenuItem href="/profile/privacy" icon={<ShieldCheck />} label="Privacy & data" />}
-        {!acting && <MenuItem href="/profile/password" icon={<KeyRound />} label={user?.hasPassword ? 'Change password' : 'Set a password'} />}
+        <MenuItem href="/profile/notifications" icon={<Bell />} label={t.menu.notifications} />
+        {!acting && <MenuItem href="/profile/privacy" icon={<ShieldCheck />} label={t.menu.privacy} />}
+        {!acting && <MenuItem href="/profile/password" icon={<KeyRound />} label={user?.hasPassword ? t.menu.changePassword : t.menu.setPassword} />}
       </MenuGroup>
 
       <MenuGroup>
-        <MenuItem href="/about" icon={<Info />} label="About Talk Club" />
-        <MenuItem href="/rules" icon={<NotebookText />} label="Club rules" />
-        <MenuItem href="/faq" icon={<CircleHelp />} label="FAQ" />
-        <MenuItem href="/location" icon={<MapPin />} label="Location" />
-        <MenuItem href="/contact" icon={<MessageCircle />} label="Contact us" />
+        <MenuItem href="/about" icon={<Info />} label={t.menu.about} />
+        <MenuItem href="/rules" icon={<NotebookText />} label={t.menu.rules} />
+        <MenuItem href="/faq" icon={<CircleHelp />} label={t.menu.faq} />
+        <MenuItem href="/location" icon={<MapPin />} label={t.menu.location} />
+        <MenuItem href="/contact" icon={<MessageCircle />} label={t.menu.contact} />
       </MenuGroup>
 
       {(user?.areas.admin || user?.areas.teacher) && (
         <MenuGroup>
-          {user?.areas.admin && <MenuItem href="/admin" icon={<LayoutDashboard />} label="Admin panel" />}
-          {user?.areas.teacher && <MenuItem href="/teacher" icon={<LayoutDashboard />} label="Teacher panel" />}
+          {user?.areas.admin && <MenuItem href="/admin" icon={<LayoutDashboard />} label={t.menu.admin} />}
+          {user?.areas.teacher && <MenuItem href="/teacher" icon={<LayoutDashboard />} label={t.menu.teacher} />}
         </MenuGroup>
       )}
 
@@ -142,7 +151,7 @@ function Profile() {
         }}
         className="flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-semibold text-danger-700 hover:bg-danger-50"
       >
-        <LogOut className="h-4 w-4" /> Sign out
+        <LogOut className="h-4 w-4" /> {t.signOut}
       </button>
       <p className="text-center text-xs text-subtle">Talk Club · {club?.location?.address ?? 'Almaty'}</p>
     </div>

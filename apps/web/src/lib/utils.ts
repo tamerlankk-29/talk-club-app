@@ -1,5 +1,7 @@
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { messagesFor } from './i18n/active';
+import { labelMessages } from './i18n/messages/labels';
 
 export function cn(...inputs: ClassValue[]): string {
   return twMerge(clsx(inputs));
@@ -20,25 +22,31 @@ export function plural(count: number, one: string, many = `${one}s`): string {
   return `${count} ${count === 1 ? one : many}`;
 }
 
-export const WEEKDAYS = ['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-export const WEEKDAYS_SHORT = ['', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+/**
+ * A constant whose contents follow the current language: reads go to the
+ * current translation, so `WEEKDAYS[1]` or `FORMAT_LABELS.ONLINE` stay simple.
+ */
+function localized<T extends object>(read: () => T, empty: T): T {
+  return new Proxy(empty, {
+    get(_, prop) {
+      const target = read();
+      const value = Reflect.get(target, prop);
+      return typeof value === 'function' ? value.bind(target) : value;
+    },
+    has: (_, prop) => Reflect.has(read(), prop),
+    ownKeys: () => Reflect.ownKeys(read()),
+    getOwnPropertyDescriptor: (_, prop) => {
+      const descriptor = Reflect.getOwnPropertyDescriptor(read(), prop);
+      // Keep the target's own non-configurable properties (an array's length) as they are.
+      return descriptor ? { ...descriptor, configurable: Reflect.getOwnPropertyDescriptor(empty, prop)?.configurable ?? true } : undefined;
+    },
+  });
+}
 
-export const TIME_OF_DAY_LABELS: Record<string, string> = {
-  MORNING: 'Morning',
-  AFTERNOON: 'Afternoon',
-  EVENING: 'Evening',
-};
+const labels = () => messagesFor(labelMessages);
 
-export const CATEGORY_LABELS: Record<string, string> = {
-  ADULT: 'Adult',
-  TEEN: 'Teen',
-  CHILD: 'Child',
-  BUSINESS: 'Business Club',
-  INDIVIDUAL: 'Individual',
-};
-
-export const FORMAT_LABELS: Record<string, string> = {
-  OFFLINE: 'At the club',
-  ONLINE: 'Online',
-  ANY: 'Both',
-};
+export const WEEKDAYS: readonly string[] = localized(() => labels().weekdays, []);
+export const WEEKDAYS_SHORT: readonly string[] = localized(() => labels().weekdaysShort, []);
+export const TIME_OF_DAY_LABELS: Record<string, string> = localized(() => labels().timeOfDay, {});
+export const CATEGORY_LABELS: Record<string, string> = localized(() => labels().category, {});
+export const FORMAT_LABELS: Record<string, string> = localized(() => labels().format, {});

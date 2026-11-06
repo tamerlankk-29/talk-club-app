@@ -9,6 +9,9 @@ import { InlineAlert } from '@/components/ui/feedback';
 import { Field, Input, OtpInput } from '@/components/ui/inputs';
 import { api, ApiError, call, errorMessage } from '@/lib/api/client';
 import type { AuthTokens } from '@/lib/api/types';
+import { useT } from '@/lib/i18n';
+import { authMessages } from '@/lib/i18n/messages/auth';
+import { commonMessages } from '@/lib/i18n/messages/common';
 
 /** What the API sends with AUTH_TOTP_REQUIRED / AUTH_TOTP_SETUP_REQUIRED. */
 export interface TwoFactorChallenge {
@@ -32,6 +35,7 @@ export function twoFactorChallenge(error: unknown): TwoFactorChallenge | null {
  */
 export function TwoFactorStep({ challenge, onBack, onDone }: { challenge: TwoFactorChallenge; onBack: () => void; onDone: (tokens: AuthTokens) => void }) {
   const setup = !!challenge.secret;
+  const t = useT(authMessages);
   const [code, setCode] = useState('');
   const [useRecovery, setUseRecovery] = useState(false);
   const [qr, setQr] = useState<string | null>(null);
@@ -62,7 +66,7 @@ export function TwoFactorStep({ challenge, onBack, onDone }: { challenge: TwoFac
   if (saved) {
     return (
       <>
-        <Header title="Save your recovery codes" subtitle="Each code signs you in once if you lose your phone. Keep them somewhere safe — they won't be shown again." />
+        <Header title={t.recoveryTitle} subtitle={t.recoverySubtitle} />
         <ul className="grid grid-cols-2 gap-2 rounded-2xl border border-line bg-white p-4 font-mono text-[15px]">
           {saved.recoveryCodes.map((c) => (
             <li key={c}>{c}</li>
@@ -76,10 +80,10 @@ export function TwoFactorStep({ challenge, onBack, onDone }: { challenge: TwoFac
             leftIcon={<Copy className="h-5 w-5" />}
             onClick={() => void navigator.clipboard?.writeText(saved.recoveryCodes.join('\n'))}
           >
-            Copy codes
+            {t.copyCodes}
           </Button>
           <Button size="lg" block onClick={() => onDone(saved.tokens)}>
-            I saved them — continue
+            {t.savedContinue}
           </Button>
         </div>
       </>
@@ -90,18 +94,14 @@ export function TwoFactorStep({ challenge, onBack, onDone }: { challenge: TwoFac
     <>
       <Header
         onBack={onBack}
-        title={setup ? 'Protect your account' : 'Two-factor sign-in'}
-        subtitle={
-          setup
-            ? 'Your role needs a second step at sign-in. Scan the QR code with Google Authenticator (or any authenticator app) and enter the 6-digit code.'
-            : 'Enter the 6-digit code from your authenticator app.'
-        }
+        title={setup ? t.protectTitle : t.twoFactorTitle}
+        subtitle={setup ? t.protectSubtitle : t.twoFactorSubtitle}
       />
       {setup && (
         <div className="mb-6 flex flex-col items-center gap-3 rounded-2xl border border-line bg-white p-4">
-          {qr ? <img src={qr} alt="QR code for the authenticator app" width={220} height={220} /> : <div className="h-[220px] w-[220px]" />}
+          {qr ? <img src={qr} alt={t.qrAlt} width={220} height={220} /> : <div className="h-[220px] w-[220px]" />}
           <p className="text-center text-xs text-muted">
-            Can't scan? Enter this key: <span className="break-all font-mono font-semibold text-ink">{challenge.secret?.replace(/(.{4})/g, '$1 ').trim()}</span>
+            {t.cantScan} <span className="break-all font-mono font-semibold text-ink">{challenge.secret?.replace(/(.{4})/g, '$1 ').trim()}</span>
           </p>
         </div>
       )}
@@ -113,7 +113,7 @@ export function TwoFactorStep({ challenge, onBack, onDone }: { challenge: TwoFac
         }}
       >
         {useRecovery ? (
-          <Field label="Recovery code" htmlFor="recovery">
+          <Field label={t.recoveryCode} htmlFor="recovery">
             <Input id="recovery" value={code} onChange={(e) => setCode(e.target.value)} autoComplete="one-time-code" autoFocus placeholder="xxxx-xxxx" />
           </Field>
         ) : (
@@ -121,7 +121,7 @@ export function TwoFactorStep({ challenge, onBack, onDone }: { challenge: TwoFac
         )}
         {verify.error && <InlineAlert tone="danger">{errorMessage(verify.error)}</InlineAlert>}
         <Button type="submit" size="lg" block loading={verify.isPending} disabled={useRecovery ? code.trim().length < 8 : code.length !== 6}>
-          {setup ? 'Turn on and sign in' : 'Sign in'}
+          {setup ? t.turnOnAndSignIn : t.signIn}
         </Button>
         {!setup && (
           <button
@@ -132,7 +132,7 @@ export function TwoFactorStep({ challenge, onBack, onDone }: { challenge: TwoFac
               setCode('');
             }}
           >
-            {useRecovery ? 'Use the authenticator app' : 'Lost your phone? Use a recovery code'}
+            {useRecovery ? t.useApp : t.useRecovery}
           </button>
         )}
       </form>
@@ -141,11 +141,12 @@ export function TwoFactorStep({ challenge, onBack, onDone }: { challenge: TwoFac
 }
 
 function Header({ title, subtitle, onBack }: { title: string; subtitle: string; onBack?: () => void }) {
+  const common = useT(commonMessages);
   return (
     <div className="pb-6 pt-5">
       <div className="flex h-11 items-center">
         {onBack ? (
-          <button type="button" onClick={onBack} className="-ml-2 rounded-xl p-2 hover:bg-brand-50" aria-label="Back">
+          <button type="button" onClick={onBack} className="-ml-2 rounded-xl p-2 hover:bg-brand-50" aria-label={common.back}>
             <ArrowLeft className="h-5 w-5" />
           </button>
         ) : (

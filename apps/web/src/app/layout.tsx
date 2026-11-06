@@ -1,16 +1,26 @@
 import type { Metadata, Viewport } from 'next';
 import { Manrope, Unbounded } from 'next/font/google';
+import { cookies } from 'next/headers';
 import type { ReactNode } from 'react';
+import { DEFAULT_LOCALE, isLocale, LOCALE_COOKIE } from '@/lib/i18n/config';
+import { metaMessages } from '@/lib/i18n/messages/system';
+import { serverMessages } from '@/lib/i18n/server';
 import './globals.css';
 import { Providers } from './providers';
 
 const body = Manrope({ subsets: ['latin', 'cyrillic'], variable: '--font-body', display: 'swap' });
 const heading = Unbounded({ subsets: ['latin', 'cyrillic'], variable: '--font-heading', display: 'swap', weight: ['500', '600', '700'] });
 
-export const metadata: Metadata = {
-  title: { default: 'Talk Club — English Speaking Club in Almaty', template: '%s · Talk Club' },
-  description:
-    'Speak English with native speakers in small groups of up to 7. Book sessions, manage your membership and track your progress — Talk Club, Zheltoksan 118, Almaty.',
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await serverMessages(metaMessages);
+  return {
+    title: { default: t.siteTitle, template: '%s · Talk Club' },
+    description: t.siteDescription,
+    ...staticMetadata,
+  };
+}
+
+const staticMetadata: Metadata = {
   applicationName: 'Talk Club',
   appleWebApp: { capable: true, title: 'Talk Club', statusBarStyle: 'default' },
   formatDetection: { telephone: false },
@@ -30,11 +40,13 @@ export const viewport: Viewport = {
   viewportFit: 'cover',
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  const saved = (await cookies()).get(LOCALE_COOKIE)?.value;
+  const locale = isLocale(saved) ? saved : DEFAULT_LOCALE;
   return (
-    <html lang="en" className={`${body.variable} ${heading.variable}`}>
+    <html lang={locale} className={`${body.variable} ${heading.variable}`}>
       <body className="min-h-dvh">
-        <Providers>{children}</Providers>
+        <Providers locale={locale}>{children}</Providers>
       </body>
     </html>
   );

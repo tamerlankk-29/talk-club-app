@@ -18,6 +18,7 @@ import { OtpChannel, OtpService } from './otp.service';
 import { TwoFactorService } from './two-factor.service';
 import { hashPassword, isStrongPassword, verifyPassword } from './password';
 import { TokenService } from './token.service';
+import { toLocale } from '../../common/utils/locale';
 
 export interface IssuedSession {
   accessToken: string;
@@ -347,6 +348,7 @@ export class AuthService {
       phone: user.phone,
       email: user.email,
       hasPassword: !!user.passwordHash,
+      locale: toLocale(user.locale),
       roles: ctx.roles,
       permissions,
       client: user.client,

@@ -3,6 +3,8 @@
 import * as Dialog from '@radix-ui/react-dialog';
 import { X } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { messagesFor } from '@/lib/i18n/active';
+import { uiMessages } from '@/lib/i18n/messages/ui';
 import { cn } from '@/lib/utils';
 import { Button, type ButtonVariant } from './button';
 
@@ -35,10 +37,10 @@ export function Modal({ open, onOpenChange, title, description, children, footer
               {description ? (
                 <Dialog.Description className="mt-1.5 text-sm leading-relaxed text-muted">{description}</Dialog.Description>
               ) : (
-                <Dialog.Description className="sr-only">{typeof title === 'string' ? title : 'Dialog'}</Dialog.Description>
+                <Dialog.Description className="sr-only">{typeof title === 'string' ? title : messagesFor(uiMessages).dialog}</Dialog.Description>
               )}
             </div>
-            <Dialog.Close className="-mr-2 -mt-1 rounded-xl p-2 text-muted hover:bg-brand-50" aria-label="Close">
+            <Dialog.Close className="-mr-2 -mt-1 rounded-xl p-2 text-muted hover:bg-brand-50" aria-label={messagesFor(uiMessages).close}>
               <X className="h-5 w-5" />
             </Dialog.Close>
           </div>
@@ -68,10 +70,10 @@ export function Drawer({ open, onOpenChange, title, description, children, foote
               {description ? (
                 <Dialog.Description className="mt-1 text-sm text-muted">{description}</Dialog.Description>
               ) : (
-                <Dialog.Description className="sr-only">{typeof title === 'string' ? title : 'Panel'}</Dialog.Description>
+                <Dialog.Description className="sr-only">{typeof title === 'string' ? title : messagesFor(uiMessages).panel}</Dialog.Description>
               )}
             </div>
-            <Dialog.Close className="-mr-2 rounded-xl p-2 text-muted hover:bg-brand-50" aria-label="Close">
+            <Dialog.Close className="-mr-2 rounded-xl p-2 text-muted hover:bg-brand-50" aria-label={messagesFor(uiMessages).close}>
               <X className="h-5 w-5" />
             </Dialog.Close>
           </div>
@@ -90,8 +92,8 @@ export function ConfirmDialog({
   title,
   description,
   children,
-  confirmLabel = 'Confirm',
-  cancelLabel = 'Keep it',
+  confirmLabel = messagesFor(uiMessages).confirm,
+  cancelLabel = messagesFor(uiMessages).keepIt,
   tone = 'primary',
   loading,
   onConfirm,

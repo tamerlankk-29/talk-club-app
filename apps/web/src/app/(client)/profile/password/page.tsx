@@ -12,6 +12,9 @@ import { Card, PageHeader } from '@/components/ui/layout';
 import { toast } from '@/components/ui/toast';
 import { api, call, errorMessage, fieldErrors } from '@/lib/api/client';
 import { useAuth } from '@/lib/auth';
+import { messagesFor } from '@/lib/i18n';
+import { useT } from '@/lib/i18n';
+import { profileMessages } from '@/lib/i18n/messages/profile';
 
 export default function PasswordPage() {
   return (
@@ -27,11 +30,12 @@ function PasswordForm() {
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
   const [confirm, setConfirm] = useState('');
+  const t = useT(profileMessages);
   const change = useMutation({
     mutationFn: () => call(api.POST('/api/auth/password/change', { body: { currentPassword: current || undefined, newPassword: next } })),
     onSuccess: async () => {
       await reloadUser();
-      toast.success('Password saved.');
+      toast.success(messagesFor(profileMessages).passwordSaved);
       router.push('/profile');
     },
   });
@@ -40,7 +44,7 @@ function PasswordForm() {
 
   return (
     <div className="space-y-5 pt-5">
-      <PageHeader back="/profile" title={user?.hasPassword ? 'Change password' : 'Set a password'} subtitle="With a password you can also sign in using your email or phone." />
+      <PageHeader back="/profile" title={user?.hasPassword ? t.menu.changePassword : t.menu.setPassword} subtitle={t.passwordSubtitle} />
       <Card>
         <form
           className="space-y-4"
@@ -50,19 +54,19 @@ function PasswordForm() {
           }}
         >
           {user?.hasPassword && (
-            <Field label="Current password" htmlFor="current" error={errors.currentPassword}>
+            <Field label={t.currentPassword} htmlFor="current" error={errors.currentPassword}>
               <Input id="current" type="password" autoComplete="current-password" leftIcon={<Lock className="h-4 w-4" />} value={current} onChange={(e) => setCurrent(e.target.value)} required />
             </Field>
           )}
-          <Field label="New password" hint="At least 8 characters" htmlFor="new" error={errors.newPassword}>
+          <Field label={t.newPassword} hint={t.newPasswordHint} htmlFor="new" error={errors.newPassword}>
             <Input id="new" type="password" autoComplete="new-password" leftIcon={<Lock className="h-4 w-4" />} value={next} onChange={(e) => setNext(e.target.value)} minLength={8} required />
           </Field>
-          <Field label="Repeat new password" htmlFor="confirm" error={mismatch ? 'Passwords do not match' : null}>
+          <Field label={t.repeatPassword} htmlFor="confirm" error={mismatch ? t.mismatch : null}>
             <Input id="confirm" type="password" autoComplete="new-password" leftIcon={<Lock className="h-4 w-4" />} value={confirm} onChange={(e) => setConfirm(e.target.value)} required />
           </Field>
           {change.error && !Object.keys(errors).length && <InlineAlert tone="danger">{errorMessage(change.error)}</InlineAlert>}
           <Button type="submit" block size="lg" loading={change.isPending} disabled={next.length < 8 || mismatch || (user?.hasPassword && !current)}>
-            Save password
+            {t.savePassword}
           </Button>
         </form>
       </Card>
