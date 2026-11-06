@@ -11,6 +11,8 @@ import { Select } from '@/components/ui/inputs';
 import { Card } from '@/components/ui/layout';
 import { api, call, errorMessage } from '@/lib/api/client';
 import type { S } from '@/lib/api/types';
+import { useT } from '@/lib/i18n';
+import { teacherMessages } from '@/lib/i18n/messages/teacher';
 
 type Result = { ok: true; data: S<'CheckinResultDto'> } | { ok: false; message: string };
 
@@ -20,6 +22,7 @@ interface Detector {
 
 /** Camera scanner for clients' rotating check-in QR codes. */
 function Scanner() {
+  const t = useT(teacherMessages);
   const params = useSearchParams();
   const qc = useQueryClient();
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -97,27 +100,27 @@ function Scanner() {
     (async () => {
       try {
         stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
-        if (stopped) return stream.getTracks().forEach((t) => t.stop());
+        if (stopped) return stream.getTracks().forEach((track) => track.stop());
         const video = videoRef.current!;
         video.srcObject = stream;
         await video.play();
         raf = requestAnimationFrame(() => void tick());
       } catch (e) {
-        setCameraError(e instanceof DOMException && e.name === 'NotAllowedError' ? 'Camera access was denied. Allow it in the browser settings.' : 'No camera available on this device.');
+        setCameraError(e instanceof DOMException && e.name === 'NotAllowedError' ? t.cameraDenied : t.noCamera);
       }
     })();
     return () => {
       stopped = true;
       cancelAnimationFrame(raf);
-      stream?.getTracks().forEach((t) => t.stop());
+      stream?.getTracks().forEach((track) => track.stop());
     };
-  }, [handle]);
+  }, [handle, t]);
 
   return (
     <div className="space-y-4">
-      <h1 className="font-display text-2xl font-semibold">Check-in</h1>
-      <Select value={sessionId} onChange={(e) => setSessionId(e.target.value)} aria-label="Session">
-        <option value="">Current session (automatic)</option>
+      <h1 className="font-display text-2xl font-semibold">{t.checkIn}</h1>
+      <Select value={sessionId} onChange={(e) => setSessionId(e.target.value)} aria-label={t.session}>
+        <option value="">{t.currentSession}</option>
         {today.data?.map((s) => (
           <option key={s.id} value={s.id}>
             {s.startTime} · {s.title}
@@ -130,14 +133,14 @@ function Scanner() {
             <CameraOff className="h-10 w-10" />
             <p className="text-sm">{cameraError}</p>
             <Button variant="white" size="sm" onClick={() => window.location.reload()}>
-              Try again
+              {t.tryAgain}
             </Button>
           </div>
         ) : (
           <>
             <video ref={videoRef} className="h-full w-full object-cover" playsInline muted />
             <div className="pointer-events-none absolute inset-[18%] rounded-3xl border-4 border-white/80 shadow-[0_0_0_9999px_rgba(27,21,48,0.45)]" aria-hidden="true" />
-            <p className="absolute inset-x-0 bottom-4 text-center text-sm font-semibold text-white">Point the camera at the client&apos;s QR code</p>
+            <p className="absolute inset-x-0 bottom-4 text-center text-sm font-semibold text-white">{t.pointCamera}</p>
           </>
         )}
         <canvas ref={canvasRef} className="hidden" />
@@ -145,9 +148,9 @@ function Scanner() {
       <div className="space-y-2" aria-live="polite">
         {results.map((r, i) =>
           r.ok ? (
-            <InlineAlert key={i} tone="success" icon={<CircleCheckBig className="h-5 w-5" />} title={`${r.data.clientName} — ${r.data.status === 'LATE' ? 'late' : 'present'}`}>
+            <InlineAlert key={i} tone="success" icon={<CircleCheckBig className="h-5 w-5" />} title={t.scanned(r.data.clientName, r.data.status === 'LATE')}>
               {r.data.startTime} · {r.data.sessionTitle}
-              {r.data.previousStatus ? ` (was ${r.data.previousStatus.toLowerCase()})` : ''}
+              {r.data.previousStatus ? t.was(t.statusWord[r.data.previousStatus] ?? r.data.previousStatus.toLowerCase()) : ''}
             </InlineAlert>
           ) : (
             <InlineAlert key={i} tone="danger" icon={<CircleX className="h-5 w-5" />}>

@@ -9,6 +9,9 @@ import { Modal } from '@/components/ui/overlay';
 import { toast } from '@/components/ui/toast';
 import { api, call, errorMessage } from '@/lib/api/client';
 import { cn } from '@/lib/utils';
+import { useT } from '@/lib/i18n';
+import { teacherMessages } from '@/lib/i18n/messages/teacher';
+import { profileMessages } from '@/lib/i18n/messages/profile';
 
 const SKILLS = ['participation', 'fluency', 'vocabulary', 'confidence', 'pronunciation', 'conversation'] as const;
 
@@ -40,6 +43,8 @@ export function FeedbackDialog({
   onClose: () => void;
   onSaved?: () => void;
 }) {
+  const t = useT(teacherMessages);
+  const skills = useT(profileMessages).skills;
   const [scores, setScores] = useState<Record<string, number | null>>(() =>
     Object.fromEntries(SKILLS.map((k) => [k, initial?.[k] ?? null])),
   );
@@ -53,7 +58,7 @@ export function FeedbackDialog({
         : call(api.PUT('/api/admin/bookings/{id}/feedback', { params: { path: { id: bookingId } }, body }));
     },
     onSuccess: () => {
-      toast.success('Feedback saved.');
+      toast.success(t.feedbackSaved);
       onSaved?.();
       onClose();
     },
@@ -62,15 +67,15 @@ export function FeedbackDialog({
     <Modal
       open
       onOpenChange={(o) => !o && onClose()}
-      title={`Feedback for ${clientName}`}
+      title={t.feedbackFor(clientName)}
       size="md"
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>
-            Cancel
+            {t.cancel}
           </Button>
           <Button loading={run.isPending} disabled={!comment.trim() && !Object.values(scores).some((v) => v)} onClick={() => run.mutate()}>
-            Save feedback
+            {t.saveFeedback}
           </Button>
         </>
       }
@@ -79,7 +84,7 @@ export function FeedbackDialog({
         <div className="grid gap-3 sm:grid-cols-2">
           {SKILLS.map((k) => (
             <div key={k}>
-              <p className="mb-1 text-sm font-semibold capitalize">{k}</p>
+              <p className="mb-1 text-sm font-semibold">{skills[k] ?? k}</p>
               <div className="flex gap-1">
                 {[1, 2, 3, 4, 5].map((n) => (
                   <button
@@ -90,7 +95,7 @@ export function FeedbackDialog({
                       'h-9 w-9 rounded-xl border text-sm font-semibold transition',
                       scores[k] && scores[k]! >= n ? 'border-brand-700 bg-brand-700 text-white' : 'border-line bg-white hover:border-brand-300',
                     )}
-                    aria-label={`${k} ${n} of 5`}
+                    aria-label={t.scoreOf5(skills[k] ?? k, n)}
                   >
                     {n}
                   </button>
@@ -99,10 +104,10 @@ export function FeedbackDialog({
             </div>
           ))}
         </div>
-        <Field label="Comment for the client" htmlFor="fb-comment">
-          <Textarea id="fb-comment" rows={3} value={comment} onChange={(e) => setComment(e.target.value)} placeholder="What went well, what to practise next" maxLength={2000} />
+        <Field label={t.commentForClient} htmlFor="fb-comment">
+          <Textarea id="fb-comment" rows={3} value={comment} onChange={(e) => setComment(e.target.value)} placeholder={t.commentPlaceholder} maxLength={2000} />
         </Field>
-        <Checkbox checked={visible} onChange={setVisible} label="Visible to the client in the app" />
+        <Checkbox checked={visible} onChange={setVisible} label={t.visibleToClient} />
         {run.error && <InlineAlert tone="danger">{errorMessage(run.error)}</InlineAlert>}
       </div>
     </Modal>

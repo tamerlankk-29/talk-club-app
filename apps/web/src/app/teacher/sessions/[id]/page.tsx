@@ -14,17 +14,20 @@ import { api, call } from '@/lib/api/client';
 import type { S } from '@/lib/api/types';
 import { fmt } from '@/lib/format';
 import { cn } from '@/lib/utils';
+import { useT } from '@/lib/i18n';
+import { teacherMessages } from '@/lib/i18n/messages/teacher';
 
 type Participant = S<'TeacherParticipantDto'>;
 type AttendanceStatus = S<'AttendanceStatus'>;
 
-const OPTIONS: Array<{ value: AttendanceStatus; label: string; active: string }> = [
-  { value: 'PRESENT', label: 'Here', active: 'bg-success-600 text-white border-success-600' },
-  { value: 'LATE', label: 'Late', active: 'bg-warning-600 text-white border-warning-600' },
-  { value: 'ABSENT', label: 'Absent', active: 'bg-danger-600 text-white border-danger-600' },
+const OPTIONS: Array<{ value: AttendanceStatus; label: 'here' | 'late' | 'absent'; active: string }> = [
+  { value: 'PRESENT', label: 'here', active: 'bg-success-600 text-white border-success-600' },
+  { value: 'LATE', label: 'late', active: 'bg-warning-600 text-white border-warning-600' },
+  { value: 'ABSENT', label: 'absent', active: 'bg-danger-600 text-white border-danger-600' },
 ];
 
 export default function TeacherSessionPage() {
+  const t = useT(teacherMessages);
   const { id } = useParams<{ id: string }>();
   const qc = useQueryClient();
   const key = ['teacher', 'session', id];
@@ -41,7 +44,7 @@ export default function TeacherSessionPage() {
     mutationFn: () => call(api.POST('/api/teacher/sessions/{id}/attendance/all-present', { params: { path: { id } } })),
     onSuccess: async (r) => {
       await refresh();
-      toast.success(`Marked ${r.length} present.`);
+      toast.success(t.markedPresent(r.length));
     },
     onError: toastError,
   });
@@ -56,33 +59,31 @@ export default function TeacherSessionPage() {
 
   return (
     <div className="space-y-5">
-      <PageHeader back="/teacher" title={s.title} subtitle={`${fmt.weekdayDate(s.startsAt)} · ${s.startTime}–${s.endTime} · ${s.room?.name ?? (s.format === 'ONLINE' ? 'Online' : '')}`} />
+      <PageHeader back="/teacher" title={s.title} subtitle={`${fmt.weekdayDate(s.startsAt)} · ${s.startTime}–${s.endTime} · ${s.room?.name ?? (s.format === 'ONLINE' ? t.online : '')}`} />
       <Card className="flex flex-wrap items-center gap-3 text-sm">
         <Badge tone="brand">{s.levelLabel}</Badge>
-        <span>
-          <span className="font-semibold">{active.length}</span> / {s.capacity} participants
-        </span>
+        <span className="font-semibold">{t.participants(active.length, s.capacity)}</span>
         {s.topic && <span className="text-muted">· {s.topic}</span>}
         {d.onlineUrl && (
           <a href={d.onlineUrl} target="_blank" rel="noreferrer" className="ml-auto inline-flex items-center gap-1 font-semibold text-brand-700">
-            <Video className="h-4 w-4" /> Join online
+            <Video className="h-4 w-4" /> {t.joinOnline}
           </a>
         )}
       </Card>
-      {!d.canMarkAttendance && started && <InlineAlert tone="info">The attendance window for this session is closed. Ask the administrator to correct anything.</InlineAlert>}
-      {!started && <InlineAlert tone="info">You can mark attendance once the session starts.</InlineAlert>}
+      {!d.canMarkAttendance && started && <InlineAlert tone="info">{t.windowClosed}</InlineAlert>}
+      {!started && <InlineAlert tone="info">{t.notStarted}</InlineAlert>}
       {d.canMarkAttendance && (
         <div className="grid grid-cols-2 gap-2">
           <Button variant="secondary" leftIcon={<CheckCheck className="h-4 w-4" />} disabled={!unmarked} loading={allPresent.isPending} onClick={() => allPresent.mutate()}>
-            All present{unmarked ? ` (${unmarked})` : ''}
+            {t.allPresent}{unmarked ? ` (${unmarked})` : ''}
           </Button>
           <Link href={`/teacher/scan?session=${s.id}`} className={buttonClasses('outline', 'md')}>
-            <QrCode className="h-4 w-4" /> Scan codes
+            <QrCode className="h-4 w-4" /> {t.scanCodes}
           </Link>
         </div>
       )}
       {active.length === 0 ? (
-        <EmptyState title="Nobody booked yet" />
+        <EmptyState title={t.nobodyBooked} />
       ) : (
         <div className="space-y-2">
           {active.map((p) => (
@@ -92,10 +93,10 @@ export default function TeacherSessionPage() {
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-semibold">{p.name}</p>
                   <p className="text-xs text-muted">
-                    {p.level ?? 'level not set'} · {p.isFirstVisit ? 'first visit 🎉' : `${p.visitsBefore} visits before`}
+                    {p.level ?? t.levelNotSet} · {p.isFirstVisit ? t.firstVisit : t.visitsBefore(p.visitsBefore)}
                   </p>
                 </div>
-                {p.kind === 'TRIAL' && <Badge tone="zest">Trial</Badge>}
+                {p.kind === 'TRIAL' && <Badge tone="zest">{t.trial}</Badge>}
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <div className="flex flex-1 gap-1.5">
@@ -111,19 +112,19 @@ export default function TeacherSessionPage() {
                         p.attendance?.status === o.value ? o.active : 'border-line bg-white hover:border-brand-300',
                       )}
                     >
-                      {o.label}
+                      {t[o.label]}
                     </button>
                   ))}
                 </div>
                 {d.feedbackEnabled && started && (
                   <Button size="sm" variant={p.feedback ? 'secondary' : 'outline'} leftIcon={<MessageSquareQuote className="h-4 w-4" />} onClick={() => setFeedbackFor(p)}>
-                    {p.feedback ? 'Edit feedback' : 'Feedback'}
+                    {p.feedback ? t.editFeedback : t.feedback}
                   </Button>
                 )}
               </div>
               {p.attendance && (
                 <p className="text-[11px] text-subtle">
-                  {p.attendance.method === 'QR' ? 'checked in with QR' : `marked ${p.attendance.method.toLowerCase()}`} · {fmt.time(p.attendance.markedAt)}
+                  {p.attendance.method === 'QR' ? t.checkedInQr : t.markedBy[p.attendance.method]} · {fmt.time(p.attendance.markedAt)}
                 </p>
               )}
             </Card>
