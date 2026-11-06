@@ -222,6 +222,13 @@ const ERROR_TRANSLATIONS: Record<string, Translations> = {
     ru: 'У вас уже есть неоплаченный счёт за этот абонемент.',
     kk: 'Бұл абонементке төленбеген шотыңыз бар.',
   },
+  'This gift certificate code is not valid. Please check it and try again.': {
+    ru: 'Код сертификата не подходит. Проверьте его и попробуйте ещё раз.',
+    kk: 'Сертификат коды жарамсыз. Тексеріп, қайталап көріңіз.',
+  },
+  'This gift certificate has already been used.': { ru: 'Этот сертификат уже использован.', kk: 'Бұл сертификат қолданылып қойған.' },
+  'This gift certificate has expired.': { ru: 'Срок действия сертификата истёк.', kk: 'Сертификаттың мерзімі өтіп кеткен.' },
+  'This gift certificate was cancelled.': { ru: 'Этот сертификат аннулирован.', kk: 'Бұл сертификат жойылған.' },
   'Invalid payment notification.': { ru: 'Неверное уведомление о платеже.', kk: 'Төлем туралы хабарлама жарамсыз.' },
   'Choose a membership plan.': { ru: 'Выберите абонемент.', kk: 'Абонемент таңдаңыз.' },
   'Enter an amount.': { ru: 'Введите сумму.', kk: 'Соманы енгізіңіз.' },

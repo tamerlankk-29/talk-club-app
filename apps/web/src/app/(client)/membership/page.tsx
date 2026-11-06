@@ -1,6 +1,6 @@
 'use client';
 
-import { ChevronRight, Receipt, Sparkles } from 'lucide-react';
+import { ChevronRight, Gift, Receipt, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { ClientTopBar } from '@/components/client/client-shell';
 import { MembershipCard, NoMembershipCard } from '@/components/client/membership-card';
@@ -73,6 +73,9 @@ function Membership() {
 
       <Link href="/membership/buy" className={buttonClasses(data?.current ? 'secondary' : 'primary', 'lg', 'w-full')}>
         <Sparkles className="h-5 w-5" /> {data?.current ? t.buyAnother : t.choose}
+      </Link>
+      <Link href="/membership/redeem" className={buttonClasses('outline', 'lg', 'w-full -mt-3')}>
+        <Gift className="h-5 w-5" /> {t.haveGift}
       </Link>
 
       {data && data.past.length > 0 && (

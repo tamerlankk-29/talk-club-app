@@ -93,6 +93,14 @@ export const membershipMessages = defineMessages({
     pay: (amount: string) => `Pay ${amount}`,
     simulateDecline: 'Simulate a declined payment',
     backToPayment: 'Back to payment',
+    // Gift certificates
+    haveGift: 'I have a gift certificate',
+    redeemTitle: 'Activate a gift certificate',
+    redeemText: 'Enter the code from your certificate. Your membership starts today.',
+    codeLabel: 'Certificate code',
+    redeemButton: 'Activate',
+    redeemed: (plan: string) => `${plan} membership activated. Enjoy your sessions!`,
+    giftAtDesk: 'Want to give Talk Club as a present? Gift certificates are sold at the reception.',
     // Payment methods, keyed by code (fall back to the server text for custom ones)
     methods: {
       CASH: { name: 'Pay at the club desk', text: 'Pay by cash or card at the Talk Club reception. The administrator activates your membership right away.' },
@@ -187,6 +195,13 @@ export const membershipMessages = defineMessages({
     pay: (amount) => `Оплатить ${amount}`,
     simulateDecline: 'Сымитировать отказ',
     backToPayment: 'Назад к платежу',
+    haveGift: 'У меня подарочный сертификат',
+    redeemTitle: 'Активировать сертификат',
+    redeemText: 'Введите код с сертификата. Абонемент начнётся сегодня.',
+    codeLabel: 'Код сертификата',
+    redeemButton: 'Активировать',
+    redeemed: (plan) => `Абонемент «${plan}» активирован. Приятных занятий!`,
+    giftAtDesk: 'Хотите подарить Talk Club? Подарочные сертификаты продаются на ресепшене.',
     methods: {
       CASH: { name: 'Оплата на ресепшене', text: 'Оплатите наличными или картой на ресепшене Talk Club. Администратор сразу активирует абонемент.' },
       CARD: { name: 'Карта на ресепшене', text: null },
@@ -280,6 +295,13 @@ export const membershipMessages = defineMessages({
     pay: (amount) => `${amount} төлеу`,
     simulateDecline: 'Бас тартуды имитациялау',
     backToPayment: 'Төлемге оралу',
+    haveGift: 'Менде сыйлық сертификаты бар',
+    redeemTitle: 'Сертификатты іске қосу',
+    redeemText: 'Сертификаттағы кодты енгізіңіз. Абонемент бүгін басталады.',
+    codeLabel: 'Сертификат коды',
+    redeemButton: 'Іске қосу',
+    redeemed: (plan) => `«${plan}» абонементі іске қосылды. Сабақтарыңыз сәтті өтсін!`,
+    giftAtDesk: 'Talk Club-ты сыйға тартқыңыз келе ме? Сыйлық сертификаттары ресепшнде сатылады.',
     methods: {
       CASH: { name: 'Ресепшнде төлеу', text: 'Talk Club ресепшнінде қолма-қол немесе картамен төлеңіз. Әкімші абонементті бірден іске қосады.' },
       CARD: { name: 'Ресепшндегі карта', text: null },
