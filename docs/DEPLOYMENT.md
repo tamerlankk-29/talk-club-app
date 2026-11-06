@@ -27,9 +27,9 @@ docker compose logs -f api
 
 | Service | Image / target | Notes |
 | --- | --- | --- |
-| `db` | `postgres:17-alpine` | Volume `pgdata`; published on `5433` (change or remove the port mapping in production) |
+| `db` | `postgres:17-alpine` | Volume `pgdata`; not published — only the API reaches it over the compose network |
 | `migrate` | API `migrate` target | Runs `prisma migrate deploy`, then exits; `api` starts only after it succeeds |
-| `api` | API `runtime` target | Lean image (production dependencies only), runs as `node`, health check on `/api/health`, uploads volume |
+| `api` | API `runtime` target | Lean image (production dependencies only), runs as `node`, health check on `/api/health`, uploads volume; not published (reached through `web`) |
 | `web` | Next.js standalone | Proxies `/api/*` to `http://api:4000` (baked in at build time via `API_INTERNAL_URL`) |
 | `seed` | API `tools` target, profile `demo` | `docker compose --profile demo run --rm seed` — demo data for staging trials only |
 
@@ -101,6 +101,7 @@ API variables (see `apps/api/.env.example` for all of them):
 | `STORAGE_LOCAL_DIR` | yes (persistent volume) | Uploaded photos and images |
 | `JOBS_ENABLED` | default true | Jobs are safe with several instances (advisory locks) |
 | `AUTH_OTP_DEV_ECHO`, `PAYMENT_MOCK_ONLINE_ENABLED` | must be false | The API refuses to start otherwise |
+| `API_DOCS_ENABLED` | no | `/api/docs` is served only outside production/staging unless this is `true` |
 
 Web variables: `API_INTERNAL_URL` (build time) — where the Next.js server proxies `/api/*`.
 
