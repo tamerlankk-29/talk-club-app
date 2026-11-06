@@ -5,6 +5,7 @@ import type { ChannelProvider } from './channel.types';
 import { MessageOutbox } from './message-outbox';
 import { ConsoleChannelProvider } from './providers/console.provider';
 import { TelegramBotClient } from '../telegram/telegram-bot.client';
+import { MobizonSmsProvider } from './providers/mobizon.provider';
 import { TelegramBotChannelProvider } from './providers/telegram-bot.provider';
 import { WebPushProvider } from './providers/web-push.provider';
 
@@ -41,6 +42,10 @@ export class ChannelRegistry {
 
   private create(channel: NotificationChannel, providerName: string): ChannelProvider {
     switch (providerName) {
+      case 'mobizon':
+        if (channel === 'SMS') return new MobizonSmsProvider(this.config.sms);
+        this.logger.warn(`Provider mobizon only works for SMS, ${channel} falls back to console`);
+        return new ConsoleChannelProvider(channel, this.outbox, (m) => addressFor(channel, m.to));
       case 'telegram_bot':
         if (channel === 'TELEGRAM') return new TelegramBotChannelProvider(this.telegramBot, this.config.appUrl);
         this.logger.warn(`Provider telegram_bot only works for TELEGRAM, ${channel} falls back to console`);

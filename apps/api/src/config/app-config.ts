@@ -42,6 +42,13 @@ export interface AppConfig {
     telegram: string;
     emailFrom: string;
   };
+  sms: {
+    /** Mobizon API key (Mobizon panel → Settings → API). */
+    mobizonApiKey: string | null;
+    /** Approved sender name; empty uses Mobizon's default sender. */
+    mobizonFrom: string | null;
+    mobizonApiUrl: string;
+  };
   telegram: {
     /** Bot API token from @BotFather. */
     botToken: string | null;
@@ -116,10 +123,15 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     },
     notify: {
       email: env.NOTIFY_EMAIL_PROVIDER ?? 'console',
-      sms: env.NOTIFY_SMS_PROVIDER ?? 'console',
+      sms: str(env.NOTIFY_SMS_PROVIDER) ?? (str(env.MOBIZON_API_KEY) ? 'mobizon' : 'console'),
       whatsapp: env.NOTIFY_WHATSAPP_PROVIDER ?? 'console',
       telegram: str(env.NOTIFY_TELEGRAM_PROVIDER) ?? (str(env.TELEGRAM_BOT_TOKEN) ? 'telegram_bot' : 'console'),
       emailFrom: env.EMAIL_FROM ?? 'Talk Club <hello@talkclub.kz>',
+    },
+    sms: {
+      mobizonApiKey: str(env.MOBIZON_API_KEY),
+      mobizonFrom: str(env.MOBIZON_FROM),
+      mobizonApiUrl: (str(env.MOBIZON_API_URL) ?? 'https://api.mobizon.kz').replace(/\/$/, ''),
     },
     telegram: {
       botToken: str(env.TELEGRAM_BOT_TOKEN),
@@ -158,6 +170,9 @@ function validateConfig(config: AppConfig): void {
   }
   if (!!config.captcha.turnstileSecret !== !!config.captcha.turnstileSiteKey) {
     problems.push('Set both TURNSTILE_SITE_KEY and TURNSTILE_SECRET_KEY, or neither');
+  }
+  if (config.notify.sms === 'mobizon' && !config.sms.mobizonApiKey) {
+    problems.push('MOBIZON_API_KEY is required when NOTIFY_SMS_PROVIDER=mobizon');
   }
   if (config.telegram.botToken && !config.telegram.botUsername) {
     problems.push('TELEGRAM_BOT_USERNAME is required when TELEGRAM_BOT_TOKEN is set');

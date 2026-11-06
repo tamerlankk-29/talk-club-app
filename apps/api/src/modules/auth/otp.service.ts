@@ -98,7 +98,7 @@ export class OtpService {
     }
 
     const code = randomInt(0, 1_000_000).toString().padStart(6, '0');
-    await this.prisma.otpCode.create({
+    const record = await this.prisma.otpCode.create({
       data: {
         phone,
         purpose,
@@ -114,11 +114,20 @@ export class OtpService {
     if (telegramChatId) {
       await this.telegram.sendCode(telegramChatId, code);
     } else {
-      await this.channels.get('SMS')?.send({
-        to: { phone },
-        title: '',
-        body: `Talk Club code: ${code}. It is valid for 5 minutes. Do not share it with anyone.`,
-      });
+      const result = await this.channels
+        .get('SMS')
+        ?.send({
+          to: { phone },
+          title: '',
+          body: `Talk Club code: ${code}. It is valid for 5 minutes. Do not share it with anyone.`,
+        })
+        .catch((error: Error) => ({ status: 'FAILED' as const, error: error.message }));
+      if (result && result.status !== 'SENT') {
+        // Drop the unsent code so it does not block a retry with the resend cooldown.
+        await this.prisma.otpCode.delete({ where: { id: record.id } });
+        this.logger.error(`SMS code was not sent: ${result.error ?? result.status}`);
+        throw new DomainError('AUTH_SMS_SEND_FAILED');
+      }
     }
 
     return {
