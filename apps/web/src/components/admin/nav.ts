@@ -9,6 +9,7 @@ import {
   Database,
   FileClock,
   Filter,
+  Gift,
   GraduationCap,
   KanbanSquare,
   LayoutDashboard,
@@ -63,6 +64,7 @@ export const ADMIN_NAV: NavGroup[] = [
     items: [
       { href: '/admin/payments', label: 'Payments', icon: CreditCard, anyOf: ['payments.view'] },
       { href: '/admin/memberships', label: 'Memberships', icon: Ticket, anyOf: ['memberships.view'] },
+      { href: '/admin/gift-certificates', label: 'Gift certificates', icon: Gift, anyOf: ['payments.view'] },
     ],
   },
   {

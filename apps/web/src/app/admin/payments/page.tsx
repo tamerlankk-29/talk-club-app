@@ -122,6 +122,7 @@ function Payments() {
           <option value="">{tr.allProducts}</option>
           <option value="MEMBERSHIP">{tr.memberships}</option>
           <option value="TRIAL">{tr.trials}</option>
+          <option value="GIFT_CERTIFICATE">{tr.giftCertificates}</option>
           <option value="OTHER">{tr.other}</option>
         </FilterSelect>
         <FilterSelect label={tr.method} value={url.get('method')} onChange={(v) => url.set({ method: v })}>

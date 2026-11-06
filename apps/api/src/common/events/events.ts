@@ -102,7 +102,7 @@ export interface PaymentCreatedEvent {
 export interface PaymentConfirmedEvent {
   paymentId: string;
   clientId: string;
-  productType: 'MEMBERSHIP' | 'TRIAL' | 'OTHER';
+  productType: 'MEMBERSHIP' | 'TRIAL' | 'GIFT_CERTIFICATE' | 'OTHER';
   amount: number;
   actor: ActorRef;
 }

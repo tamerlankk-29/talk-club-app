@@ -22,6 +22,7 @@ import { MessagingModule } from './modules/messaging/messaging.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { RbacModule } from './modules/rbac/rbac.module';
+import { GiftCertificatesModule } from './modules/gift-certificates/gift-certificates.module';
 import { ReferralsModule } from './modules/referrals/referrals.module';
 import { SessionsModule } from './modules/sessions/sessions.module';
 import { SettingsModule } from './modules/settings/settings.module';
@@ -68,6 +69,7 @@ const jobsEnabled = process.env.NODE_ENV !== 'test' && process.env.JOBS_ENABLED 
     TeachersModule,
     MembershipsModule,
     PaymentsModule,
+    GiftCertificatesModule,
     SessionsModule,
     BookingsModule,
     WaitlistModule,

@@ -94,6 +94,12 @@ export const ERROR_CATALOG = {
   PAYMENT_WEBHOOK_INVALID: { status: 400, message: 'Invalid payment notification.' },
   PAYMENT_ALREADY_PENDING: { status: 409, message: 'You already have a pending payment for this membership.' },
 
+  // Gift certificates
+  GIFT_CERTIFICATE_INVALID: { status: 404, message: 'This gift certificate code is not valid. Please check it and try again.' },
+  GIFT_CERTIFICATE_USED: { status: 409, message: 'This gift certificate has already been used.' },
+  GIFT_CERTIFICATE_EXPIRED: { status: 409, message: 'This gift certificate has expired.' },
+  GIFT_CERTIFICATE_CANCELLED: { status: 409, message: 'This gift certificate was cancelled.' },
+
   // Attendance / check-in
   ATTENDANCE_NOT_YOUR_SESSION: { status: 403, message: 'You can only manage attendance for your own sessions.' },
   ATTENDANCE_WINDOW_CLOSED: { status: 409, message: 'Attendance for this session can no longer be changed here.' },

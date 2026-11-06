@@ -149,7 +149,14 @@ enum PaymentStatus {
 enum ProductType {
   MEMBERSHIP
   TRIAL
+  GIFT_CERTIFICATE
   OTHER
+}
+
+enum GiftCertificateStatus {
+  ACTIVE
+  REDEEMED
+  CANCELLED
 }
 
 enum TrialStatus {
@@ -469,6 +476,7 @@ model User {
   communications       Communication[]
   paymentsCreated      Payment[]             @relation("PaymentCreator")
   paymentsConfirmed    Payment[]             @relation("PaymentConfirmer")
+  giftsSold            GiftCertificate[]
   attendanceMarked     Attendance[]
   feedbackAuthored     TeacherFeedback[]
   dataRequests         DataRequest[]
@@ -647,6 +655,8 @@ model Client {
   broadcastRecipients  BroadcastRecipient[]
   referralCode         ReferralCode?
   referralsMade        Referral[]               @relation("Referrer")
+  giftsBought          GiftCertificate[]        @relation("GiftBuyer")
+  giftsRedeemed        GiftCertificate[]        @relation("GiftRecipient")
   referredBy           Referral?                @relation("Referee")
   automationRuns       AutomationRun[]
   agreementAcceptances AgreementAcceptance[]
@@ -764,6 +774,7 @@ model MembershipPlan {
   groupTypes  MembershipPlanGroupType[]
   memberships Membership[]
   payments    Payment[]
+  gifts       GiftCertificate[]
 
   @@unique([programId, code])
   @@map("membership_plans")
@@ -811,6 +822,7 @@ model Membership {
   payment      Payment?                @relation(fields: [paymentId], references: [id])
   transactions MembershipTransaction[]
   bookings     Booking[]
+  gift         GiftCertificate?
 
   @@index([clientId, status, expiresAt])
   @@index([status, expiresAt])
@@ -1082,19 +1094,60 @@ model Payment {
   createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt         DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  client      Client          @relation(fields: [clientId], references: [id])
-  plan        MembershipPlan? @relation(fields: [membershipPlanId], references: [id])
-  trial       Trial?          @relation(fields: [trialId], references: [id])
-  method      PaymentMethod   @relation(fields: [methodId], references: [id])
-  createdBy   User?           @relation("PaymentCreator", fields: [createdById], references: [id])
-  confirmedBy User?           @relation("PaymentConfirmer", fields: [confirmedById], references: [id])
+  client      Client           @relation(fields: [clientId], references: [id])
+  plan        MembershipPlan?  @relation(fields: [membershipPlanId], references: [id])
+  trial       Trial?           @relation(fields: [trialId], references: [id])
+  method      PaymentMethod    @relation(fields: [methodId], references: [id])
+  createdBy   User?            @relation("PaymentCreator", fields: [createdById], references: [id])
+  confirmedBy User?            @relation("PaymentConfirmer", fields: [confirmedById], references: [id])
   membership  Membership?
+  gift        GiftCertificate?
 
   @@unique([provider, providerPaymentId])
   @@index([status, createdAt])
   @@index([clientId, createdAt])
   @@index([paidAt])
   @@map("payments")
+}
+
+/// A membership given as a present: sold and paid at the desk, then redeemed by
+/// the recipient with its code (in the app or at the desk).
+model GiftCertificate {
+  id                 String                @id @default(uuid()) @db.Uuid
+  /// TC-XXXX-XXXX, unambiguous characters only
+  code               String                @unique
+  planId             String                @map("plan_id") @db.Uuid
+  /// Snapshots so later plan edits never change a sold certificate.
+  planName           String                @map("plan_name")
+  visits             Int
+  validityDays       Int                   @map("validity_days")
+  price              Int
+  buyerClientId      String                @map("buyer_client_id") @db.Uuid
+  paymentId          String                @unique @map("payment_id") @db.Uuid
+  recipientName      String?               @map("recipient_name")
+  message            String?
+  status             GiftCertificateStatus @default(ACTIVE)
+  /// Last day the code can be redeemed (the membership's own validity starts on redemption).
+  expiresAt          DateTime              @map("expires_at") @db.Timestamptz(3)
+  redeemedByClientId String?               @map("redeemed_by_client_id") @db.Uuid
+  redeemedAt         DateTime?             @map("redeemed_at") @db.Timestamptz(3)
+  membershipId       String?               @unique @map("membership_id") @db.Uuid
+  cancelledAt        DateTime?             @map("cancelled_at") @db.Timestamptz(3)
+  cancelReason       String?               @map("cancel_reason")
+  createdById        String?               @map("created_by_id") @db.Uuid
+  createdAt          DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  plan       MembershipPlan @relation(fields: [planId], references: [id])
+  buyer      Client         @relation("GiftBuyer", fields: [buyerClientId], references: [id])
+  redeemedBy Client?        @relation("GiftRecipient", fields: [redeemedByClientId], references: [id])
+  payment    Payment        @relation(fields: [paymentId], references: [id])
+  membership Membership?    @relation(fields: [membershipId], references: [id])
+  createdBy  User?          @relation(fields: [createdById], references: [id])
+
+  @@index([status, createdAt])
+  @@index([buyerClientId])
+  @@map("gift_certificates")
 }
 
 // ─────────────────────────── Trials & CRM ───────────────────────────
