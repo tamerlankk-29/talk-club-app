@@ -16956,7 +16956,13 @@
           "onlineUrl": {
             "type": "string",
             "nullable": true,
-            "description": "Only for booked clients and staff"
+            "description": "Join link of an online session: only for booked clients, from 15 minutes before the start until it ends"
+          },
+          "onlineUrlOpensAt": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true,
+            "description": "When the join link appears (online sessions with a link only)"
           },
           "id": {
             "type": "string"
@@ -17095,6 +17101,7 @@
           "myBooking",
           "myWaitlist",
           "onlineUrl",
+          "onlineUrlOpensAt",
           "id",
           "programId",
           "title",
@@ -17474,7 +17481,14 @@
           },
           "onlineUrl": {
             "type": "string",
-            "nullable": true
+            "nullable": true,
+            "description": "Join link of an online session, from 15 minutes before the start until it ends"
+          },
+          "onlineUrlOpensAt": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true,
+            "description": "When the join link appears (online sessions with a link only)"
           },
           "attendance": {
             "nullable": true,
@@ -17512,6 +17526,7 @@
           "membershipName",
           "session",
           "onlineUrl",
+          "onlineUrlOpensAt",
           "attendance",
           "cancellation",
           "hasFeedback"
@@ -18110,7 +18125,14 @@
           },
           "onlineUrl": {
             "type": "string",
-            "nullable": true
+            "nullable": true,
+            "description": "Join link of an online session, from 15 minutes before the start until it ends"
+          },
+          "onlineUrlOpensAt": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true,
+            "description": "When the join link appears (online sessions with a link only)"
           },
           "attendance": {
             "nullable": true,
@@ -18151,6 +18173,7 @@
           "membershipName",
           "session",
           "onlineUrl",
+          "onlineUrlOpensAt",
           "attendance",
           "cancellation",
           "hasFeedback",

@@ -4753,8 +4753,13 @@ export interface components {
             bookability: components["schemas"]["BookabilityDto"] | null;
             myBooking: components["schemas"]["MyBookingRefDto"] | null;
             myWaitlist: components["schemas"]["MyWaitlistRefDto"] | null;
-            /** @description Only for booked clients and staff */
+            /** @description Join link of an online session: only for booked clients, from 15 minutes before the start until it ends */
             onlineUrl: string | null;
+            /**
+             * Format: date-time
+             * @description When the join link appears (online sessions with a link only)
+             */
+            onlineUrlOpensAt: string | null;
             id: string;
             programId: string;
             /** @description Display title: custom title, else group type name */
@@ -4890,7 +4895,13 @@ export interface components {
             membershipId: string | null;
             membershipName: string | null;
             session: components["schemas"]["SessionDto"];
+            /** @description Join link of an online session, from 15 minutes before the start until it ends */
             onlineUrl: string | null;
+            /**
+             * Format: date-time
+             * @description When the join link appears (online sessions with a link only)
+             */
+            onlineUrlOpensAt: string | null;
             attendance: components["schemas"]["AttendanceRefDto"] | null;
             cancellation: components["schemas"]["CancellationInfoDto"] | null;
             hasFeedback: boolean;
@@ -5047,7 +5058,13 @@ export interface components {
             membershipId: string | null;
             membershipName: string | null;
             session: components["schemas"]["SessionDto"];
+            /** @description Join link of an online session, from 15 minutes before the start until it ends */
             onlineUrl: string | null;
+            /**
+             * Format: date-time
+             * @description When the join link appears (online sessions with a link only)
+             */
+            onlineUrlOpensAt: string | null;
             attendance: components["schemas"]["AttendanceRefDto"] | null;
             cancellation: components["schemas"]["CancellationInfoDto"] | null;
             hasFeedback: boolean;

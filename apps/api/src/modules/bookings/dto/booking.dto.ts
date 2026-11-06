@@ -45,8 +45,10 @@ export class ClientSessionDto extends SessionDto {
   bookability: BookabilityDto | null;
   myBooking: MyBookingRefDto | null;
   myWaitlist: MyWaitlistRefDto | null;
-  /** Only for booked clients and staff */
+  /** Join link of an online session: only for booked clients, from 15 minutes before the start until it ends */
   onlineUrl: string | null;
+  /** When the join link appears (online sessions with a link only) */
+  onlineUrlOpensAt: Date | null;
 }
 
 // ─── Bookings ───
@@ -86,7 +88,10 @@ export class BookingDto {
   membershipId: string | null;
   membershipName: string | null;
   session: SessionDto;
+  /** Join link of an online session, from 15 minutes before the start until it ends */
   onlineUrl: string | null;
+  /** When the join link appears (online sessions with a link only) */
+  onlineUrlOpensAt: Date | null;
   attendance: AttendanceRefDto | null;
   cancellation: CancellationInfoDto | null;
   hasFeedback: boolean;

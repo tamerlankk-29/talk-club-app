@@ -72,6 +72,7 @@ export class JobsService {
   everyFiveMinutes() {
     return this.exclusive('five-minutes', async () => {
       await this.reminders.sendDue();
+      await this.reminders.sendOnlineLinks();
       await this.attendance.finalizeDue();
     });
   }

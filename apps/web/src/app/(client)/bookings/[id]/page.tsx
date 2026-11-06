@@ -34,7 +34,17 @@ export default function BookingPage() {
 function BookingView() {
   const { id } = useParams<{ id: string }>();
   const confirmed = useSearchParams().get('confirmed') === '1';
-  const query = useQuery({ queryKey: keys.booking(id), queryFn: () => call(api.GET('/api/bookings/{id}', { params: { path: { id } } })) });
+  const query = useQuery({
+    queryKey: keys.booking(id),
+    queryFn: () => call(api.GET('/api/bookings/{id}', { params: { path: { id } } })),
+    // An online session's join link appears 15 minutes before the start: check again each minute in the last hour.
+    refetchInterval: (q) => {
+      const b = q.state.data;
+      if (!b || b.status !== 'BOOKED' || b.onlineUrl || !b.onlineUrlOpensAt) return false;
+      const wait = new Date(b.onlineUrlOpensAt).getTime() - Date.now();
+      return wait > -60_000 && wait < 60 * 60_000 ? 60_000 : false;
+    },
+  });
 
   if (query.error) return <ErrorState error={query.error} onRetry={() => query.refetch()} className="mt-10" />;
   if (!query.data) {
@@ -76,6 +86,8 @@ function SessionSummary({ booking }: { booking: Booking }) {
             <a href={booking.onlineUrl} target="_blank" rel="noreferrer" className="font-semibold text-brand-700 underline">
               {t.joinOnlineSession}
             </a>
+          ) : booking.onlineUrlOpensAt && booking.status === 'BOOKED' && new Date(booking.onlineUrlOpensAt).getTime() > Date.now() ? (
+            t.onlineLinkAt(fmt.time(booking.onlineUrlOpensAt))
           ) : (
             t.onlineLinkLater
           )}

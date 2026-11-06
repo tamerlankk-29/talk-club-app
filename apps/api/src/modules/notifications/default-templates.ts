@@ -126,6 +126,17 @@ export const DEFAULT_TEMPLATES: DefaultTemplate[] = [
     buttonUrl: '/location',
     channels: ['PUSH'],
   },
+  {
+    key: 'session.online_link',
+    name: 'Online session — join link',
+    description: 'Sent 15 minutes before an online session with the link to join.',
+    category: 'REMINDER',
+    title: 'Your online session starts soon',
+    body: 'Your online session starts at {{time}}. Join here: {{onlineUrl}}',
+    buttonLabel: 'Open session',
+    buttonUrl: '/bookings/{{bookingId}}',
+    channels: ['IN_APP', 'PUSH', 'TELEGRAM'],
+  },
   // ─── Waitlist ───
   {
     key: 'waitlist.offer',
