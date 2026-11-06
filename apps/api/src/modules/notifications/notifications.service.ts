@@ -9,6 +9,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { ChannelRegistry } from '../messaging/channel-registry';
 import { SettingsValue } from '../settings/settings.schema';
 import { SettingsService } from '../settings/settings.service';
+import { TelegramBotClient } from '../telegram/telegram-bot.client';
 import { DEFAULT_TEMPLATES, DefaultTemplate } from './default-templates';
 
 export type StaffAlertKey = keyof SettingsValue<'notifications'>['adminAlerts'];
@@ -19,8 +20,17 @@ export interface NotificationPrefs {
   reminders: boolean;
 }
 
+export type PreferencesState = NotificationPrefs & {
+  marketing: boolean;
+  pushSubscriptions: number;
+  /** The account phone is linked to the Telegram bot */
+  telegramLinked: boolean;
+  /** Link that opens the bot to connect Telegram (null when the bot is not set up) */
+  telegramBotUrl: string | null;
+};
+
 export const DEFAULT_PREFS: NotificationPrefs = {
-  channels: { push: true, email: true, sms: true, whatsapp: true, telegram: false },
+  channels: { push: true, email: true, sms: true, whatsapp: true, telegram: true },
   reminders: true,
 };
 
@@ -68,6 +78,7 @@ export class NotificationsService {
     private readonly channels: ChannelRegistry,
     private readonly settings: SettingsService,
     private readonly clock: ClockService,
+    private readonly telegramBot: TelegramBotClient,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {}
 
@@ -90,7 +101,7 @@ export class NotificationsService {
       return {
         templateKey: opts.templateKey ?? null,
         category: opts.category ?? 'TRANSACTIONAL',
-        channels: opts.channels ?? ['IN_APP', 'PUSH'],
+        channels: opts.channels ?? ['IN_APP', 'PUSH', 'TELEGRAM'],
         title: renderTemplate(opts.content.title, vars),
         body: renderTemplate(opts.content.body, vars),
         buttonLabel: opts.content.buttonLabel ?? null,
@@ -225,14 +236,19 @@ export class NotificationsService {
     const external: NotificationChannel[] = [];
     const hasPush = to.userId ? (await this.prisma.pushSubscription.count({ where: { userId: to.userId } })) > 0 : false;
     const remindersOff = rendered.category === 'REMINDER' && !to.prefs.reminders;
+    const hasTelegram =
+      wanted.has('TELEGRAM') && to.prefs.channels.telegram && !!to.phone
+        ? (await this.prisma.telegramLink.count({ where: { phone: to.phone } })) > 0
+        : false;
 
     if (!remindersOff) {
       if (wanted.has('PUSH') && to.prefs.channels.push && hasPush) external.push('PUSH');
       if (wanted.has('EMAIL') && to.prefs.channels.email && to.email) external.push('EMAIL');
       if (wanted.has('WHATSAPP') && to.prefs.channels.whatsapp && to.phone) external.push('WHATSAPP');
-      if (wanted.has('TELEGRAM') && to.prefs.channels.telegram) external.push('TELEGRAM');
-      // SMS costs money: when the template also targets push, SMS is only a fallback.
-      const smsAllowed = wanted.has('SMS') && to.prefs.channels.sms && to.phone && (!wanted.has('PUSH') || !hasPush);
+      if (hasTelegram) external.push('TELEGRAM');
+      // SMS costs money: it is only a fallback when push or Telegram already reach the person.
+      const reachedForFree = (wanted.has('PUSH') && hasPush) || hasTelegram;
+      const smsAllowed = wanted.has('SMS') && to.prefs.channels.sms && to.phone && !reachedForFree;
       if (smsAllowed) external.push('SMS');
     }
     const inApp = !!to.userId && (wanted.has('IN_APP') || external.length > 0 || remindersOff);
@@ -303,12 +319,18 @@ export class NotificationsService {
         const url = n.buttonUrl ?? null;
         const absolute = url && url.startsWith('/') ? `${this.config.appUrl}${url}` : url;
         const textChannel = delivery.channel === 'SMS' || delivery.channel === 'WHATSAPP' || delivery.channel === 'EMAIL';
+        const phone = n.user?.phone ?? n.client?.phone ?? null;
         try {
+          const telegramChatId =
+            delivery.channel === 'TELEGRAM' && phone
+              ? ((await this.prisma.telegramLink.findUnique({ where: { phone }, select: { chatId: true } }))?.chatId ?? null)
+              : null;
           const result = await provider.send({
             to: {
               userId: n.userId,
-              phone: n.user?.phone ?? n.client?.phone ?? null,
+              phone,
               email: n.user?.email ?? n.client?.email ?? null,
+              telegramChatId,
               push: n.user?.pushSubscriptions.map((s) => ({ endpoint: s.endpoint, p256dh: s.p256dh, auth: s.auth })) ?? [],
             },
             title: n.title,
@@ -400,18 +422,25 @@ export class NotificationsService {
     await this.prisma.pushSubscription.deleteMany({ where: { userId, endpoint } });
   }
 
-  async getPreferences(userId: string): Promise<NotificationPrefs & { marketing: boolean; pushSubscriptions: number }> {
+  async getPreferences(userId: string): Promise<PreferencesState> {
     const user = await this.prisma.user.findUniqueOrThrow({
       where: { id: userId },
       include: { client: { select: { marketingConsent: true } }, _count: { select: { pushSubscriptions: true } } },
     });
-    return { ...this.prefs(user.notificationPrefs), marketing: user.client?.marketingConsent ?? false, pushSubscriptions: user._count.pushSubscriptions };
+    const telegramLinked = user.phone ? (await this.prisma.telegramLink.count({ where: { phone: user.phone } })) > 0 : false;
+    return {
+      ...this.prefs(user.notificationPrefs),
+      marketing: user.client?.marketingConsent ?? false,
+      pushSubscriptions: user._count.pushSubscriptions,
+      telegramLinked,
+      telegramBotUrl: this.telegramBot.botUrl('notify'),
+    };
   }
 
   async updatePreferences(
     userId: string,
     patch: { channels?: Partial<NotificationPrefs['channels']>; reminders?: boolean; marketing?: boolean },
-  ): Promise<NotificationPrefs & { marketing: boolean; pushSubscriptions: number }> {
+  ): Promise<PreferencesState> {
     const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId }, include: { client: true } });
     const current = this.prefs(user.notificationPrefs);
     const next: NotificationPrefs = {

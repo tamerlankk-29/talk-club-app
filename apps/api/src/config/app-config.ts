@@ -118,7 +118,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       email: env.NOTIFY_EMAIL_PROVIDER ?? 'console',
       sms: env.NOTIFY_SMS_PROVIDER ?? 'console',
       whatsapp: env.NOTIFY_WHATSAPP_PROVIDER ?? 'console',
-      telegram: env.NOTIFY_TELEGRAM_PROVIDER ?? 'console',
+      telegram: str(env.NOTIFY_TELEGRAM_PROVIDER) ?? (str(env.TELEGRAM_BOT_TOKEN) ? 'telegram_bot' : 'console'),
       emailFrom: env.EMAIL_FROM ?? 'Talk Club <hello@talkclub.kz>',
     },
     telegram: {

@@ -18553,13 +18553,24 @@
           "pushSubscriptions": {
             "type": "number",
             "description": "Number of devices subscribed to push"
+          },
+          "telegramLinked": {
+            "type": "boolean",
+            "description": "The account phone is linked to the Telegram bot"
+          },
+          "telegramBotUrl": {
+            "type": "string",
+            "nullable": true,
+            "description": "Link that opens the bot to connect Telegram (null when the bot is not set up)"
           }
         },
         "required": [
           "channels",
           "reminders",
           "marketing",
-          "pushSubscriptions"
+          "pushSubscriptions",
+          "telegramLinked",
+          "telegramBotUrl"
         ]
       },
       "ChannelPrefsDto": {

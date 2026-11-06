@@ -5148,6 +5148,10 @@ export interface components {
             marketing: boolean;
             /** @description Number of devices subscribed to push */
             pushSubscriptions: number;
+            /** @description The account phone is linked to the Telegram bot */
+            telegramLinked: boolean;
+            /** @description Link that opens the bot to connect Telegram (null when the bot is not set up) */
+            telegramBotUrl: string | null;
         };
         ChannelPrefsDto: {
             push?: boolean;
