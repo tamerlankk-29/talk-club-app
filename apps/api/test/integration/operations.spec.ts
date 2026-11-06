@@ -88,9 +88,16 @@ describe('Club operations', () => {
       expect(tooMuch.body.error.code).toBe('PAYMENT_REFUND_EXCEEDS');
     });
 
+    it('clients are offered payment at the club desk first, and no Kaspi invoice until it is switched on', async () => {
+      const res = await t.http().get('/api/public/payment-methods').expect(200);
+      const codes = res.body.map((m: { code: string }) => m.code);
+      expect(codes[0]).toBe('CASH');
+      expect(codes).not.toContain('KASPI');
+    });
+
     it('clients can cancel their own pending request, not a paid one', async () => {
       const c = await f.client();
-      const created = await t.http().post('/api/payments').set(c.auth()).send({ planId: f.baseline.plans.LITE, methodCode: 'KASPI', acceptOffer: true }).expect(201);
+      const created = await t.http().post('/api/payments').set(c.auth()).send({ planId: f.baseline.plans.LITE, methodCode: 'CASH', acceptOffer: true }).expect(201);
       const cancelled = await t.http().post(`/api/my/payments/${created.body.id}/cancel`).set(c.auth()).expect(200);
       expect(cancelled.body.status).toBe('CANCELLED');
       const other = await f.client();

@@ -269,7 +269,7 @@ export const DEFAULT_SETTINGS: AllSettings = {
       {
         question: 'How do I pay?',
         answer:
-          'Choose a membership in the app. You can pay by Kaspi invoice, card or cash at the club. Your membership is activated as soon as the payment is confirmed.',
+          'Choose a membership in the app. You pay by cash or card at the club reception. Your membership is activated as soon as the payment is confirmed.',
       },
       {
         question: 'Who are the teachers?',
