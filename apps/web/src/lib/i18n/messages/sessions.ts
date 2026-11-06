@@ -110,6 +110,7 @@ export const sessionMessages = defineMessages({
     // Booking page
     joinOnlineSession: 'Join the online session',
     onlineLinkLater: 'Online — the link will appear here before the session',
+    onlineLinkAt: (time: string) => `Online — the link to join appears here at ${time}, 15 minutes before the start`,
     trialPayment: (amount: string) => `Trial payment · ${amount}`,
     howToPay: 'How to pay',
     trialPayText: 'Pay by cash or card at the club reception before the session.',
@@ -250,6 +251,7 @@ export const sessionMessages = defineMessages({
     attendanceSummary: 'Статистика посещений →',
     joinOnlineSession: 'Подключиться к онлайн-занятию',
     onlineLinkLater: 'Онлайн: ссылка появится здесь перед занятием',
+    onlineLinkAt: (time) => `Онлайн: ссылка для входа появится здесь в ${time}, за 15 минут до начала`,
     trialPayment: (amount) => `Оплата пробного занятия · ${amount}`,
     howToPay: 'Как оплатить',
     trialPayText: 'Оплатите наличными или картой на ресепшене клуба перед занятием.',
@@ -389,6 +391,7 @@ export const sessionMessages = defineMessages({
     attendanceSummary: 'Қатысу статистикасы →',
     joinOnlineSession: 'Онлайн сабаққа қосылу',
     onlineLinkLater: 'Онлайн: сілтеме сабақ алдында осында шығады',
+    onlineLinkAt: (time) => `Онлайн: кіру сілтемесі осында ${time}-де, басталуға 15 минут қалғанда шығады`,
     trialPayment: (amount) => `Сынақ сабақ төлемі · ${amount}`,
     howToPay: 'Қалай төлеуге болады',
     trialPayText: 'Сабақ алдында клуб ресепшнінде қолма-қол немесе картамен төлеңіз.',

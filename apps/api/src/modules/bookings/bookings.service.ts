@@ -25,6 +25,7 @@ import { BookingOverrides, evaluateBooking } from '../../domain/booking-policy';
 import { assessCancellation } from '../../domain/cancellation-policy';
 import { levelPositions, levelRangeLabel } from '../../domain/level-policy';
 import { MembershipCandidate } from '../../domain/membership-rules';
+import { visibleOnlineUrl } from '../../domain/online-link';
 import { lockRows, PrismaService, Tx } from '../../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { MembershipLedgerService } from '../memberships/membership-ledger.service';
@@ -250,7 +251,7 @@ export class BookingsService {
       bookability: viewer ? await this.bookability(row, dto.booked, dto.held, ctx.now, viewer) : null,
       myBooking: myBooking ? { id: myBooking.id, status: myBooking.status, kind: myBooking.kind } : null,
       myWaitlist: waiting ? { id: waiting.id, status: waiting.status, position, offerExpiresAt: waiting.offerExpiresAt } : null,
-      onlineUrl: myBooking ? row.onlineUrl : null,
+      ...(myBooking ? visibleOnlineUrl(row, ctx.now) : { onlineUrl: null, onlineUrlOpensAt: null }),
     };
   }
 

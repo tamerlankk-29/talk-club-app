@@ -41,6 +41,10 @@ export const TEMPLATE_TRANSLATIONS: Record<string, { ru: TemplateText; kk: Templ
     ru: { title: 'Скоро начало', body: 'Ваше занятие начнётся через {{hours}} ч ({{time}}).', buttonLabel: 'Как добраться' },
     kk: { title: 'Жақында басталады', body: 'Сабағыңыз {{hours}} сағаттан кейін басталады ({{time}}).', buttonLabel: 'Қалай жетуге болады' },
   },
+  'session.online_link': {
+    ru: { title: 'Онлайн-занятие скоро начнётся', body: 'Ваше онлайн-занятие начнётся в {{time}}. Ссылка для входа: {{onlineUrl}}', buttonLabel: 'Открыть занятие' },
+    kk: { title: 'Онлайн сабақ жақында басталады', body: 'Онлайн сабағыңыз {{time}} басталады. Кіру сілтемесі: {{onlineUrl}}', buttonLabel: 'Сабақты ашу' },
+  },
   'waitlist.offer': {
     ru: {
       title: 'Освободилось место!',
