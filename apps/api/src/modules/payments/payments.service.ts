@@ -219,7 +219,7 @@ export class PaymentsService {
     input: { clientId: string; amount: number; productType: 'TRIAL' | 'OTHER'; trialId?: string; description: string; createdById: string | null },
   ): Promise<Payment> {
     const method =
-      (await tx.paymentMethod.findFirst({ where: { code: 'KASPI', isActive: true } })) ??
+      (await tx.paymentMethod.findFirst({ where: { code: 'CASH', isActive: true } })) ??
       (await tx.paymentMethod.findFirst({ where: { isActive: true }, orderBy: { sortOrder: 'asc' } }));
     if (!method) throw new DomainError('PAYMENT_METHOD_UNAVAILABLE');
     return tx.payment.create({

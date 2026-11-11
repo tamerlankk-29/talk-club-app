@@ -49,6 +49,8 @@ const STATUS_TONE: Record<string, Tone> = {
   USED_UP: 'warning',
   EXPIRED: 'neutral',
   NOT_STARTED: 'info',
+  // Gift certificates
+  REDEEMED: 'brand',
   // Payments
   PENDING: 'warning',
   PAID: 'success',

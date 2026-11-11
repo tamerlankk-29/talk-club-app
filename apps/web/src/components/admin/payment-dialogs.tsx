@@ -53,7 +53,7 @@ export function PaymentRequestDrawer({
   const [productType, setProductType] = useState<ProductType>('MEMBERSHIP');
   const [planId, setPlanId] = useState('');
   const [amount, setAmount] = useState('');
-  const [methodCode, setMethodCode] = useState('KASPI');
+  const [methodCode, setMethodCode] = useState('CASH');
   const [reference, setReference] = useState('');
   const [description, setDescription] = useState('');
   const [notes, setNotes] = useState('');

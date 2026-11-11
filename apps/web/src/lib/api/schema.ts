@@ -1196,6 +1196,92 @@ export interface paths {
         patch: operations["AdminPayments_updateMethod"];
         trace?: never;
     };
+    "/api/admin/gift-certificates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Gift certificates sold, redeemed and cancelled */
+        get: operations["AdminGiftCertificates_list"];
+        put?: never;
+        /** Sell a gift certificate paid at the desk (records the payment) */
+        post: operations["AdminGiftCertificates_sell"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/gift-certificates/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One gift certificate (for the detail view and printing) */
+        get: operations["AdminGiftCertificates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/gift-certificates/{id}/redeem": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Redeem a certificate for a client at the desk */
+        post: operations["AdminGiftCertificates_redeem"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/gift-certificates/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel an unused certificate (refund the payment separately) */
+        post: operations["AdminGiftCertificates_cancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/my/gift-certificates/redeem": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Redeem a gift certificate code: the membership starts today */
+        post: operations["MyGiftCertificates_redeem"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/sessions": {
         parameters: {
             query?: never;
@@ -4299,7 +4385,7 @@ export interface components {
             acceptOffer: boolean;
         };
         /** @enum {string} */
-        ProductType: "MEMBERSHIP" | "TRIAL" | "OTHER";
+        ProductType: "MEMBERSHIP" | "TRIAL" | "GIFT_CERTIFICATE" | "OTHER";
         /** @enum {string} */
         PaymentStatus: "PENDING" | "PAID" | "FAILED" | "CANCELLED" | "REFUNDED" | "PARTIALLY_REFUNDED";
         PaymentMethodRefDto: {
@@ -4451,6 +4537,88 @@ export interface components {
             isActive?: boolean;
             availableToClients?: boolean;
             sortOrder?: number;
+        };
+        GiftClientRefDto: {
+            id: string;
+            name: string;
+            phone: string | null;
+        };
+        GiftCertificateDto: {
+            /**
+             * @description ACTIVE certificates past their last redemption day are reported as EXPIRED
+             * @enum {string}
+             */
+            status: "ACTIVE" | "REDEEMED" | "CANCELLED" | "EXPIRED";
+            id: string;
+            code: string;
+            planId: string;
+            planName: string;
+            visits: number;
+            validityDays: number;
+            price: number;
+            recipientName: string | null;
+            message: string | null;
+            /** Format: date-time */
+            expiresAt: string;
+            buyer: components["schemas"]["GiftClientRefDto"];
+            paymentId: string;
+            redeemedBy: components["schemas"]["GiftClientRefDto"] | null;
+            /** Format: date-time */
+            redeemedAt: string | null;
+            membershipId: string | null;
+            /** Format: date-time */
+            cancelledAt: string | null;
+            cancelReason: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            createdBy: {
+                id: string;
+                name: string;
+            };
+        };
+        GiftCertificatePageDto: {
+            items: components["schemas"]["GiftCertificateDto"][];
+            meta: components["schemas"]["PageMetaDto"];
+        };
+        SellGiftCertificateDto: {
+            /**
+             * Format: uuid
+             * @description Membership plan the certificate gives
+             */
+            planId: string;
+            /**
+             * Format: uuid
+             * @description The client who pays for the certificate
+             */
+            buyerClientId: string;
+            /** @description How it was paid at the desk (CASH, CARD, …) */
+            methodCode: string;
+            /** @description Defaults to the plan price */
+            price?: number;
+            recipientName?: string;
+            /** @description Printed on the certificate */
+            message?: string;
+            /** @description Days the code can be redeemed (default 180) */
+            redeemWithinDays?: number;
+            reference?: string;
+        };
+        AdminRedeemGiftCertificateDto: {
+            /** Format: uuid */
+            clientId: string;
+        };
+        GiftRedeemedDto: {
+            membershipId: string;
+            planName: string;
+            visits: number;
+            /** Format: date-time */
+            expiresAt: string;
+        };
+        CancelGiftCertificateDto: {
+            reason: string;
+        };
+        RedeemGiftCertificateDto: {
+            /** @description TC-XXXX-XXXX; spaces, dashes and case are ignored */
+            code: string;
         };
         /** @enum {string} */
         SessionDisplayStatus: "SCHEDULED" | "OPEN" | "ALMOST_FULL" | "FULL" | "STARTED" | "COMPLETED" | "CANCELLED";
@@ -4753,8 +4921,13 @@ export interface components {
             bookability: components["schemas"]["BookabilityDto"] | null;
             myBooking: components["schemas"]["MyBookingRefDto"] | null;
             myWaitlist: components["schemas"]["MyWaitlistRefDto"] | null;
-            /** @description Only for booked clients and staff */
+            /** @description Join link of an online session: only for booked clients, from 15 minutes before the start until it ends */
             onlineUrl: string | null;
+            /**
+             * Format: date-time
+             * @description When the join link appears (online sessions with a link only)
+             */
+            onlineUrlOpensAt: string | null;
             id: string;
             programId: string;
             /** @description Display title: custom title, else group type name */
@@ -4890,7 +5063,13 @@ export interface components {
             membershipId: string | null;
             membershipName: string | null;
             session: components["schemas"]["SessionDto"];
+            /** @description Join link of an online session, from 15 minutes before the start until it ends */
             onlineUrl: string | null;
+            /**
+             * Format: date-time
+             * @description When the join link appears (online sessions with a link only)
+             */
+            onlineUrlOpensAt: string | null;
             attendance: components["schemas"]["AttendanceRefDto"] | null;
             cancellation: components["schemas"]["CancellationInfoDto"] | null;
             hasFeedback: boolean;
@@ -5047,7 +5226,13 @@ export interface components {
             membershipId: string | null;
             membershipName: string | null;
             session: components["schemas"]["SessionDto"];
+            /** @description Join link of an online session, from 15 minutes before the start until it ends */
             onlineUrl: string | null;
+            /**
+             * Format: date-time
+             * @description When the join link appears (online sessions with a link only)
+             */
+            onlineUrlOpensAt: string | null;
             attendance: components["schemas"]["AttendanceRefDto"] | null;
             cancellation: components["schemas"]["CancellationInfoDto"] | null;
             hasFeedback: boolean;
@@ -5800,6 +5985,12 @@ export interface components {
             visitsUsed: number;
             /** @description Consecutive weeks with at least one attended session */
             currentStreakWeeks: number;
+            /** @description Longest run of consecutive weeks with an attended session */
+            bestStreakWeeks: number;
+            /** @description The streak is still alive but needs a visit this week to continue */
+            streakAtRisk: boolean;
+            /** @description Different teachers the client has had sessions with */
+            teachersMet: number;
             totalMinutesSpeaking: number;
             favoriteTeacher: components["schemas"]["FavoriteTeacherDto"] | null;
             /** @description ISO weekday 1–7 */
@@ -9802,6 +9993,237 @@ export interface operations {
                 content?: never;
             };
             /** @description FORBIDDEN — requires permission(s): settings.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdminGiftCertificates_list: {
+        parameters: {
+            query?: {
+                status?: "ACTIVE" | "REDEEMED" | "CANCELLED" | "EXPIRED";
+                /** @description Free-text search */
+                q?: string;
+                /** @description Page number, starting at 1 */
+                page?: number;
+                /** @description Items per page (max 100) */
+                pageSize?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GiftCertificatePageDto"];
+                };
+            };
+            /** @description UNAUTHENTICATED — missing or expired access token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description FORBIDDEN — requires permission(s): payments.view */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdminGiftCertificates_sell: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SellGiftCertificateDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GiftCertificateDto"];
+                };
+            };
+            /** @description UNAUTHENTICATED — missing or expired access token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description FORBIDDEN — requires permission(s): payments.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdminGiftCertificates_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GiftCertificateDto"];
+                };
+            };
+            /** @description UNAUTHENTICATED — missing or expired access token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description FORBIDDEN — requires permission(s): payments.view */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdminGiftCertificates_redeem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminRedeemGiftCertificateDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GiftRedeemedDto"];
+                };
+            };
+            /** @description UNAUTHENTICATED — missing or expired access token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description FORBIDDEN — requires permission(s): payments.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdminGiftCertificates_cancel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CancelGiftCertificateDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GiftCertificateDto"];
+                };
+            };
+            /** @description UNAUTHENTICATED — missing or expired access token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description FORBIDDEN — requires permission(s): payments.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    MyGiftCertificates_redeem: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Client id of a child profile managed by the signed-in parent/guardian */
+                "X-Acting-Client"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RedeemGiftCertificateDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GiftRedeemedDto"];
+                };
+            };
+            /** @description UNAUTHENTICATED */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description CLIENT_PROFILE_REQUIRED — the account has no client profile */
             403: {
                 headers: {
                     [name: string]: unknown;

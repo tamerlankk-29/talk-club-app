@@ -1,6 +1,6 @@
 'use client';
 
-import { ChevronRight, Receipt, Sparkles } from 'lucide-react';
+import { ChevronRight, Gift, Receipt, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { ClientTopBar } from '@/components/client/client-shell';
 import { MembershipCard, NoMembershipCard } from '@/components/client/membership-card';
@@ -11,7 +11,7 @@ import { Card, Section } from '@/components/ui/layout';
 import { fmt } from '@/lib/format';
 import { useClub, useMyMembership, useMyPayments } from '@/lib/queries';
 import { useT } from '@/lib/i18n';
-import { membershipMessages } from '@/lib/i18n/messages/membership';
+import { membershipMessages, paymentMethodText } from '@/lib/i18n/messages/membership';
 
 export default function MembershipPage() {
   return (
@@ -51,7 +51,7 @@ function Membership() {
                 <div className="min-w-0 flex-1">
                   <p className="font-semibold text-ink">{p.plan?.name ?? p.description}</p>
                   <p className="text-warning-700">
-                    {fmt.money(p.amount)} · {p.method.name}
+                    {fmt.money(p.amount)} · {paymentMethodText(t.methods, p.method).name}
                   </p>
                 </div>
                 <ChevronRight className="h-5 w-5 text-warning-700" />
@@ -73,6 +73,9 @@ function Membership() {
 
       <Link href="/membership/buy" className={buttonClasses(data?.current ? 'secondary' : 'primary', 'lg', 'w-full')}>
         <Sparkles className="h-5 w-5" /> {data?.current ? t.buyAnother : t.choose}
+      </Link>
+      <Link href="/membership/redeem" className={buttonClasses('outline', 'lg', 'w-full -mt-3')}>
+        <Gift className="h-5 w-5" /> {t.haveGift}
       </Link>
 
       {data && data.past.length > 0 && (
@@ -102,7 +105,7 @@ function Membership() {
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-semibold">{p.plan?.name ?? p.description ?? t.payment}</p>
                     <p className="text-muted">
-                      {fmt.date(p.paidAt ?? p.createdAt)} · {p.method.name}
+                      {fmt.date(p.paidAt ?? p.createdAt)} · {paymentMethodText(t.methods, p.method).name}
                     </p>
                   </div>
                   <div className="text-right">

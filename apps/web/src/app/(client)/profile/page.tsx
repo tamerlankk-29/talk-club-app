@@ -24,6 +24,7 @@ import { useRouter } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { ClientTopBar } from '@/components/client/client-shell';
 import { RequireAuth } from '@/components/client/require-auth';
+import { StreakCard } from '@/components/client/streak-card';
 import { Avatar, Badge, Skeleton } from '@/components/ui/feedback';
 import { useAuth } from '@/lib/auth';
 import { fmt } from '@/lib/format';
@@ -77,6 +78,8 @@ function Profile() {
           </>
         )}
       </div>
+
+      <StreakCard />
 
       {profiles.length > 1 && (
         <section>

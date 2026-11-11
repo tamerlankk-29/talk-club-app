@@ -178,6 +178,31 @@ export class MembershipsService {
     return this.detailById(membership.id);
   }
 
+  /**
+   * Activates the membership a gift certificate stands for, starting today. The price
+   * was taken when the certificate was sold, so the membership carries none.
+   */
+  async activateFromGift(
+    tx: Tx,
+    input: { clientId: string; planId: string; visits: number; validityDays: number; code: string; actorUserId: string | null },
+  ): Promise<Membership> {
+    const plan = await tx.membershipPlan.findUniqueOrThrow({ where: { id: input.planId } });
+    const tz = await this.catalog.defaultTimezone();
+    const startsAt = this.clock.now();
+    return this.createMembership(tx, {
+      clientId: input.clientId,
+      plan,
+      startsAt,
+      expiresAt: computeMembershipExpiry(startsAt, input.validityDays, tz),
+      visits: input.visits,
+      price: 0,
+      paymentId: null,
+      txType: 'GRANT',
+      reason: `Gift certificate ${input.code}`,
+      actorUserId: input.actorUserId,
+    });
+  }
+
   private async createMembership(
     tx: Tx,
     input: {

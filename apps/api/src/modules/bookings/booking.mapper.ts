@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { assessCancellation, CancellationPolicy } from '../../domain/cancellation-policy';
+import { visibleOnlineUrl } from '../../domain/online-link';
 import { sessionInclude, SessionReadService, SessionViewContext } from '../sessions/session-read.service';
 import { BookingDto } from './dto/booking.dto';
 
@@ -51,7 +52,7 @@ export function toBookingDto(
     membershipId: row.membershipId,
     membershipName: row.membership?.planName ?? null,
     session,
-    onlineUrl: row.activeSlot ? row.session.onlineUrl : null,
+    ...(row.activeSlot ? visibleOnlineUrl(row.session, ctx.now) : { onlineUrl: null, onlineUrlOpensAt: null }),
     attendance: row.attendance
       ? { status: row.attendance.status, method: row.attendance.method, markedAt: row.attendance.markedAt }
       : null,

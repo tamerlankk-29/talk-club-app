@@ -41,7 +41,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   }
 }
 
-type LockableTable = 'clients' | 'sessions' | 'memberships' | 'payments' | 'waitlist_entries' | 'bookings' | 'trials';
+type LockableTable = 'clients' | 'sessions' | 'memberships' | 'payments' | 'waitlist_entries' | 'bookings' | 'trials' | 'gift_certificates';
 
 /**
  * SELECT … FOR UPDATE on the given ids, in a stable order to avoid deadlocks.

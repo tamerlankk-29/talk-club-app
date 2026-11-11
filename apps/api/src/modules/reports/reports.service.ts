@@ -213,7 +213,7 @@ export class ReportsService {
       to: range.to,
       series: points,
       byProduct: byPlan.map((p) => ({
-        label: p.productType === 'MEMBERSHIP' ? (plans.find((x) => x.id === p.membershipPlanId)?.name ?? 'Membership') : p.productType === 'TRIAL' ? 'Trial sessions' : 'Other',
+        label: p.productType === 'MEMBERSHIP' ? (plans.find((x) => x.id === p.membershipPlanId)?.name ?? 'Membership') : p.productType === 'TRIAL' ? 'Trial sessions' : p.productType === 'GIFT_CERTIFICATE' ? 'Gift certificates' : 'Other',
         productType: p.productType,
         amount: p._sum.amount ?? 0,
         count: p._count._all,

@@ -16,7 +16,7 @@ import { api, call } from '@/lib/api/client';
 import { fmt } from '@/lib/format';
 import { keys, useClub } from '@/lib/queries';
 import { messagesFor, useT } from '@/lib/i18n';
-import { membershipMessages } from '@/lib/i18n/messages/membership';
+import { membershipMessages, paymentMethodText } from '@/lib/i18n/messages/membership';
 
 export default function PaymentPage() {
   return (
@@ -53,6 +53,7 @@ function PaymentView() {
   const p = query.data;
   if (!p) return <Skeleton className="mt-16 h-72 w-full rounded-3xl" />;
 
+  const method = paymentMethodText(t.methods, { ...p.method, instructions: p.instructions });
   const checkoutPath = p.checkoutUrl ? new URL(p.checkoutUrl, typeof window === 'undefined' ? 'http://localhost' : window.location.origin) : null;
 
   return (
@@ -73,9 +74,9 @@ function PaymentView() {
 
       {p.status === 'PENDING' && (
         <>
-          {p.instructions && (
+          {method.text && (
             <InlineAlert tone="info" title={p.productType === 'TRIAL' ? t.howToPayTrial : t.howToPay}>
-              {p.instructions}
+              {method.text}
             </InlineAlert>
           )}
           {checkoutPath && (
@@ -122,7 +123,7 @@ function PaymentView() {
       <Card>
         <KeyValue
           items={[
-            { label: t.method, value: p.method.name },
+            { label: t.method, value: method.name },
             { label: t.created, value: fmt.dateTime(p.createdAt) },
             ...(p.paidAt ? [{ label: t.paid, value: fmt.dateTime(p.paidAt) }] : []),
             ...(p.reference ? [{ label: t.reference, value: p.reference }] : []),
