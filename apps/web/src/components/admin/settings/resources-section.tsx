@@ -16,6 +16,7 @@ import { useCan } from '@/lib/auth';
 import { CATEGORY_LABELS, WEEKDAYS, WEEKDAYS_SHORT } from '@/lib/utils';
 import { useT } from '@/lib/i18n';
 import { settingsMessages } from '@/lib/i18n/messages/admin/settings';
+import { membershipMessages, paymentMethodText } from '@/lib/i18n/messages/membership';
 
 type Location = S<'LocationDto'>;
 type Hours = Record<string, { open: string; close: string } | null>;
@@ -365,6 +366,7 @@ function CatalogDialog({ kind, item, onClose }: { kind: CatalogKind; item?: Cata
 
 export function PaymentMethodsSection() {
   const tr = useT(settingsMessages);
+  const mt = useT(membershipMessages);
   const { data: methods } = useAdminMethods();
   const [editing, setEditing] = useState<S<'PaymentMethodDto'> | 'new' | null>(null);
   return (
@@ -380,7 +382,7 @@ export function PaymentMethodsSection() {
       <Card padded={false} className="divide-y divide-line/70">
         {methods?.map((m) => (
           <div key={m.id} className="flex flex-wrap items-center gap-3 px-5 py-3 text-sm">
-            <span className="font-semibold">{m.name}</span>
+            <span className="font-semibold">{paymentMethodText(mt.methods, m).name}</span>
             <Badge>{m.provider}</Badge>
             {m.availableToClients && <Badge tone="brand">{tr.app}</Badge>}
             {!m.isActive && <Badge>{tr.inactive}</Badge>}

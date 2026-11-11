@@ -5,6 +5,8 @@ import { IsOptional, IsUUID } from 'class-validator';
 import type { AuthUser } from '../../common/auth/auth-user';
 import { CurrentUser, Public, RequirePermissions } from '../../common/auth/decorators';
 import { notFound } from '../../common/errors/domain-error';
+import { builtInText } from '../../common/i18n/built-in-texts';
+import { requestLocale } from '../../common/request-context';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { CatalogService } from './catalog.service';
@@ -69,7 +71,15 @@ export class PublicCatalogController {
   @ApiOperation({ summary: 'Club locations with address, map coordinates and working hours' })
   async locations(): Promise<LocationDto[]> {
     const rows = await this.prisma.location.findMany({ where: { isActive: true }, orderBy: { sortOrder: 'asc' } });
-    return rows.map(locationDto);
+    const locale = requestLocale();
+    return rows.map(locationDto).map((l) => ({
+      ...l,
+      name: builtInText(l.name, locale),
+      address: builtInText(l.address, locale),
+      addressDetails: builtInText(l.addressDetails, locale),
+      city: builtInText(l.city, locale),
+      directions: builtInText(l.directions, locale),
+    }));
   }
 
   @Get('levels')
@@ -88,8 +98,10 @@ export class PublicCatalogController {
 
   @Get('lead-sources')
   @ApiOperation({ summary: '"How did you hear about us?" options' })
-  leadSources(): Promise<LeadSourceDto[]> {
-    return this.prisma.leadSource.findMany({ where: { isActive: true }, orderBy: { sortOrder: 'asc' } });
+  async leadSources(): Promise<LeadSourceDto[]> {
+    const rows = await this.prisma.leadSource.findMany({ where: { isActive: true }, orderBy: { sortOrder: 'asc' } });
+    const locale = requestLocale();
+    return rows.map((s) => ({ ...s, name: builtInText(s.name, locale) }));
   }
 }
 

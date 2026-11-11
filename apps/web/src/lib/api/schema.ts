@@ -72,6 +72,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/settings/content/{locale}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Client-app texts as members reading in that language (en, ru, kk) see them */
+        get: operations["Settings_localizedContent"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/settings/{key}": {
         parameters: {
             query?: never;
@@ -3581,6 +3598,28 @@ export interface components {
         IntegrationsDto: {
             channels: components["schemas"]["ChannelStatusDto"][];
         };
+        HowItWorksStepDto: {
+            title: string;
+            text: string;
+        };
+        FaqItemDto: {
+            question: string;
+            answer: string;
+        };
+        ClubContentDto: {
+            /** @description Markdown */
+            about: string;
+            howItWorks: components["schemas"]["HowItWorksStepDto"][];
+            /** @description Markdown */
+            rules: string;
+            faq: components["schemas"]["FaqItemDto"][];
+            contactNote: string;
+        };
+        LocalizedContentDto: {
+            content: components["schemas"]["ClubContentDto"];
+            /** @description True when an administrator wrote these texts for this language; false for the built-in translation. */
+            customized: boolean;
+        };
         RequestOtpDto: {
             /**
              * @description Where to send the code. Defaults to SMS when it is available, otherwise Telegram.
@@ -7026,23 +7065,6 @@ export interface components {
             accentColor: string;
             logoUrl: string | null;
         };
-        HowItWorksStepDto: {
-            title: string;
-            text: string;
-        };
-        FaqItemDto: {
-            question: string;
-            answer: string;
-        };
-        ClubContentDto: {
-            /** @description Markdown */
-            about: string;
-            howItWorks: components["schemas"]["HowItWorksStepDto"][];
-            /** @description Markdown */
-            rules: string;
-            faq: components["schemas"]["FaqItemDto"][];
-            contactNote: string;
-        };
         PublicLocationDto: {
             workingHours: {
                 [key: string]: Record<string, never> | null;
@@ -7299,6 +7321,34 @@ export interface operations {
                             }[];
                             contactNote: string;
                         };
+                        contentTranslations: {
+                            ru: {
+                                about: string;
+                                howItWorks: {
+                                    title: string;
+                                    text: string;
+                                }[];
+                                rules: string;
+                                faq: {
+                                    question: string;
+                                    answer: string;
+                                }[];
+                                contactNote: string;
+                            } | null;
+                            kk: {
+                                about: string;
+                                howItWorks: {
+                                    title: string;
+                                    text: string;
+                                }[];
+                                rules: string;
+                                faq: {
+                                    question: string;
+                                    answer: string;
+                                }[];
+                                contactNote: string;
+                            } | null;
+                        };
                     };
                 };
             };
@@ -7333,6 +7383,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["IntegrationsDto"];
+                };
+            };
+            /** @description UNAUTHENTICATED — missing or expired access token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description FORBIDDEN — requires permission(s): settings.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    Settings_localizedContent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                locale: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LocalizedContentDto"];
                 };
             };
             /** @description UNAUTHENTICATED — missing or expired access token */

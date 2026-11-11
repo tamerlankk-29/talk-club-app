@@ -14,6 +14,7 @@ import { useCan } from '@/lib/auth';
 import { fmt } from '@/lib/format';
 import { useT } from '@/lib/i18n';
 import { moneyMessages } from '@/lib/i18n/messages/admin/money';
+import { membershipMessages, paymentMethodText } from '@/lib/i18n/messages/membership';
 
 type AdminPayment = S<'AdminPaymentDto'>;
 type ProductType = S<'ProductType'>;
@@ -47,6 +48,7 @@ export function PaymentRequestDrawer({
   clientName: string;
 }) {
   const tr = useT(moneyMessages);
+  const mt = useT(membershipMessages);
   const invalidate = useInvalidateMoney();
   const { data: plans } = useAdminPlans();
   const { data: methods } = useAdminMethods();
@@ -136,7 +138,7 @@ export function PaymentRequestDrawer({
           <Select id="pr-method" value={methodCode} onChange={(e) => setMethodCode(e.target.value)}>
             {manualMethods.map((m) => (
               <option key={m.code} value={m.code}>
-                {m.name}
+                {paymentMethodText(mt.methods, m).name}
               </option>
             ))}
           </Select>
@@ -162,6 +164,7 @@ export function PaymentRequestDrawer({
 /** Confirm a pending (e.g. Kaspi invoice) payment — activates the membership. */
 export function ConfirmPaymentDialog({ payment, open, onOpenChange }: { payment: Pick<AdminPayment, 'id' | 'amount' | 'description' | 'reference'>; open: boolean; onOpenChange: (open: boolean) => void }) {
   const tr = useT(moneyMessages);
+  const mt = useT(membershipMessages);
   const invalidate = useInvalidateMoney();
   const { data: methods } = useAdminMethods();
   const [reference, setReference] = useState(payment.reference ?? '');
@@ -204,7 +207,7 @@ export function ConfirmPaymentDialog({ payment, open, onOpenChange }: { payment:
               .filter((m) => m.isActive)
               .map((m) => (
                 <option key={m.code} value={m.code}>
-                  {m.name}
+                  {paymentMethodText(mt.methods, m).name}
                 </option>
               ))}
           </Select>

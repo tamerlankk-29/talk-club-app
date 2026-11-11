@@ -5,7 +5,7 @@ import { ClockService } from '../../common/clock/clock.service';
 import { DomainError } from '../../common/errors/domain-error';
 import { EventBus } from '../../common/events/event-bus.service';
 import { ClientRegisteredEvent, Events } from '../../common/events/events';
-import { RequestContext } from '../../common/request-context';
+import { RequestContext, requestLocale } from '../../common/request-context';
 import { normalizePhone } from '../../common/utils/phone';
 import { APP_CONFIG, AppConfig } from '../../config/app-config';
 import { PrismaService, Tx } from '../../prisma/prisma.service';
@@ -111,6 +111,8 @@ export class AuthService {
           displayName,
           phoneVerifiedAt: now,
           lastLoginAt: now,
+          // The language the person registered in, so the welcome message already arrives in it.
+          locale: requestLocale(),
           roles: { create: { roleId: clientRole.id } },
         },
       });

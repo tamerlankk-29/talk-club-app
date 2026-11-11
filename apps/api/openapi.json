@@ -650,6 +650,160 @@
                         "contactNote"
                       ],
                       "additionalProperties": false
+                    },
+                    "contentTranslations": {
+                      "type": "object",
+                      "properties": {
+                        "ru": {
+                          "type": "object",
+                          "properties": {
+                            "about": {
+                              "type": "string",
+                              "maxLength": 20000
+                            },
+                            "howItWorks": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "title": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 80
+                                  },
+                                  "text": {
+                                    "type": "string",
+                                    "maxLength": 400
+                                  }
+                                },
+                                "required": [
+                                  "title",
+                                  "text"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "maxItems": 10
+                            },
+                            "rules": {
+                              "type": "string",
+                              "maxLength": 20000
+                            },
+                            "faq": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "question": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 300
+                                  },
+                                  "answer": {
+                                    "type": "string",
+                                    "maxLength": 3000
+                                  }
+                                },
+                                "required": [
+                                  "question",
+                                  "answer"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "maxItems": 60
+                            },
+                            "contactNote": {
+                              "type": "string",
+                              "maxLength": 1000
+                            }
+                          },
+                          "required": [
+                            "about",
+                            "howItWorks",
+                            "rules",
+                            "faq",
+                            "contactNote"
+                          ],
+                          "additionalProperties": false,
+                          "nullable": true
+                        },
+                        "kk": {
+                          "type": "object",
+                          "properties": {
+                            "about": {
+                              "type": "string",
+                              "maxLength": 20000
+                            },
+                            "howItWorks": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "title": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 80
+                                  },
+                                  "text": {
+                                    "type": "string",
+                                    "maxLength": 400
+                                  }
+                                },
+                                "required": [
+                                  "title",
+                                  "text"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "maxItems": 10
+                            },
+                            "rules": {
+                              "type": "string",
+                              "maxLength": 20000
+                            },
+                            "faq": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "question": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 300
+                                  },
+                                  "answer": {
+                                    "type": "string",
+                                    "maxLength": 3000
+                                  }
+                                },
+                                "required": [
+                                  "question",
+                                  "answer"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "maxItems": 60
+                            },
+                            "contactNote": {
+                              "type": "string",
+                              "maxLength": 1000
+                            }
+                          },
+                          "required": [
+                            "about",
+                            "howItWorks",
+                            "rules",
+                            "faq",
+                            "contactNote"
+                          ],
+                          "additionalProperties": false,
+                          "nullable": true
+                        }
+                      },
+                      "required": [
+                        "ru",
+                        "kk"
+                      ],
+                      "additionalProperties": false
                     }
                   },
                   "required": [
@@ -666,7 +820,8 @@
                     "crm",
                     "referrals",
                     "branding",
-                    "content"
+                    "content",
+                    "contentTranslations"
                   ],
                   "additionalProperties": false
                 }
@@ -719,6 +874,48 @@
           }
         ],
         "summary": "Configured messaging providers per channel (secrets are never returned)",
+        "tags": [
+          "Admin · Settings"
+        ]
+      }
+    },
+    "/api/admin/settings/content/{locale}": {
+      "get": {
+        "operationId": "Settings_localizedContent",
+        "parameters": [
+          {
+            "name": "locale",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LocalizedContentDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED — missing or expired access token"
+          },
+          "403": {
+            "description": "FORBIDDEN — requires permission(s): settings.manage"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Client-app texts as members reading in that language (en, ru, kk) see them",
         "tags": [
           "Admin · Settings"
         ]
@@ -12564,6 +12761,87 @@
         },
         "required": [
           "channels"
+        ]
+      },
+      "HowItWorksStepDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "text"
+        ]
+      },
+      "FaqItemDto": {
+        "type": "object",
+        "properties": {
+          "question": {
+            "type": "string"
+          },
+          "answer": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "question",
+          "answer"
+        ]
+      },
+      "ClubContentDto": {
+        "type": "object",
+        "properties": {
+          "about": {
+            "type": "string",
+            "description": "Markdown"
+          },
+          "howItWorks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HowItWorksStepDto"
+            }
+          },
+          "rules": {
+            "type": "string",
+            "description": "Markdown"
+          },
+          "faq": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FaqItemDto"
+            }
+          },
+          "contactNote": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "about",
+          "howItWorks",
+          "rules",
+          "faq",
+          "contactNote"
+        ]
+      },
+      "LocalizedContentDto": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "$ref": "#/components/schemas/ClubContentDto"
+          },
+          "customized": {
+            "type": "boolean",
+            "description": "True when an administrator wrote these texts for this language; false for the built-in translation."
+          }
+        },
+        "required": [
+          "content",
+          "customized"
         ]
       },
       "RequestOtpDto": {
@@ -25949,71 +26227,6 @@
           "primaryColor",
           "accentColor",
           "logoUrl"
-        ]
-      },
-      "HowItWorksStepDto": {
-        "type": "object",
-        "properties": {
-          "title": {
-            "type": "string"
-          },
-          "text": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "title",
-          "text"
-        ]
-      },
-      "FaqItemDto": {
-        "type": "object",
-        "properties": {
-          "question": {
-            "type": "string"
-          },
-          "answer": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "question",
-          "answer"
-        ]
-      },
-      "ClubContentDto": {
-        "type": "object",
-        "properties": {
-          "about": {
-            "type": "string",
-            "description": "Markdown"
-          },
-          "howItWorks": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/HowItWorksStepDto"
-            }
-          },
-          "rules": {
-            "type": "string",
-            "description": "Markdown"
-          },
-          "faq": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/FaqItemDto"
-            }
-          },
-          "contactNote": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "about",
-          "howItWorks",
-          "rules",
-          "faq",
-          "contactNote"
         ]
       },
       "PublicLocationDto": {

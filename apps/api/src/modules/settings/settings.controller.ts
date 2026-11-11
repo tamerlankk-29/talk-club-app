@@ -5,8 +5,9 @@ import { z } from 'zod';
 import type { AuthUser } from '../../common/auth/auth-user';
 import { CurrentUser, RequirePermissions } from '../../common/auth/decorators';
 import { DomainError } from '../../common/errors/domain-error';
+import { isLocale } from '../../common/utils/locale';
 import { ChannelRegistry } from '../messaging/channel-registry';
-import { IntegrationsDto } from './dto/settings.dto';
+import { IntegrationsDto, LocalizedContentDto } from './dto/settings.dto';
 import { AllSettings, SETTINGS_KEYS, SETTINGS_SCHEMAS, SettingsKey } from './settings.schema';
 import { SettingsService } from './settings.service';
 
@@ -40,6 +41,14 @@ export class SettingsController {
   @ApiOperation({ summary: 'Configured messaging providers per channel (secrets are never returned)' })
   integrations(): IntegrationsDto {
     return { channels: this.channels.describe() };
+  }
+
+  @Get('content/:locale')
+  @RequirePermissions('settings.manage')
+  @ApiOperation({ summary: 'Client-app texts as members reading in that language (en, ru, kk) see them' })
+  async localizedContent(@Param('locale') locale: string): Promise<LocalizedContentDto> {
+    if (!isLocale(locale)) throw new DomainError('NOT_FOUND', { message: 'Unknown language.' });
+    return this.settings.localizedContent(locale);
   }
 
   @Patch(':key')

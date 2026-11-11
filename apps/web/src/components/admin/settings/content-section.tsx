@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge, InlineAlert, Skeleton } from '@/components/ui/feedback';
 import { Field, Input, Select, Textarea } from '@/components/ui/inputs';
-import { Card, Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/layout';
+import { Card, SegmentedControl, Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/layout';
 import { Markdown } from '@/components/ui/markdown';
 import { Modal } from '@/components/ui/overlay';
 import { toast } from '@/components/ui/toast';
@@ -15,7 +15,7 @@ import type { S } from '@/lib/api/types';
 import { adminKeys } from '@/lib/admin-queries';
 import { fmt } from '@/lib/format';
 import type { SettingsGroups } from './settings-form';
-import { useT } from '@/lib/i18n';
+import { LOCALE_NAMES, LOCALES, useT, type Locale } from '@/lib/i18n';
 import { settingsMessages } from '@/lib/i18n/messages/admin/settings';
 
 interface Content {
@@ -34,10 +34,83 @@ function move<T>(list: T[], from: number, to: number): T[] {
   return next;
 }
 
-/** Texts shown in the client app: About, How it works, Rules, FAQ, contact note (Markdown where noted). */
+const contentKey = (locale: Locale) => ['admin', 'settings', 'content', locale] as const;
+
+/**
+ * Texts shown in the client app: About, How it works, Rules, FAQ, contact note (Markdown where noted).
+ * English is the main version; Russian and Kazakh show the standard translation until they get their own texts.
+ */
 export function ContentSection({ value }: { value: Content }) {
   const tr = useT(settingsMessages);
+  const [language, setLanguage] = useState<Locale>('en');
+  return (
+    <Card className="space-y-5">
+      <div className="space-y-2">
+        <SegmentedControl value={language} onChange={setLanguage} options={LOCALES.map((l) => ({ value: l, label: LOCALE_NAMES[l] }))} />
+        {language === 'en' && <p className="text-sm text-muted">{tr.contentMainHint}</p>}
+      </div>
+      {language === 'en' ? <MainContent value={value} /> : <TranslatedContent key={language} locale={language} />}
+    </Card>
+  );
+}
+
+function MainContent({ value }: { value: Content }) {
+  const tr = useT(settingsMessages);
   const qc = useQueryClient();
+  const save = useMutation({
+    mutationFn: (draft: Content) => call(api.PATCH('/api/admin/settings/{key}', { params: { path: { key: 'content' } }, body: draft as unknown as Record<string, never> })),
+    onSuccess: async (saved) => {
+      qc.setQueryData<SettingsGroups>(adminKeys.settings, (all) => (all ? { ...all, content: saved as Record<string, unknown> } : all));
+      await Promise.all([qc.invalidateQueries({ queryKey: ['public', 'club'] }), qc.invalidateQueries({ queryKey: ['admin', 'settings', 'content'] })]);
+      toast.success(tr.contentSavedClientsSee);
+    },
+  });
+  return <ContentEditor value={value} saving={save.isPending} error={save.error} onSave={(draft) => save.mutate(draft)} />;
+}
+
+/** Russian or Kazakh: the standard translation until the first save, then this language's own texts. */
+function TranslatedContent({ locale }: { locale: Exclude<Locale, 'en'> }) {
+  const tr = useT(settingsMessages);
+  const qc = useQueryClient();
+  const { data } = useQuery({
+    queryKey: contentKey(locale),
+    queryFn: () => call(api.GET('/api/admin/settings/content/{locale}', { params: { path: { locale } } })),
+  });
+  const write = (texts: Content | null) =>
+    call(api.PATCH('/api/admin/settings/{key}', { params: { path: { key: 'contentTranslations' } }, body: { [locale]: texts } as unknown as Record<string, never> }));
+  const refresh = () => Promise.all([qc.invalidateQueries({ queryKey: contentKey(locale) }), qc.invalidateQueries({ queryKey: ['public', 'club'] }), qc.invalidateQueries({ queryKey: adminKeys.settings })]);
+  const save = useMutation({
+    mutationFn: (draft: Content) => write(draft),
+    onSuccess: async () => {
+      await refresh();
+      toast.success(tr.contentSavedClientsSee);
+    },
+  });
+  const reset = useMutation({
+    mutationFn: () => write(null),
+    onSuccess: async () => {
+      await refresh();
+      toast.success(tr.contentResetDone);
+    },
+  });
+  if (!data) return <Skeleton className="h-64 w-full" />;
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="max-w-2xl text-sm text-muted">{data.customized ? tr.contentCustomHint : tr.contentBuiltInHint}</p>
+        {data.customized && (
+          <Button size="sm" variant="outline" loading={reset.isPending} onClick={() => reset.mutate()}>
+            {tr.resetToStandard}
+          </Button>
+        )}
+      </div>
+      <ContentEditor value={data.content} saving={save.isPending} error={save.error ?? reset.error} onSave={(draft) => save.mutate(draft)} />
+    </div>
+  );
+}
+
+function ContentEditor({ value, saving, error, onSave }: { value: Content; saving: boolean; error: unknown; onSave: (draft: Content) => void }) {
+  const tr = useT(settingsMessages);
   const [draft, setDraft] = useState<Content>(value);
   const [base, setBase] = useState(value);
   if (base !== value) {
@@ -45,17 +118,9 @@ export function ContentSection({ value }: { value: Content }) {
     setDraft(value);
   }
   const dirty = JSON.stringify(draft) !== JSON.stringify(value);
-  const save = useMutation({
-    mutationFn: () => call(api.PATCH('/api/admin/settings/{key}', { params: { path: { key: 'content' } }, body: draft as unknown as Record<string, never> })),
-    onSuccess: async (saved) => {
-      qc.setQueryData<SettingsGroups>(adminKeys.settings, (all) => (all ? { ...all, content: saved as Record<string, unknown> } : all));
-      await qc.invalidateQueries({ queryKey: ['public', 'club'] });
-      toast.success(tr.contentSavedClientsSee);
-    },
-  });
 
   return (
-    <Card className="space-y-5">
+    <div className="space-y-5">
       <Tabs defaultValue="about">
         <TabsList className="max-w-xl">
           <TabsTrigger value="about">{tr.about}</TabsTrigger>
@@ -105,18 +170,18 @@ export function ContentSection({ value }: { value: Content }) {
           </Field>
         </TabsContent>
       </Tabs>
-      {save.error && <InlineAlert tone="danger">{errorMessage(save.error)}</InlineAlert>}
+      {error ? <InlineAlert tone="danger">{errorMessage(error)}</InlineAlert> : null}
       <div className="flex justify-end gap-2">
         {dirty && (
           <Button variant="ghost" onClick={() => setDraft(value)}>
             {tr.discard}
           </Button>
         )}
-        <Button loading={save.isPending} disabled={!dirty} onClick={() => save.mutate()}>
+        <Button loading={saving} disabled={!dirty} onClick={() => onSave(draft)}>
           {tr.saveContent}
         </Button>
       </div>
-    </Card>
+    </div>
   );
 }
 

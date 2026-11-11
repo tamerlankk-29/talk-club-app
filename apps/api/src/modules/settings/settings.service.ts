@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { DomainError } from '../../common/errors/domain-error';
+import { builtInText } from '../../common/i18n/built-in-texts';
+import type { Locale } from '../../common/utils/locale';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import type { AuthUser } from '../../common/auth/auth-user';
@@ -56,6 +58,29 @@ export class SettingsService {
       AllSettings,
       'club' | 'branding' | 'content'
     >;
+  }
+
+  /**
+   * Client-app texts (About, How it works, Rules, FAQ, contact note) in one language:
+   * the version written for that language when there is one, otherwise the main texts
+   * with the built-in translation of every starting text that was not edited.
+   */
+  async localizedContent(locale: Locale): Promise<{ content: SettingsValue<'content'>; customized: boolean }> {
+    const all = await this.getAll();
+    const own = locale === 'en' ? null : all.contentTranslations[locale];
+    if (own) return { content: own, customized: true };
+    const tr = (text: string) => builtInText(text, locale);
+    const base = all.content;
+    return {
+      customized: false,
+      content: {
+        about: tr(base.about),
+        rules: tr(base.rules),
+        contactNote: tr(base.contactNote),
+        howItWorks: base.howItWorks.map((s) => ({ title: tr(s.title), text: tr(s.text) })),
+        faq: base.faq.map((f) => ({ question: tr(f.question), answer: tr(f.answer) })),
+      },
+    };
   }
 
   async update<K extends SettingsKey>(key: K, patch: unknown, actor: AuthUser | null): Promise<SettingsValue<K>> {

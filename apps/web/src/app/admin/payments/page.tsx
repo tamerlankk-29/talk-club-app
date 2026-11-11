@@ -21,12 +21,14 @@ import { useCan } from '@/lib/auth';
 import { CLUB_TZ, fmt } from '@/lib/format';
 import { useT } from '@/lib/i18n';
 import { moneyMessages } from '@/lib/i18n/messages/admin/money';
+import { membershipMessages, paymentMethodText } from '@/lib/i18n/messages/membership';
 
 type Payment = S<'AdminPaymentDto'>;
 const PAGE_SIZE = 50;
 
 function Payments() {
   const tr = useT(moneyMessages);
+  const mt = useT(membershipMessages);
   const url = useUrlState();
   const canManage = useCan('payments.manage');
   const canExportData = useCan('data.export');
@@ -71,7 +73,7 @@ function Payments() {
       ),
     },
     { key: 'amount', header: tr.amount2, cell: (p) => <span className="font-display font-semibold">{fmt.money(p.amount)}</span> },
-    { key: 'method', header: tr.method, hideOnMobile: true, cell: (p) => <span className="text-sm">{p.method.name}{p.reference ? <span className="block text-xs text-muted">#{p.reference}</span> : null}</span> },
+    { key: 'method', header: tr.method, hideOnMobile: true, cell: (p) => <span className="text-sm">{paymentMethodText(mt.methods, p.method).name}{p.reference ? <span className="block text-xs text-muted">#{p.reference}</span> : null}</span> },
     { key: 'status', header: tr.status, cell: (p) => <StatusBadge status={p.status} /> },
     { key: 'date', header: tr.date, hideOnMobile: true, cell: (p) => <span className="text-sm text-muted">{fmt.dateTime(p.paidAt ?? p.createdAt)}</span> },
   ];
@@ -129,7 +131,7 @@ function Payments() {
           <option value="">{tr.allMethods}</option>
           {methods?.map((m) => (
             <option key={m.code} value={m.code}>
-              {m.name}
+              {paymentMethodText(mt.methods, m).name}
             </option>
           ))}
         </FilterSelect>
@@ -171,6 +173,7 @@ function Payments() {
 
 function PaymentDrawer({ id, onClose }: { id: string | null; onClose: () => void }) {
   const tr = useT(moneyMessages);
+  const mt = useT(membershipMessages);
   const canManage = useCan('payments.manage');
   const canRefund = useCan('payments.refund');
   const [dialog, setDialog] = useState<'confirm' | 'cancel' | 'refund' | null>(null);
@@ -201,7 +204,7 @@ function PaymentDrawer({ id, onClose }: { id: string | null; onClose: () => void
                   </Link>
                 ),
               },
-              { label: tr.method, value: p.method.name },
+              { label: tr.method, value: paymentMethodText(mt.methods, p.method).name },
               ...(p.plan ? [{ label: tr.plan, value: tr.planDetails(p.plan.name, p.plan.visits, p.plan.validityDays) }] : []),
               { label: tr.reference, value: p.reference ?? '—' },
               { label: tr.created, value: `${fmt.dateTime(p.createdAt)}${p.createdBy ? ` · ${p.createdBy.name}` : ' · by client'}` },

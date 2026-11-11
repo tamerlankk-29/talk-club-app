@@ -104,7 +104,7 @@ export const membershipMessages = defineMessages({
     // Payment methods, keyed by code (fall back to the server text for custom ones)
     methods: {
       CASH: { name: 'Pay at the club desk', text: 'Pay by cash or card at the Talk Club reception. The administrator activates your membership right away.' },
-      CARD: { name: 'Card at the desk', text: null },
+      CARD: { name: 'Card (terminal at the desk)', text: null },
       KASPI: { name: 'Kaspi invoice', text: 'We will send a Kaspi invoice to your phone number during working hours. Your membership activates as soon as the invoice is paid.' },
       BANK_TRANSFER: { name: 'Bank transfer', text: null },
       ONLINE: { name: 'Online card payment', text: 'Pay securely by card. Your membership activates instantly.' },
