@@ -1,6 +1,8 @@
 import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { AuthUser } from '../../common/auth/auth-user';
+import { builtInText } from '../../common/i18n/built-in-texts';
+import { requestLocale } from '../../common/request-context';
 import {
   ActingClient,
   ActingClientRef,
@@ -45,7 +47,9 @@ export class MembershipsController {
     const client = viewerClientId
       ? await this.prisma.client.findUnique({ where: { id: viewerClientId }, select: { category: true } })
       : null;
-    return this.plans.listPurchasable(client?.category);
+    const locale = requestLocale();
+    const plans = await this.plans.listPurchasable(client?.category);
+    return plans.map((p) => ({ ...p, description: builtInText(p.description, locale) }));
   }
 
   @ClientArea()

@@ -2,6 +2,7 @@ import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { randomBytes } from 'node:crypto';
 import type { AuthUser } from '../../common/auth/auth-user';
 import { DomainError, notFound } from '../../common/errors/domain-error';
+import { requestLocale } from '../../common/request-context';
 import { normalizePhone } from '../../common/utils/phone';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
@@ -162,6 +163,8 @@ export class RbacService implements OnApplicationBootstrap {
         phone,
         displayName: dto.displayName,
         passwordHash: await hashPassword(dto.password ?? temporaryPassword!),
+        // New colleagues start in the language of the administrator who added them.
+        locale: requestLocale(),
         roles: { create: roles.map((r) => ({ roleId: r.id })) },
       },
       include: { roles: { include: { role: true } }, teacher: { select: { id: true } } },

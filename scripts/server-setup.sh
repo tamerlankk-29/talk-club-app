@@ -5,8 +5,9 @@
 #   cd /opt/talkclub && sudo bash scripts/server-setup.sh
 #
 # It installs Docker and a firewall, asks for the secrets (typed here on the server, never
-# sent anywhere else), writes .env with permissions 600 and starts everything with HTTPS.
-# Safe to run again: an existing .env is kept and only missing values are asked for.
+# sent anywhere else), writes .env with permissions 600, starts everything with HTTPS and
+# creates the owner account. Safe to run again: an existing .env is kept, only missing
+# values are asked for and an existing owner account is left alone.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -108,9 +109,31 @@ fi
 
 step "Building and starting Talk Club (the first build takes 5–10 minutes)"
 mkdir -p backups
+chmod 700 backups
 set_env APP_VERSION "$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
 docker compose up -d --build
 docker image prune -f >/dev/null
+
+step "Owner account"
+if docker compose exec -T api node dist/scripts/create-admin.js --check </dev/null >/dev/null 2>&1; then
+  echo "  ✓ An owner account already exists (add colleagues in Admin → Staff & roles)"
+else
+  echo "  The owner signs in with this e-mail and password, then sets up a second step (authenticator app)."
+  owner_email=""
+  while ! printf '%s' "$owner_email" | grep -qE '^[^@ ]+@[^@ ]+\.[^@ ]+$'; do read -r -p "  Owner e-mail: " owner_email; done
+  owner_name=""
+  while [ -z "$owner_name" ]; do read -r -p "  Owner name (shown in the admin panel): " owner_name; done
+  while true; do
+    read -r -s -p "  Owner password (at least 12 characters, hidden): " owner_password; echo
+    if [ "${#owner_password}" -lt 12 ]; then echo "    Too short."; continue; fi
+    read -r -s -p "  Repeat the password: " owner_password2; echo
+    [ "$owner_password" = "$owner_password2" ] && break
+    echo "    The passwords differ, try again."
+  done
+  ADMIN_PASSWORD="$owner_password" docker compose exec -T -e ADMIN_PASSWORD api \
+    node dist/scripts/create-admin.js --email "$owner_email" --name "$owner_name" </dev/null | sed 's/^/  /'
+  unset owner_password owner_password2
+fi
 
 step "Done"
 docker compose ps --format 'table {{.Service}}\t{{.Status}}'

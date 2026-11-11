@@ -8,8 +8,9 @@ import { serverMessages } from '@/lib/i18n/server';
 import './globals.css';
 import { Providers } from './providers';
 
-const body = Manrope({ subsets: ['latin', 'cyrillic'], variable: '--font-body', display: 'swap' });
-const heading = Unbounded({ subsets: ['latin', 'cyrillic'], variable: '--font-heading', display: 'swap', weight: ['500', '600', '700'] });
+// cyrillic-ext carries the Kazakh letters (ә ғ қ ң ө ү һ і); without it they fall back to another font.
+const body = Manrope({ subsets: ['latin', 'cyrillic', 'cyrillic-ext'], variable: '--font-body', display: 'swap' });
+const heading = Unbounded({ subsets: ['latin', 'cyrillic', 'cyrillic-ext'], variable: '--font-heading', display: 'swap', weight: ['500', '600', '700'] });
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await serverMessages(metaMessages);

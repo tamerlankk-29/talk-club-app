@@ -15,6 +15,8 @@ import { syncRbac } from '../modules/rbac/rbac.sync';
  * The password comes from ADMIN_PASSWORD, or a temporary one is generated and
  * printed once. Refuses to run when a super admin already exists (unless --force),
  * so it can't be used to take over a live installation.
+ *
+ *   node dist/scripts/create-admin.js --check     exits 0 when a super admin exists, 3 when not
  */
 function arg(name: string): string | undefined {
   const index = process.argv.indexOf(`--${name}`);
@@ -26,6 +28,16 @@ async function main(): Promise<void> {
   const displayName = arg('name')?.trim();
   const phoneRaw = arg('phone');
   const force = process.argv.includes('--force');
+  if (process.argv.includes('--check')) {
+    const prisma = new PrismaClient();
+    try {
+      const admins = await prisma.userRole.count({ where: { role: { key: ROLE_KEYS.SUPER_ADMIN }, user: { status: 'ACTIVE' } } });
+      process.exitCode = admins > 0 ? 0 : 3;
+    } finally {
+      await prisma.$disconnect();
+    }
+    return;
+  }
   if (!email || !email.includes('@') || !displayName) {
     console.error('Usage: create-admin --email <email> --name "<display name>" [--phone <phone>] [--force]');
     process.exit(2);

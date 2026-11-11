@@ -3,6 +3,14 @@ import { z } from 'zod';
 const clock = z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, 'Use HH:mm');
 const hexColor = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Use a hex colour like #6D28D9');
 
+const contentSchema = z.object({
+  about: z.string().max(20_000),
+  howItWorks: z.array(z.object({ title: z.string().min(1).max(80), text: z.string().max(400) })).max(10),
+  rules: z.string().max(20_000),
+  faq: z.array(z.object({ question: z.string().min(1).max(300), answer: z.string().max(3000) })).max(60),
+  contactNote: z.string().max(1000),
+});
+
 /**
  * Every admin-editable business rule and content block. Defaults encode the
  * current Talk Club policy; admins change them in Settings without code changes.
@@ -101,12 +109,15 @@ export const SETTINGS_SCHEMAS = {
     accentColor: hexColor,
     logoUrl: z.string().max(500).nullable(),
   }),
-  content: z.object({
-    about: z.string().max(20_000),
-    howItWorks: z.array(z.object({ title: z.string().min(1).max(80), text: z.string().max(400) })).max(10),
-    rules: z.string().max(20_000),
-    faq: z.array(z.object({ question: z.string().min(1).max(300), answer: z.string().max(3000) })).max(60),
-    contactNote: z.string().max(1000),
+  content: contentSchema,
+  /**
+   * The same texts written separately for Russian and Kazakh. While a language is
+   * null, members reading in it get the built-in translation of the starting texts
+   * (see common/i18n/built-in-texts.ts) and anything edited in `content` as written.
+   */
+  contentTranslations: z.object({
+    ru: contentSchema.nullable(),
+    kk: contentSchema.nullable(),
   }),
 } as const;
 
@@ -278,4 +289,5 @@ export const DEFAULT_SETTINGS: AllSettings = {
     ],
     contactNote: 'Write to us on WhatsApp or Instagram — we usually reply within an hour during working hours.',
   },
+  contentTranslations: { ru: null, kk: null },
 };

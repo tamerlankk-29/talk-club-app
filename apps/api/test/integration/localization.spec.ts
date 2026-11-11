@@ -1,3 +1,4 @@
+import { hasBuiltInText } from '../../src/common/i18n/built-in-texts';
 import { TRANSLATED_ERROR_MESSAGES } from '../../src/common/i18n/error-messages';
 import { ERROR_CATALOG } from '../../src/common/errors/error-codes';
 import { templatePlaceholders } from '../../src/common/utils/template';
@@ -5,6 +6,7 @@ import { DEFAULT_TEMPLATES } from '../../src/modules/notifications/default-templ
 import { NotificationVarsService } from '../../src/modules/notifications/notification-vars.service';
 import { NotificationsService } from '../../src/modules/notifications/notifications.service';
 import { TEMPLATE_TRANSLATIONS } from '../../src/modules/notifications/template-translations';
+import { DEFAULT_SETTINGS } from '../../src/modules/settings/settings.schema';
 import { Factory } from '../helpers/factory';
 import { createTestApp, TestApp } from '../helpers/test-app';
 
@@ -108,5 +110,80 @@ describe('Localization', () => {
     notifications.invalidateTemplates();
     const [id] = await notifications.notifyClient(c.clientId, { templateKey: 'membership.expired' });
     expect((await t.prisma.notification.findUniqueOrThrow({ where: { id } })).title).toBe('Time to renew!');
+  });
+
+  it('has Russian and Kazakh for every text the club starts with', async () => {
+    const c = DEFAULT_SETTINGS.content;
+    const location = await t.prisma.location.findFirstOrThrow();
+    const plans = await t.prisma.membershipPlan.findMany();
+    const sources = await t.prisma.leadSource.findMany({ where: { code: { notIn: ['INSTAGRAM', 'TIKTOK', 'WHATSAPP'] } } });
+    const texts = [
+      c.about,
+      c.rules,
+      c.contactNote,
+      ...c.howItWorks.flatMap((s) => [s.title, s.text]),
+      ...c.faq.flatMap((q) => [q.question, q.answer]),
+      location.name,
+      location.address,
+      location.addressDetails!,
+      location.city,
+      location.directions!,
+      ...plans.map((p) => p.description!),
+      ...sources.map((s) => s.name),
+    ];
+    expect(texts.filter((x) => !hasBuiltInText(x))).toEqual([]);
+  });
+
+  it('shows the club pages in the reader’s language and keeps edited texts as written', async () => {
+    const club = (lang: string) => t.http().get('/api/public/club').set('Accept-Language', lang).expect(200);
+    const ru = (await club('ru')).body;
+    expect(ru.content.howItWorks[0].title).toBe('Выберите уровень');
+    expect(ru.content.faq[4].answer).toContain('на ресепшене клуба');
+    expect(ru.content.about).toContain('разговорный клуб английского');
+    expect(ru.location.address).toBe('ул. Желтоксан, 118');
+    expect(ru.plans.find((p: { code: string }) => p.code === 'STANDARD').description).toContain('Два раза в неделю');
+    expect((await club('kk')).body.content.howItWorks[0].title).toBe('Деңгейіңізді таңдаңыз');
+    expect((await club('en')).body.content.howItWorks[0].title).toBe('Choose your level');
+
+    const sources = await t.http().get('/api/public/lead-sources').set('Accept-Language', 'ru').expect(200);
+    expect(sources.body.map((s: { name: string }) => s.name)).toContain('Рекомендация друга');
+    const plans = await t.http().get('/api/membership-plans').set('Accept-Language', 'ru').expect(200);
+    expect(plans.body[0].description).toContain('Раз в неделю');
+
+    // An edit to the main text is shown as written in every language…
+    await t.http().patch('/api/admin/settings/content').set(f.admin.auth()).send({ contactNote: 'Call us any time.' }).expect(200);
+    expect((await club('ru')).body.content.contactNote).toBe('Call us any time.');
+    // …until that language gets its own version.
+    const draft = (await t.http().get('/api/admin/settings/content/ru').set(f.admin.auth()).expect(200)).body;
+    expect(draft.customized).toBe(false);
+    await t
+      .http()
+      .patch('/api/admin/settings/contentTranslations')
+      .set(f.admin.auth())
+      .send({ ru: { ...draft.content, contactNote: 'Звоните в любое время.' } })
+      .expect(200);
+    expect((await club('ru')).body.content.contactNote).toBe('Звоните в любое время.');
+    expect((await club('kk')).body.content.contactNote).toBe('Call us any time.');
+    expect((await t.http().get('/api/admin/settings/content/ru').set(f.admin.auth()).expect(200)).body.customized).toBe(true);
+    // Removing the version brings back the main text.
+    await t.http().patch('/api/admin/settings/contentTranslations').set(f.admin.auth()).send({ ru: null }).expect(200);
+    expect((await club('ru')).body.content.contactNote).toBe('Call us any time.');
+  });
+
+  it('greets a new member in the language they registered in', async () => {
+    const phone = '+7 707 555 66 77';
+    const ru = { 'Accept-Language': 'ru' };
+    const sent = await t.http().post('/api/auth/otp/request').set(ru).send({ phone }).expect(200);
+    const verified = await t.http().post('/api/auth/otp/verify').set(ru).send({ phone, code: sent.body.devCode }).expect(200);
+    const res = await t
+      .http()
+      .post('/api/auth/register')
+      .set(ru)
+      .send({ registrationToken: verified.body.registrationToken, firstName: 'Айгерим', marketingConsent: false, acceptTerms: true })
+      .expect(201);
+    expect(res.body.user.locale).toBe('ru');
+    const welcome = await t.prisma.notification.findFirstOrThrow({ where: { userId: res.body.user.id }, orderBy: { createdAt: 'asc' } });
+    expect(welcome.title).toMatch(/Айгерим/);
+    expect(welcome.title).toMatch(/[а-яё]{4,}/i);
   });
 });

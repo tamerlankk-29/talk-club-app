@@ -141,7 +141,7 @@ export class TeachersService {
         user = await tx.user.update({ where: { id: user.id }, data: { passwordHash } });
       } else {
         user = await tx.user.create({
-          data: { email, passwordHash, displayName: fullName(teacher.firstName, teacher.lastName) },
+          data: { email, passwordHash, displayName: fullName(teacher.firstName, teacher.lastName), locale: requestLocale() },
         });
       }
       await tx.userRole.upsert({

@@ -1,6 +1,8 @@
 import { Controller, Get, Module } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Public } from '../../common/auth/decorators';
+import { builtInText } from '../../common/i18n/built-in-texts';
+import { requestLocale } from '../../common/request-context';
 import { PrismaService } from '../../prisma/prisma.service';
 import { SettingsService } from '../settings/settings.service';
 import { PublicClubDto } from './public.dto';
@@ -18,7 +20,10 @@ export class PublicClubController {
   @Get()
   @ApiOperation({ summary: 'Club profile, branding, content pages, location & hours and the key rules' })
   async club(): Promise<PublicClubDto> {
+    const locale = requestLocale();
+    const tr = <T extends string | null>(text: T) => builtInText(text, locale);
     const all = await this.settings.getAll();
+    const { content } = await this.settings.localizedContent(locale);
     const [location, plans] = await Promise.all([
       this.prisma.location.findFirst({ where: { isActive: true }, orderBy: { sortOrder: 'asc' } }),
       this.prisma.membershipPlan.findMany({ where: { isActive: true, isPublic: true }, orderBy: [{ sortOrder: 'asc' }, { price: 'asc' }] }),
@@ -26,21 +31,21 @@ export class PublicClubController {
     return {
       club: all.club,
       branding: all.branding,
-      content: all.content,
+      content,
       location: location
         ? {
             id: location.id,
-            name: location.name,
-            address: location.address,
-            addressDetails: location.addressDetails,
-            city: location.city,
+            name: tr(location.name),
+            address: tr(location.address),
+            addressDetails: tr(location.addressDetails),
+            city: tr(location.city),
             country: location.country,
             timezone: location.timezone,
             latitude: location.latitude,
             longitude: location.longitude,
             phone: location.phone,
             email: location.email,
-            directions: location.directions,
+            directions: tr(location.directions),
             workingHours: location.workingHours,
           }
         : null,
@@ -57,7 +62,7 @@ export class PublicClubController {
         referralsEnabled: all.referrals.enabled,
         referralReward: all.referrals.rewardDescription,
       },
-      plans: plans.map((p) => ({ id: p.id, code: p.code, name: p.name, visits: p.visits, price: p.price, validityDays: p.validityDays, isFeatured: p.isFeatured, description: p.description })),
+      plans: plans.map((p) => ({ id: p.id, code: p.code, name: p.name, visits: p.visits, price: p.price, validityDays: p.validityDays, isFeatured: p.isFeatured, description: tr(p.description) })),
     };
   }
 }

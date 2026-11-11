@@ -117,7 +117,9 @@ problem (missing secret, dev-only flags enabled, …).
    Talk Club program, the Zheltoksan 118 location with offices 314–316, levels, group types,
    membership plans, payment methods, lead sources, notification templates, default
    automations, legal document templates and the built-in roles.
-2. Create the owner account (one-off, refuses to run if a super admin already exists):
+2. Create the owner account (one-off, refuses to run if a super admin already exists).
+   `scripts/server-setup.sh` asks for the owner's e-mail, name and password and does this for you;
+   by hand it is:
 
    ```bash
    docker compose exec -e ADMIN_PASSWORD='a-strong-password' api \
@@ -129,8 +131,14 @@ problem (missing secret, dev-only flags enabled, …).
    from Admin → Staff & roles. On the first sign-in the owner sets up an authenticator app and
    saves the recovery codes (two-factor sign-in is required for owners and admins).
 3. Replace the legal templates (Admin → Settings → Legal documents) with lawyer-approved texts.
-4. Fill in the club profile, opening hours, map coordinates, teachers (photos, bios), plans and
-   prices, and create the weekly templates (Admin → Schedule → Weekly templates).
+4. Fill in the club profile (replace the placeholder phone, e-mail and Instagram), opening hours,
+   map coordinates, teachers (photos, bios), plans and prices, and create the weekly templates
+   (Admin → Schedule → Weekly templates).
+   The club texts (About, How it works, Rules, FAQ) and the starting address, plan descriptions and
+   lead sources come in English, Russian and Kazakh. Admin → Settings → App content has a language
+   switch: Russian and Kazakh show the standard translation until you save your own text for that
+   language. A text you edit elsewhere (address, plan description) is shown as written in every
+   language.
 5. Import existing clients from Altegio (Admin → Import & export) — dry run first.
 6. Configure VAPID keys and messaging providers; send a test notification from Admin → Notifications.
 
@@ -144,17 +152,23 @@ repository with the `production` compose profile, which adds two services:
 | `caddy` | HTTPS on ports 80/443 for `APP_DOMAIN`, Let's Encrypt certificates renewed automatically (`deploy/Caddyfile`) |
 | `backup` | Nightly backup at `BACKUP_AT` (Almaty time) into `./backups`, kept `BACKUP_KEEP_DAYS` days, monthly restore test, Telegram alerts (`deploy/backup.sh`) |
 
-First start, as root, from the cloned repository:
+First start, as root. The repository is private, so the server gets its own read-only deploy key
+(no personal token is stored on the server, and `git pull` in `scripts/deploy.sh` needs no password):
 
 ```bash
-git clone https://github.com/tamerlankk-29/talk-club-app.git /opt/talkclub
+ssh-keygen -t ed25519 -N "" -f ~/.ssh/id_ed25519 && cat ~/.ssh/id_ed25519.pub
+# add the printed line in GitHub → repository → Settings → Deploy keys (read-only), then:
+git clone git@github.com:tamerlankk-29/talk-club-app.git /opt/talkclub
 cd /opt/talkclub && bash scripts/server-setup.sh
 ```
 
 The script installs Docker, a firewall (SSH, 80 and 443 only), fail2ban and automatic security
 updates, generates `AUTH_SECRET`, the database password, the Telegram webhook secret and the push
 keys, asks for the rest (bot token, alert chat id, Turnstile, Mobizon, Sentry), writes `.env` with
-permissions 600 and starts everything. Secrets are typed on the server only.
+permissions 600, starts everything and creates the owner account (e-mail, name and a password of
+at least 12 characters, typed twice). Secrets are typed on the server only. The script is safe to
+run again: existing values and an existing owner are kept, so if the first build stops half-way
+(for example a network hiccup while downloading fonts), just run it once more.
 
 Updates: `bash scripts/deploy.sh` (pull, rebuild, migrate, restart).
 

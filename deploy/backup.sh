@@ -7,6 +7,8 @@
 #
 # Runs inside the "backup" compose service. Run one now:  docker compose exec backup sh /usr/local/bin/backup.sh now
 set -eu
+# Dumps hold members' personal data: readable by root only.
+umask 077
 
 KEEP_DAYS="${BACKUP_KEEP_DAYS:-30}"
 AT="${BACKUP_AT:-02:30}"
